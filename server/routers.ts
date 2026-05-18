@@ -1,9 +1,12 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  appUserToAuthUser,
   getActiveCourses,
   getFeaturedCourses,
   getAllCourses,
@@ -41,8 +44,11 @@ import {
   generateStudentId,
   getAllSiteSettings,
   bulkUpsertSiteSettings,
+  getAppUserByEmail,
+  updateAppUserLastSignedIn,
 } from "./db";
 import { storagePut } from "./storage";
+import { sdk } from "./_core/sdk";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
 
@@ -136,6 +142,36 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    login: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(1),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const invalidCredentials = new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        });
+
+        const appUser = await getAppUserByEmail(input.email);
+        if (!appUser || !appUser.isActive) {
+          throw invalidCredentials;
+        }
+
+        const passwordMatches = await verifyPassword(input.password, appUser.passwordHash);
+        if (!passwordMatches) {
+          throw invalidCredentials;
+        }
+
+        const signedInAt = new Date();
+        await updateAppUserLastSignedIn(appUser.id, signedInAt);
+
+        const sessionToken = await sdk.createAppSessionToken(appUser.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 1000 * 60 * 60 * 24 * 365 });
+
+        return appUserToAuthUser({ ...appUser, lastSignedIn: signedInAt });
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

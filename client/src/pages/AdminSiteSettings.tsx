@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getLoginUrl } from "@/const";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -180,7 +179,7 @@ export default function AdminSiteSettings() {
   }
 
   if (!user) {
-    window.location.href = getLoginUrl("/admin/site-settings");
+    window.location.href = "/admin";
     return null;
   }
 

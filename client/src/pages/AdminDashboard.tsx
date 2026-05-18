@@ -2,8 +2,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getLoginUrl } from "@/const";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useLocation } from "wouter";
+import { FormEvent, useState } from "react";
 import {
   BookOpen,
   Trophy,
@@ -27,6 +29,15 @@ import {
 export default function AdminDashboard() {
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const utils = trpc.useUtils();
+  const loginMutation = trpc.auth.login.useMutation({
+    onSuccess: async (loggedInUser) => {
+      utils.auth.me.setData(undefined, loggedInUser);
+      await utils.auth.me.invalidate();
+    },
+  });
 
   // Fetch enrollment stats for the dashboard
   const { data: enrollmentStats } = trpc.enrollments.stats.useQuery(undefined, {
@@ -45,24 +56,62 @@ export default function AdminDashboard() {
   }
 
   if (!user) {
+    const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      await loginMutation.mutateAsync({
+        email,
+        password,
+      });
+    };
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
         <Card className="w-full max-w-md shadow-xl">
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-8">
             <div className="w-16 h-16 bg-brand-red/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="w-8 h-8 text-brand-red" />
             </div>
-            <h1 className="text-2xl font-bold mb-2 text-gray-900">অ্যাডমিন প্যানেল</h1>
-            <p className="text-gray-500 mb-6">
-              FluentLearner অ্যাডমিন প্যানেলে প্রবেশ করতে আপনার Google অ্যাকাউন্ট দিয়ে লগইন করুন।
+            <h1 className="text-2xl font-bold mb-2 text-gray-900 text-center">অ্যাডমিন প্যানেল</h1>
+            <p className="text-gray-500 mb-6 text-center">
+              FluentLearner অ্যাডমিন প্যানেলে প্রবেশ করতে ইমেইল ও পাসওয়ার্ড দিন।
             </p>
-            <Button
-              onClick={() => { window.location.href = getLoginUrl("/admin"); }}
-              className="bg-brand-red hover:bg-brand-red-dark text-white w-full text-base py-3"
-            >
-              Google দিয়ে লগইন করুন
-            </Button>
-            <p className="text-xs text-gray-400 mt-4">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Label htmlFor="admin-email">ইমেইল</Label>
+                <Input
+                  id="admin-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                  placeholder="admin@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="admin-password">পাসওয়ার্ড</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                  placeholder="আপনার পাসওয়ার্ড"
+                />
+              </div>
+              {loginMutation.error && (
+                <p className="text-sm text-red-600">{loginMutation.error.message}</p>
+              )}
+              <Button
+                type="submit"
+                disabled={loginMutation.isPending}
+                className="bg-brand-red hover:bg-brand-red-dark text-white w-full text-base py-3"
+              >
+                {loginMutation.isPending ? "লগইন হচ্ছে..." : "লগইন করুন"}
+              </Button>
+            </form>
+            <p className="text-xs text-gray-400 mt-4 text-center">
               শুধুমাত্র অনুমোদিত অ্যাডমিনরা প্রবেশ করতে পারবেন
             </p>
           </CardContent>

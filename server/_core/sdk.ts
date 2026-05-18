@@ -19,9 +19,13 @@ const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
 export type SessionPayload = {
+  authType?: "oauth";
   openId: string;
   appId: string;
   name: string;
+} | {
+  authType: "app";
+  userId: number;
 };
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
@@ -187,6 +191,19 @@ class SDKServer {
     );
   }
 
+  async createAppSessionToken(
+    userId: number,
+    options: { expiresInMs?: number } = {}
+  ): Promise<string> {
+    return this.signSession(
+      {
+        authType: "app",
+        userId,
+      },
+      options
+    );
+  }
+
   async signSession(
     payload: SessionPayload,
     options: { expiresInMs?: number } = {}
@@ -196,11 +213,17 @@ class SDKServer {
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
-    return new SignJWT({
-      openId: payload.openId,
-      appId: payload.appId,
-      name: payload.name,
-    })
+    const jwtPayload =
+      payload.authType === "app"
+        ? { authType: "app", userId: payload.userId }
+        : {
+            authType: "oauth",
+            openId: payload.openId,
+            appId: payload.appId,
+            name: payload.name,
+          };
+
+    return new SignJWT(jwtPayload)
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
@@ -208,7 +231,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<SessionPayload | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -219,7 +242,19 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { authType, openId, appId, name, userId } = payload as Record<string, unknown>;
+
+      if (authType === "app") {
+        if (typeof userId !== "number") {
+          console.warn("[Auth] App session payload missing userId");
+          return null;
+        }
+
+        return {
+          authType: "app",
+          userId,
+        };
+      }
 
       if (
         !isNonEmptyString(openId) ||
@@ -231,6 +266,7 @@ class SDKServer {
       }
 
       return {
+        authType: "oauth",
         openId,
         appId,
         name,
@@ -275,8 +311,19 @@ class SDKServer {
       throw ForbiddenError("Invalid session cookie");
     }
 
-    const sessionUserId = session.openId;
     const signedInAt = new Date();
+
+    if (session.authType === "app") {
+      const appUser = await db.getAppUserById(session.userId);
+      if (!appUser || !appUser.isActive) {
+        throw ForbiddenError("User not found");
+      }
+
+      await db.updateAppUserLastSignedIn(appUser.id, signedInAt);
+      return db.appUserToAuthUser({ ...appUser, lastSignedIn: signedInAt });
+    }
+
+    const sessionUserId = session.openId;
     let user = await db.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically

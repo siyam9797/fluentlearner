@@ -6,7 +6,6 @@ import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { getLoginUrl } from "@/const";
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, Eye, Search,
   Filter, Users, AlertCircle, Loader2, BadgeCheck, Ban,
@@ -77,7 +76,7 @@ export default function AdminEnrollments() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">অ্যাক্সেস নেই</h2>
           <p className="text-gray-600 mb-4">এই পেজ দেখতে Admin হিসেবে লগইন করুন</p>
-          <a href={getLoginUrl()} className="text-red-600 font-bold hover:underline">লগইন করুন</a>
+          <a href="/admin" className="text-red-600 font-bold hover:underline">লগইন করুন</a>
         </div>
       </div>
     );

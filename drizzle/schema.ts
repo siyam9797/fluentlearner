@@ -19,6 +19,25 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
+ * App-owned users for email/password authentication.
+ * This runs beside the legacy OAuth users table during migration.
+ */
+export const appUsers = mysqlTable("app_users", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: text("passwordHash").notNull(),
+  role: mysqlEnum("role", ["student", "staff", "admin"]).default("student").notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn"),
+});
+
+export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = typeof appUsers.$inferInsert;
+
+/**
  * Courses table — admin-managed courses
  * Admin can CRUD all fields from the dashboard
  */

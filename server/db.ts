@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, courses, successStories, batches, paymentSettings, enrollments, siteSettings, type InsertCourse, type InsertSuccessStory, type InsertBatch, type InsertPaymentSetting, type InsertEnrollment, type InsertSiteSetting } from "../drizzle/schema";
+import { InsertUser, users, appUsers, courses, successStories, batches, paymentSettings, enrollments, siteSettings, type AppUser, type InsertAppUser, type User, type InsertCourse, type InsertSuccessStory, type InsertBatch, type InsertPaymentSetting, type InsertEnrollment, type InsertSiteSetting } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -104,6 +104,68 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+// ============================================
+// APP USER QUERIES — email/password auth
+// ============================================
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function appUserToAuthUser(appUser: AppUser): User {
+  return {
+    id: appUser.id,
+    openId: `app:${appUser.id}`,
+    name: appUser.name,
+    email: appUser.email,
+    loginMethod: "email-password",
+    role: appUser.role === "admin" ? "admin" : "user",
+    createdAt: appUser.createdAt,
+    updatedAt: appUser.updatedAt,
+    lastSignedIn: appUser.lastSignedIn ?? appUser.createdAt,
+  };
+}
+
+export async function getAppUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get app user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(appUsers).where(eq(appUsers.email, normalizeEmail(email))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getAppUserById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get app user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createAppUser(data: InsertAppUser) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(appUsers).values({
+    ...data,
+    email: normalizeEmail(data.email),
+  });
+  return { id: result[0].insertId };
+}
+
+export async function updateAppUserLastSignedIn(id: number, lastSignedIn = new Date()) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(appUsers).set({ lastSignedIn }).where(eq(appUsers.id, id));
 }
 
 // ============================================
