@@ -3,14 +3,14 @@
  * Uses react-helmet-async to dynamically set meta tags per route
  * 
  * Brand: FluentLearner IELTS & SPOKEN
- * Domain: https://fluentlearner.rashik.org
+ * Domain: https://fluentlearner.com
  * OG Images: CDN-hosted branded images
  */
 
 import { Helmet } from "react-helmet-async";
 import { SITE_STATS, CONTACT, BRAND } from "@/lib/siteConstants";
 
-const BASE_URL = "https://fluentlearner.rashik.org";
+const BASE_URL = "https://fluentlearner.com";
 const OG_DEFAULT = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663213348894/MSLFbmzRAjAzezbB.jpg";
 const OG_SQUARE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663213348894/hOXAElMZLFNaGzeq.jpg";
 const SITE_NAME = BRAND.NAME;

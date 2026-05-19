@@ -96,15 +96,12 @@ export default function Navbar() {
             onClick={(e) => handleNavClick(e, "/")}
             className="flex items-center gap-2.5 group"
           >
-            <div className="bg-brand-dark rounded-lg px-2.5 py-1.5 group-hover:bg-brand-red-deep transition-all duration-300">
-              <span className="font-display text-white text-base font-bold tracking-wide">
-                FluentLearner
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-brand-dark font-body text-xs font-semibold uppercase tracking-[0.15em] leading-tight">
-                IELTS & SPOKEN
-              </span>
+            <div className="h-11 w-[184px] sm:w-[215px] shrink-0 flex items-center">
+              <img
+                src="/logo.svg"
+                alt="FluentLearner"
+                className="h-11 w-full object-contain"
+              />
             </div>
           </a>
 

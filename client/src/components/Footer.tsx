@@ -58,14 +58,13 @@ export default function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8 pb-12 border-b border-white/10">
           {/* Brand Column */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="bg-brand-red rounded-lg px-2.5 py-1.5">
-                <span className="font-display text-white text-base font-bold tracking-wide">
-                  FluentLearner
-                </span>
-              </div>
+            <div className="mb-4 h-11 w-[215px] flex items-center">
+              <img
+                src="/logo-white.svg"
+                alt="FluentLearner"
+                className="h-11 w-full object-contain"
+              />
             </div>
-            <p className="text-white/40 font-body text-xs uppercase tracking-[0.15em] mb-3">IELTS & SPOKEN</p>
             <p className="text-white/50 font-body text-sm leading-relaxed mt-2">
               Bangladesh's No.1 IELTS coaching platform, dedicated to transforming students' dreams of studying abroad into reality.
             </p>
@@ -174,10 +173,10 @@ export default function Footer() {
           <p className="text-white/30 font-body text-xs">
             &copy; {new Date().getFullYear()} FluentLearner. All rights reserved.
           </p>
-          <p className="text-white/20 font-body text-xs">
-            Crafted with excellence by{" "}
-            <a href="https://rashik.one" target="_blank" rel="noopener noreferrer" className="text-brand-red/40 hover:text-brand-red/60 transition-colors">
-              Rashik
+          <p className="hidden text-white/20 font-body text-xs">
+            Designed and developed by{" "}
+            <a href="https://siyam.me" target="_blank" rel="noopener noreferrer" className="text-brand-red/40 hover:text-brand-red/60 transition-colors">
+              Siyam
             </a>
           </p>
         </div>
