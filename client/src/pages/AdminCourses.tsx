@@ -6,18 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Upload, ArrowLeft,
-  X, ExternalLink, BookOpen,
+  X, ExternalLink, BookOpen, CheckCircle2, FileImage,
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 
 type CurriculumModule = { title: string; content: string };
 type FaqItem = { question: string; answer: string };
+type UploadField = "imageUrl" | "instructorPhoto";
+type UploadState = {
+  fileName: string;
+  fileSize: number;
+  progress: number;
+  status: "reading" | "uploading" | "done" | "error";
+  url?: string;
+};
 
 type CourseFormData = {
   name: string;
@@ -95,6 +104,42 @@ function generateSlug(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function readFileAsBase64(file: File, onProgress?: (progress: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.(Math.round((event.loaded / event.total) * 60));
+    };
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("ছবি পড়তে সমস্যা হয়েছে"));
+        return;
+      }
+
+      const base64 = reader.result.split(",")[1];
+      if (!base64) {
+        reject(new Error("ছবি পড়তে সমস্যা হয়েছে"));
+        return;
+      }
+
+      onProgress?.(60);
+      resolve(base64);
+    };
+
+    reader.onerror = () => reject(new Error("ছবি পড়তে সমস্যা হয়েছে"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminCourses() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -105,6 +150,10 @@ export default function AdminCourses() {
   const [outcomesText, setOutcomesText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadingInstructor, setUploadingInstructor] = useState(false);
+  const [uploadState, setUploadState] = useState<Record<UploadField, UploadState | null>>({
+    imageUrl: null,
+    instructorPhoto: null,
+  });
   const [activeTab, setActiveTab] = useState<"basic" | "detail" | "instructor" | "faq">("basic");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const instructorFileRef = useRef<HTMLInputElement>(null);
@@ -144,32 +193,61 @@ export default function AdminCourses() {
     );
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "imageUrl" | "instructorPhoto") => {
-    const file = e.target.files?.[0];
+  const updateUploadState = (field: UploadField, changes: Partial<UploadState>) => {
+    setUploadState((prev) => ({
+      ...prev,
+      [field]: prev[field] ? { ...prev[field], ...changes } : null,
+    }));
+  };
+
+  const clearUploadState = (field: UploadField) => {
+    setUploadState((prev) => ({ ...prev, [field]: null }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: UploadField) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
     if (!file || !editingCourse) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("শুধুমাত্র ছবি ফাইল আপলোড করুন");
+      input.value = "";
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       toast.error("ফাইল সাইজ ৫MB এর বেশি হতে পারবে না");
+      input.value = "";
       return;
     }
     const setLoading = field === "imageUrl" ? setUploading : setUploadingInstructor;
     setLoading(true);
+    setUploadState((prev) => ({
+      ...prev,
+      [field]: {
+        fileName: file.name,
+        fileSize: file.size,
+        progress: 0,
+        status: "reading",
+      },
+    }));
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        const result = await uploadMutation.mutateAsync({
-          base64,
-          filename: file.name,
-          contentType: file.type,
-        });
-        setEditingCourse({ ...editingCourse, [field]: result.url });
-        toast.success("ছবি আপলোড হয়েছে!");
-        setLoading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
-      toast.error("ছবি আপলোড ব্যর্থ হয়েছে");
+      const base64 = await readFileAsBase64(file, (progress) => {
+        updateUploadState(field, { progress, status: "reading" });
+      });
+      updateUploadState(field, { progress: 70, status: "uploading" });
+      const result = await uploadMutation.mutateAsync({
+        base64,
+        filename: file.name,
+        contentType: file.type,
+      });
+      setEditingCourse((prev) => prev ? { ...prev, [field]: result.url } : prev);
+      updateUploadState(field, { progress: 100, status: "done", url: result.url });
+      toast.success("ছবি আপলোড হয়েছে!");
+    } catch (err) {
+      updateUploadState(field, { progress: 0, status: "error" });
+      toast.error(err instanceof Error ? err.message : "ছবি আপলোড ব্যর্থ হয়েছে");
+    } finally {
       setLoading(false);
+      input.value = "";
     }
   };
 
@@ -178,6 +256,7 @@ export default function AdminCourses() {
     setEditingId(null);
     setFeaturesText("");
     setOutcomesText("");
+    setUploadState({ imageUrl: null, instructorPhoto: null });
     setActiveTab("basic");
     setDialogOpen(true);
   };
@@ -219,8 +298,61 @@ export default function AdminCourses() {
     setEditingId(course.id);
     setFeaturesText((course.features || []).join("\n"));
     setOutcomesText((course.learningOutcomes || []).join("\n"));
+    setUploadState({ imageUrl: null, instructorPhoto: null });
     setActiveTab("basic");
     setDialogOpen(true);
+  };
+
+  const renderUploadStatus = (field: UploadField) => {
+    const state = uploadState[field];
+    if (!state) return null;
+
+    const isActive = state?.status === "reading" || state?.status === "uploading";
+    const isDone = state?.status === "done";
+    const isError = state?.status === "error";
+
+    return (
+      <div className={`mt-2 rounded-lg border p-3 text-sm ${
+        isError ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"
+      }`}>
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
+              {isDone ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+              ) : (
+                <FileImage className={`mt-0.5 h-4 w-4 shrink-0 ${isError ? "text-red-600" : "text-brand-red"}`} />
+              )}
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-800">{state.fileName}</p>
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(state.fileSize)} · {
+                    state.status === "reading"
+                      ? "ফাইল প্রস্তুত হচ্ছে"
+                      : state.status === "uploading"
+                        ? "সার্ভারে আপলোড হচ্ছে"
+                        : state.status === "done"
+                          ? "আপলোড সম্পন্ন"
+                          : "আপলোড ব্যর্থ"
+                  }
+                </p>
+              </div>
+            </div>
+            {isActive && (
+              <span className={`text-xs font-semibold ${isError ? "text-red-600" : "text-gray-500"}`}>
+                {state.progress}%
+              </span>
+            )}
+          </div>
+          {isActive && (
+            <Progress
+              value={state.progress}
+              className="bg-brand-red/10 [&_[data-slot=progress-indicator]]:bg-brand-red"
+            />
+          )}
+        </div>
+      </div>
+    );
   };
 
   const handleSave = () => {
@@ -474,7 +606,10 @@ export default function AdminCourses() {
                             size="sm"
                             variant="destructive"
                             className="absolute top-2 right-2"
-                            onClick={() => setEditingCourse({ ...editingCourse, imageUrl: "" })}
+                            onClick={() => {
+                              setEditingCourse({ ...editingCourse, imageUrl: "" });
+                              clearUploadState("imageUrl");
+                            }}
                           >
                             মুছুন
                           </Button>
@@ -496,6 +631,7 @@ export default function AdminCourses() {
                         onChange={(e) => handleImageUpload(e, "imageUrl")}
                       />
                       {uploading && <p className="text-sm text-brand-red mt-1">আপলোড হচ্ছে...</p>}
+                      {renderUploadStatus("imageUrl")}
                     </div>
                   </div>
 
@@ -851,7 +987,14 @@ export default function AdminCourses() {
                       {editingCourse.instructorPhoto ? (
                         <div className="flex items-center gap-4">
                           <img src={editingCourse.instructorPhoto} alt="Instructor" className="w-20 h-20 rounded-xl object-cover" />
-                          <Button size="sm" variant="destructive" onClick={() => setEditingCourse({ ...editingCourse, instructorPhoto: "" })}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setEditingCourse({ ...editingCourse, instructorPhoto: "" });
+                              clearUploadState("instructorPhoto");
+                            }}
+                          >
                             মুছুন
                           </Button>
                         </div>
@@ -872,6 +1015,7 @@ export default function AdminCourses() {
                         onChange={(e) => handleImageUpload(e, "instructorPhoto")}
                       />
                       {uploadingInstructor && <p className="text-sm text-brand-red mt-1">আপলোড হচ্ছে...</p>}
+                      {renderUploadStatus("instructorPhoto")}
                     </div>
                   </div>
                 </div>
