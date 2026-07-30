@@ -99,7 +99,7 @@ export default function HeroSection() {
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
-                href="ielts.fluentlearner.com"
+                href="https://ielts.fluentlearner.com/"
                 target="_blank"
                 className="px-8 py-3.5 border-2 border-white/40 text-white font-body font-semibold text-base rounded-lg hover:bg-white/10 hover:border-white/60 transition-all duration-300 inline-flex items-center gap-2"
               >
