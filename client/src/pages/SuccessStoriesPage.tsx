@@ -324,10 +324,11 @@ export default function SuccessStoriesPage() {
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
-              href="/courses"
+              href="https://ielts.fluentlearner.com/"
+              target="_blank"
               className="inline-flex items-center gap-2 border-2 border-white text-white px-8 py-3 rounded-lg font-bold hover:bg-white/10 transition-colors"
             >
-              কোর্স দেখুন
+              স্টুডেন্ট পোর্টাল
               <ArrowRight className="h-4 w-4" />
             </a>
           </div>
