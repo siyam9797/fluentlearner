@@ -7,7 +7,7 @@
  * Step 3: Commitment Escalation + Anchoring
  * Step 4: Loss Aversion + Scarcity + Endowment Effect
  * 
- * WhatsApp Business: +880 1729-879855
+ * WhatsApp Business: +880 1301-872288
  * WhatsApp message uses bold (*text*), italic (_text_), and numbered formatting
  */
 import { useState, useEffect, useCallback, createContext, useContext } from "react";

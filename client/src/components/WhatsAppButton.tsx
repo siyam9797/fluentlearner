@@ -1,7 +1,7 @@
 /**
  * WhatsAppButton — Floating WhatsApp CTA
  * FluentLearner Red+White Brand Theme
- * WhatsApp Business: +8801729879855
+ * WhatsApp Business: +8801301872288
  */
 import { useState, useEffect } from "react";
 import { MessageCircle, X } from "lucide-react";

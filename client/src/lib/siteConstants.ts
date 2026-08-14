@@ -29,13 +29,13 @@ export const SITE_STATS = {
 // ============================================
 export const CONTACT = {
   /** WhatsApp Business number (without +) for wa.me links */
-  WHATSAPP_BUSINESS: "8801729879855",
+  WHATSAPP_BUSINESS: "8801301872288",
   /** Phone display format */
-  PHONE_DISPLAY: "+880 1729-879855",
+  PHONE_DISPLAY: "+880 1301-872288",
   /** Phone short display */
-  PHONE_SHORT: "01729-879855",
+  PHONE_SHORT: "01301-872288",
   /** Phone tel: link format */
-  PHONE_TEL: "+8801729879855",
+  PHONE_TEL: "+8801301872288",
   /** Email */
   EMAIL: "fluentlearnerbd@gmail.com",
   /** Location */

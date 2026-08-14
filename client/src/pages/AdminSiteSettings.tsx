@@ -62,9 +62,9 @@ const SETTING_DEFINITIONS: SettingDef[] = [
   { key: "founder_bio", label: "প্রতিষ্ঠাতার পরিচিতি", type: "textarea", group: "founder", placeholder: "সংক্ষিপ্ত পরিচিতি..." },
 
   // Contact Info
-  { key: "contact_phone", label: "ফোন নম্বর", type: "text", group: "contact", placeholder: "+880 1729-879855" },
+  { key: "contact_phone", label: "ফোন নম্বর", type: "text", group: "contact", placeholder: "+880 1301-872288" },
   { key: "contact_email", label: "ইমেইল", type: "text", group: "contact", placeholder: "fluentlearnerbd@gmail.com" },
-  { key: "contact_whatsapp", label: "WhatsApp নম্বর", type: "text", group: "contact", placeholder: "8801729879855" },
+  { key: "contact_whatsapp", label: "WhatsApp নম্বর", type: "text", group: "contact", placeholder: "8801301872288" },
   { key: "contact_address", label: "ঠিকানা", type: "textarea", group: "contact", placeholder: "Chittagong, Bangladesh" },
 
   // Social Links
