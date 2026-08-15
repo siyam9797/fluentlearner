@@ -8,8 +8,8 @@
 // STATS — Must be consistent across all sections
 // ============================================
 export const SITE_STATS = {
-  /** Total successful scorers (displayed as "5,129+") */
-  TOTAL_SCORERS: 5129,
+  /** Total successful scorers (displayed as "10K+") */
+  TOTAL_SCORERS: 10000,
   /** Success rate percentage (displayed as "95%") */
   SUCCESS_RATE: 95,
   /** Average band score (displayed as "7.0+") — stored as 70 for counter animation, divide by 10 */

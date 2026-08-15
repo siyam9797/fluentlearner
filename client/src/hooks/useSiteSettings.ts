@@ -35,7 +35,7 @@ export function useSiteSettings() {
     // Hero
     heroTitle: get("hero_title", "Your Path to IELTS Success"),
     heroSubtitle: get("hero_subtitle", "আপনার IELTS সাফল্যের নির্ভরযোগ্য সঙ্গী"),
-    heroDescription: get("hero_description", "Expert-led IELTS preparation with one-to-one mentorship — trusted by 5,129+ successful scorers across Bangladesh."),
+    heroDescription: get("hero_description", "Expert-led IELTS preparation with one-to-one mentorship — trusted by 10K+ successful scorers across Bangladesh."),
     heroImage: get("hero_image", ""),
     heroCtaText: get("hero_cta_text", "এখনই ভর্তি হন"),
     heroCtaLink: get("hero_cta_link", "/enroll"),

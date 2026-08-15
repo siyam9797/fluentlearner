@@ -42,7 +42,7 @@ const SETTING_DEFINITIONS: SettingDef[] = [
   { key: "hero_cta_link", label: "CTA বাটন লিংক", type: "url", group: "hero", placeholder: "/enroll" },
 
   // Stats
-  { key: "stat_total_scorers", label: "মোট সফল শিক্ষার্থী", type: "text", group: "stats", placeholder: "5129" },
+  { key: "stat_total_scorers", label: "মোট সফল শিক্ষার্থী", type: "text", group: "stats", placeholder: "10000" },
   { key: "stat_success_rate", label: "সাফল্যের হার (%)", type: "text", group: "stats", placeholder: "95" },
   { key: "stat_avg_band", label: "গড় ব্যান্ড স্কোর", type: "text", group: "stats", placeholder: "7.0+" },
   { key: "stat_years_experience", label: "অভিজ্ঞতা (বছর)", type: "text", group: "stats", placeholder: "6" },

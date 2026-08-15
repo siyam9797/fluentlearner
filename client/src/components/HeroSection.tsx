@@ -3,7 +3,7 @@
  * Bold red gradient hero with trainer photo, stats, and personal branding.
  * Enhanced with Bengali tagline, urgency elements, and psychological trust signals.
  * Cialdini's Authority: Trainer photo + credentials create instant authority.
- * Cialdini's Social Proof: Numbers (5,129+) create bandwagon effect.
+ * Cialdini's Social Proof: Numbers (10K+) create bandwagon effect.
  */
 import { useEffect, useState } from "react";
 import { useCountUp } from "@/hooks/useScrollAnimation";
@@ -156,7 +156,7 @@ export default function HeroSection() {
                 <span className="text-white/70 font-body text-sm uppercase tracking-widest">সফল শিক্ষার্থী</span>
               </div>
               <div className="font-display text-6xl lg:text-7xl font-extrabold text-white">
-                {scorers.toLocaleString()}
+                {scorers >= 10_000 ? `${Math.floor(scorers / 1000)}K` : scorers.toLocaleString()}
                 <span className="text-yellow-300 text-4xl">+</span>
               </div>
               <p className="text-white/50 font-body text-sm mt-2">মার্চ ২০২৬ পর্যন্ত</p>
