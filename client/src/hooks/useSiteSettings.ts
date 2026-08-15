@@ -19,7 +19,9 @@ export function useSiteSettings() {
 
   const getNumber = (key: string, fallback: number): number => {
     if (data && data[key]) {
-      const n = Number(data[key]);
+      const raw = data[key]!.trim().replace(/,/g, "").replace(/\+$/, "");
+      const multiplier = /k$/i.test(raw) ? 1000 : 1;
+      const n = Number(raw.replace(/k$/i, "")) * multiplier;
       return isNaN(n) ? fallback : n;
     }
     return fallback;
@@ -45,6 +47,7 @@ export function useSiteSettings() {
     successRate: getNumber("stat_success_rate", SITE_STATS.SUCCESS_RATE),
     avgBandScore: get("stat_avg_band", SITE_STATS.AVG_BAND_SCORE),
     yearsExperience: getNumber("stat_years_experience", SITE_STATS.YEARS_EXPERIENCE),
+    courseType: get("stat_course_type", "Online & Offline"),
     facebookFollowers: get("stat_facebook_followers", SITE_STATS.FACEBOOK_FOLLOWERS),
 
     // About

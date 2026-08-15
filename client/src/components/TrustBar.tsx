@@ -9,6 +9,11 @@ import { Users, Trophy, TrendingUp, Calendar, Shield } from "lucide-react";
 import { SITE_STATS } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
+function formatCompactCount(value: number): string {
+  if (value >= 1000 && value % 1000 === 0) return `${value / 1000}K`;
+  return value.toLocaleString();
+}
+
 export default function TrustBar() {
   const { ref, isVisible } = useScrollAnimation(0.3);
   const ss = useSiteSettings();
@@ -18,20 +23,19 @@ export default function TrustBar() {
     { icon: Trophy, value: ss.successRate, suffix: "%", label: "সাফল্যের হার", labelEn: "Success Rate" },
     { icon: TrendingUp, value: 7, suffix: ".0+", label: "গড় ব্যান্ড স্কোর", labelEn: "Avg. Band Score" },
     { icon: Calendar, value: ss.yearsExperience, suffix: "+", label: "বছরের অভিজ্ঞতা", labelEn: "Years of Excellence" },
-    { icon: Shield, value: 100, suffix: "%", label: "অনলাইন কোর্স", labelEn: "Online Courses" },
+    { icon: Shield, value: 0, suffix: "", label: "কোর্সের ধরণ", labelEn: "Course Type" },
   ];
 
   const count0 = useCountUp(stats[0].value, 2000, isVisible);
   const count1 = useCountUp(stats[1].value, 1800, isVisible);
   const count3 = useCountUp(stats[3].value, 1500, isVisible);
-  const count4 = useCountUp(stats[4].value, 1600, isVisible);
 
   const displayValues = [
-    count0.toLocaleString() + stats[0].suffix,
+    formatCompactCount(count0) + stats[0].suffix,
     count1 + stats[1].suffix,
     ss.avgBandScore,
     count3 + stats[3].suffix,
-    count4 + stats[4].suffix,
+    ss.courseType,
   ];
 
   return (

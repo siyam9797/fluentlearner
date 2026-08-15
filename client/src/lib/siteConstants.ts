@@ -20,8 +20,6 @@ export const SITE_STATS = {
   YEARS_EXPERIENCE: 6,
   /** Facebook followers */
   FACEBOOK_FOLLOWERS: "27K+",
-  /** Online course percentage */
-  ONLINE_PERCENTAGE: 100,
 } as const;
 
 // ============================================
