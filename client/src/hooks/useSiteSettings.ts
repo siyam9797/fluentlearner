@@ -19,7 +19,11 @@ export function useSiteSettings() {
 
   const getNumber = (key: string, fallback: number): number => {
     if (data && data[key]) {
-      const raw = data[key]!.trim().replace(/,/g, "").replace(/\+$/, "");
+      const raw = data[key]!
+        .trim()
+        .replace(/,/g, "")
+        .replace(/[+%]+$/, "")
+        .trim();
       const multiplier = /k$/i.test(raw) ? 1000 : 1;
       const n = Number(raw.replace(/k$/i, "")) * multiplier;
       return isNaN(n) ? fallback : n;
