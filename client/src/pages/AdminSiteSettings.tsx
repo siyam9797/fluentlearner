@@ -49,6 +49,13 @@ const SETTING_DEFINITIONS: SettingDef[] = [
   { key: "stat_course_type", label: "কোর্সের ধরণ", type: "text", group: "stats", placeholder: "Online & Offline" },
   { key: "stat_facebook_followers", label: "Facebook ফলোয়ার্স", type: "text", group: "stats", placeholder: "27K+" },
 
+  // CTA Commitment Card
+  { key: "cta_commitment_title", label: "প্রতিশ্রুতি কার্ড শিরোনাম", type: "text", group: "cta", placeholder: "আমাদের প্রতিশ্রুতি" },
+  { key: "cta_commitment_description", label: "প্রতিশ্রুতি কার্ড বিবরণ", type: "textarea", group: "cta", placeholder: "আমরা প্রতিটি শিক্ষার্থীর সাফল্যে প্রতিশ্রুতিবদ্ধ..." },
+  { key: "cta_support_value", label: "সাপোর্টের সময়", type: "text", group: "cta", placeholder: "24/7" },
+  { key: "cta_price_label", label: "মূল্যের উপরের লেখা", type: "text", group: "cta", placeholder: "VIP কোর্স শুরু মাত্র" },
+  { key: "cta_offer_label", label: "অফারের লেখা", type: "text", group: "cta", placeholder: "সীমিত সময়ের অফার" },
+
   // About Section
   { key: "about_title", label: "About শিরোনাম", type: "text", group: "about", placeholder: "আমাদের সম্পর্কে" },
   { key: "about_description", label: "About বিবরণ", type: "textarea", group: "about", placeholder: "প্রতিষ্ঠানের পরিচিতি..." },
@@ -81,6 +88,7 @@ const SETTING_DEFINITIONS: SettingDef[] = [
 const GROUP_CONFIG: Record<string, { title: string; icon: React.ElementType; description: string }> = {
   hero: { title: "হিরো সেকশন", icon: Globe, description: "হোমপেজের প্রধান ব্যানার ও শিরোনাম" },
   stats: { title: "পরিসংখ্যান", icon: FileText, description: "সাইটের সংখ্যাগত তথ্য (শিক্ষার্থী, ব্যান্ড স্কোর ইত্যাদি)" },
+  cta: { title: "প্রতিশ্রুতি কার্ড", icon: Shield, description: "CTA কার্ডের লেখা ও সাপোর্ট তথ্য; মূল্য Featured IELTS Course থেকে আসে" },
   about: { title: "About সেকশন", icon: FileText, description: "প্রতিষ্ঠানের পরিচিতি, মিশন ও ভিশন" },
   founder: { title: "প্রতিষ্ঠাতা তথ্য", icon: Shield, description: "প্রতিষ্ঠাতা/মেন্টরের নাম, ছবি ও পরিচিতি" },
   contact: { title: "যোগাযোগ তথ্য", icon: MessageCircle, description: "ফোন, ইমেইল, WhatsApp, ঠিকানা" },

@@ -54,6 +54,13 @@ export function useSiteSettings() {
     courseType: get("stat_course_type", "Online & Offline"),
     facebookFollowers: get("stat_facebook_followers", SITE_STATS.FACEBOOK_FOLLOWERS),
 
+    // CTA commitment card
+    ctaCommitmentTitle: get("cta_commitment_title", "আমাদের প্রতিশ্রুতি"),
+    ctaCommitmentDescription: get("cta_commitment_description", ""),
+    ctaSupportValue: get("cta_support_value", "24/7"),
+    ctaPriceLabel: get("cta_price_label", "VIP কোর্স শুরু মাত্র"),
+    ctaOfferLabel: get("cta_offer_label", "সীমিত সময়ের অফার"),
+
     // About
     aboutTitle: get("about_title", "আমাদের সম্পর্কে"),
     aboutDescription: get("about_description", ""),

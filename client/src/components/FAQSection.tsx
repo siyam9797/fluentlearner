@@ -9,12 +9,13 @@ import { useState } from "react";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { CONTACT } from "@/lib/siteConstants";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
-const faqs = [
+const getFaqs = (totalScorers: string, successRate: string) => [
   {
     question: "অনলাইন কোর্সে কি সত্যিই ভালো ফলাফল পাওয়া সম্ভব?",
     questionEn: "Can I really get good results from an online course?",
-    answer: "অবশ্যই! আমাদের ৫,১২৯+ সফল শিক্ষার্থীর বেশিরভাগই অনলাইন ব্যাচ থেকে। অনলাইনে one-to-one mentoring-এ আপনি আরও বেশি ব্যক্তিগত মনোযোগ পান। Sajal Chaklader (Band 8.0, RUET) এবং Dr Milon Chowdhury (Band 8.0) — দুজনেই আমাদের অনলাইন VIP ব্যাচ থেকে এই স্কোর অর্জন করেছেন।",
+    answer: `অবশ্যই! আমাদের ${totalScorers}+ সফল শিক্ষার্থীর বেশিরভাগই অনলাইন ব্যাচ থেকে। অনলাইনে one-to-one mentoring-এ আপনি আরও বেশি ব্যক্তিগত মনোযোগ পান। Sajal Chaklader (Band 8.0, RUET) এবং Dr Milon Chowdhury (Band 8.0) — দুজনেই আমাদের অনলাইন VIP ব্যাচ থেকে এই স্কোর অর্জন করেছেন।`,
   },
   {
     question: "কোর্সের মেয়াদ কতদিন? আমি কি ১ মাসে IELTS প্রস্তুতি নিতে পারব?",
@@ -34,7 +35,7 @@ const faqs = [
   {
     question: "অন্যান্য প্ল্যাটফর্মের তুলনায় FluentLearner কেন বেছে নেব?",
     questionEn: "Why should I choose FluentLearner over others?",
-    answer: "তিনটি কারণে: (১) One-to-One Mentoring — গ্রুপ ক্লাসে ব্যক্তিগত মনোযোগ পাওয়া যায় না, আমরা প্রতিটি শিক্ষার্থীর দুর্বলতা আলাদাভাবে address করি। (২) Proven Track Record — ৫,১২৯+ সফল শিক্ষার্থী, ৯৫% সাফল্যের হার। (৩) Affordable Pricing — মাত্র ৳৮,৫০০ থেকে শুরু, যা অন্যান্য VIP কোর্সের তুলনায় অনেক কম।",
+    answer: `তিনটি কারণে: (১) One-to-One Mentoring — গ্রুপ ক্লাসে ব্যক্তিগত মনোযোগ পাওয়া যায় না, আমরা প্রতিটি শিক্ষার্থীর দুর্বলতা আলাদাভাবে address করি। (২) Proven Track Record — ${totalScorers}+ সফল শিক্ষার্থী, ${successRate}% সাফল্যের হার। (৩) Affordable Pricing — মাত্র ৳৮,৫০০ থেকে শুরু, যা অন্যান্য VIP কোর্সের তুলনায় অনেক কম।`,
   },
   {
     question: "কোর্স শেষে কি সার্টিফিকেট দেওয়া হয়?",
@@ -48,7 +49,9 @@ const faqs = [
   },
 ];
 
-function FAQItem({ faq, index, isVisible }: { faq: typeof faqs[0]; index: number; isVisible: boolean }) {
+type FAQ = ReturnType<typeof getFaqs>[number];
+
+function FAQItem({ faq, index, isVisible }: { faq: FAQ; index: number; isVisible: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -94,6 +97,11 @@ function FAQItem({ faq, index, isVisible }: { faq: typeof faqs[0]; index: number
 
 export default function FAQSection() {
   const { ref, isVisible } = useScrollAnimation(0.1);
+  const { totalScorers, successRate } = useSiteSettings();
+  const faqs = getFaqs(
+    totalScorers.toLocaleString("bn-BD"),
+    successRate.toLocaleString("bn-BD"),
+  );
 
   return (
     <section ref={ref} className="py-16 lg:py-24 bg-white relative">

@@ -8,20 +8,37 @@
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Shield, ArrowRight, Phone, CheckCircle, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
-import { SITE_STATS, CONTACT, PRICING } from "@/lib/siteConstants";
-
-const guarantees = [
-  `প্রমাণিত ${SITE_STATS.SUCCESS_RATE}% সাফল্যের হার`,
-  "One-to-One ব্যক্তিগত মেন্টরিং",
-  "২৪/৭ WhatsApp সাপোর্ট",
-  "রেকর্ডেড ক্লাস + স্টাডি ম্যাটেরিয়াল",
-  "মক টেস্ট ও বিস্তারিত ফিডব্যাক",
-  "সার্টিফিকেট অব কমপ্লিশন",
-];
+import { CONTACT, PRICING } from "@/lib/siteConstants";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { trpc } from "@/lib/trpc";
 
 export default function CTASection() {
   const { ref, isVisible } = useScrollAnimation(0.1);
   const [, navigate] = useLocation();
+  const {
+    totalScorers,
+    successRate,
+    avgBandScore,
+    ctaCommitmentTitle,
+    ctaCommitmentDescription,
+    ctaSupportValue,
+    ctaPriceLabel,
+    ctaOfferLabel,
+  } = useSiteSettings();
+  const { data: featuredCourses } = trpc.courses.featured.useQuery();
+  const featuredVipCourse = featuredCourses?.find((course) => course.category === "ielts") ?? featuredCourses?.[0];
+  const vipPrice = featuredVipCourse?.price || PRICING.VIP_1M;
+  const vipOriginalPrice = featuredVipCourse ? featuredVipCourse.originalPrice : PRICING.VIP_ORIGINAL;
+  const totalScorersBn = totalScorers.toLocaleString("bn-BD");
+  const successRateBn = successRate.toLocaleString("bn-BD");
+  const guarantees = [
+    `প্রমাণিত ${successRateBn}% সাফল্যের হার`,
+    "One-to-One ব্যক্তিগত মেন্টরিং",
+    "২৪/৭ WhatsApp সাপোর্ট",
+    "রেকর্ডেড ক্লাস + স্টাডি ম্যাটেরিয়াল",
+    "মক টেস্ট ও বিস্তারিত ফিডব্যাক",
+    "সার্টিফিকেট অব কমপ্লিশন",
+  ];
 
   return (
     <section ref={ref} className="relative py-20 lg:py-28 overflow-hidden">
@@ -57,7 +74,7 @@ export default function CTASection() {
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
               }`}
             >
-              ৫,১২৯+ সফল শিক্ষার্থীর বিশ্বস্ত প্ল্যাটফর্মে যোগ দিন। আমাদের VIP কোর্সে ব্যক্তিগত মনোযোগ পান এবং আপনার স্বপ্নের Band Score অর্জন করুন।
+              {totalScorersBn}+ সফল শিক্ষার্থীর বিশ্বস্ত প্ল্যাটফর্মে যোগ দিন। আমাদের VIP কোর্সে ব্যক্তিগত মনোযোগ পান এবং আপনার স্বপ্নের Band Score অর্জন করুন।
             </p>
 
             {/* Guarantees Grid */}
@@ -110,35 +127,35 @@ export default function CTASection() {
                 <Shield className="w-10 h-10 text-yellow-300" />
               </div>
               <h3 className="font-display text-white text-2xl font-extrabold mb-2">
-                আমাদের প্রতিশ্রুতি
+                {ctaCommitmentTitle}
               </h3>
               <p className="text-white/70 font-body text-base leading-relaxed mb-6">
-                আমরা প্রতিটি শিক্ষার্থীর সাফল্যে প্রতিশ্রুতিবদ্ধ। আমাদের ৯৫% সাফল্যের হার প্রমাণ করে যে আমাদের পদ্ধতি কার্যকর।
+                {ctaCommitmentDescription || `আমরা প্রতিটি শিক্ষার্থীর সাফল্যে প্রতিশ্রুতিবদ্ধ। আমাদের ${successRateBn}% সাফল্যের হার প্রমাণ করে যে আমাদের পদ্ধতি কার্যকর।`}
               </p>
 
               {/* Trust metrics */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white/10 rounded-xl p-3">
-                  <div className="font-display text-2xl font-extrabold text-yellow-300">{SITE_STATS.SUCCESS_RATE}%</div>
+                  <div className="font-display text-2xl font-extrabold text-yellow-300">{successRate}%</div>
                   <p className="text-white/50 font-body text-[10px] mt-1">সাফল্যের হার</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-3">
-                  <div className="font-display text-2xl font-extrabold text-yellow-300">{SITE_STATS.AVG_BAND_SCORE}</div>
+                  <div className="font-display text-2xl font-extrabold text-yellow-300">{avgBandScore}</div>
                   <p className="text-white/50 font-body text-[10px] mt-1">গড় ব্যান্ড</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-3">
-                  <div className="font-display text-2xl font-extrabold text-yellow-300">24/7</div>
+                  <div className="font-display text-2xl font-extrabold text-yellow-300">{ctaSupportValue}</div>
                   <p className="text-white/50 font-body text-[10px] mt-1">সাপোর্ট</p>
                 </div>
               </div>
 
               {/* Price anchor */}
               <div className="mt-6 pt-5 border-t border-white/10">
-                <p className="text-white/50 font-body text-xs mb-1">VIP কোর্স শুরু মাত্র</p>
+                <p className="text-white/50 font-body text-xs mb-1">{ctaPriceLabel}</p>
                 <div className="font-display text-3xl font-extrabold text-white">
-                  {PRICING.VIP_1M} <span className="text-lg text-white/40 font-normal line-through">{PRICING.VIP_ORIGINAL}</span>
+                  {vipPrice}{vipOriginalPrice && <span className="text-lg text-white/40 font-normal line-through"> {vipOriginalPrice}</span>}
                 </div>
-                <p className="text-yellow-300/80 font-body text-xs mt-1 font-bold">সীমিত সময়ের অফার</p>
+                <p className="text-yellow-300/80 font-body text-xs mt-1 font-bold">{ctaOfferLabel}</p>
               </div>
             </div>
           </div>
