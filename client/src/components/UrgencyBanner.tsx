@@ -4,17 +4,19 @@
  * Cialdini's Scarcity: "Only X seats remaining" creates urgency.
  * Now triggers enrollment funnel instead of direct WhatsApp.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Clock, Users, Flame, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 
-function getNextBatchDate(): Date {
-  const now = new Date();
-  let target = new Date(now.getFullYear(), now.getMonth(), 15);
-  if (target <= now) {
-    target = new Date(now.getFullYear(), now.getMonth() + 1, 15);
-  }
-  return target;
+function parseBatchDate(value: string): Date | null {
+  // Date-only values must be parsed in local time; `new Date("YYYY-MM-DD")`
+  // is UTC and can display the previous day in some time zones.
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function formatBatchDate(date: Date): string {
@@ -32,8 +34,23 @@ function formatBatchDate(date: Date): string {
 export default function UrgencyBanner() {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [visible, setVisible] = useState(false);
-  const batchDate = getNextBatchDate();
   const [, navigate] = useLocation();
+  const { data: activeBatches = [], isLoading } = trpc.batches.active.useQuery();
+
+  const nextBatch = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return activeBatches
+      .map(batch => ({ batch, date: batch.startDate ? parseBatchDate(batch.startDate) : null }))
+      .filter((item): item is typeof item & { date: Date } => Boolean(item.date && item.date >= today))
+      .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null;
+  }, [activeBatches]);
+
+  const batchDate = nextBatch?.date ?? null;
+  const seatsRemaining = nextBatch
+    ? Math.max(0, (nextBatch.batch.maxCapacity ?? 0) - (nextBatch.batch.currentCount ?? 0))
+    : 0;
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 1000);
@@ -41,10 +58,11 @@ export default function UrgencyBanner() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const target = batchDate.getTime();
-      const diff = target - now;
+    if (!batchDate) return;
+
+    const updateCountdown = () => {
+      const now = Date.now();
+      const diff = batchDate.getTime() - now;
 
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -57,10 +75,19 @@ export default function UrgencyBanner() {
         minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
         seconds: Math.floor((diff % (1000 * 60)) / 1000),
       });
+    };
+
+    updateCountdown();
+    const interval = setInterval(() => {
+      updateCountdown();
     }, 1000);
 
     return () => clearInterval(interval);
   }, [batchDate]);
+
+  // The admin controls whether this banner is shown by keeping an upcoming
+  // batch active and open on the batch management page.
+  if (isLoading || !nextBatch || !batchDate) return null;
 
   return (
     <section className={`bg-brand-dark py-5 transition-all duration-700 ${visible ? "opacity-100" : "opacity-0"}`}>
@@ -78,7 +105,7 @@ export default function UrgencyBanner() {
               <div className="flex items-center gap-2 mt-0.5">
                 <Users className="w-3.5 h-3.5 text-brand-red-light" />
                 <span className="text-white/50 font-body text-xs">
-                  মাত্র <span className="text-yellow-300 font-bold">১২টি</span> সিট বাকি আছে
+                  মাত্র <span className="text-yellow-300 font-bold">{seatsRemaining.toLocaleString("bn-BD")}টি</span> সিট বাকি আছে
                 </span>
               </div>
             </div>
