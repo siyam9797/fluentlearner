@@ -1,64 +1,199 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
-import { HelmetProvider } from "react-helmet-async";
+import NotFound from "@/screens/NotFound";
+import { usePathname } from "next/navigation";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
-// import CertificateVerify from "./pages/CertificateVerify"; // Hidden until feature is ready
-import CoursesPage from "./pages/CoursesPage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import SuccessStoriesPage from "./pages/SuccessStoriesPage";
-import EnrollPage from "./pages/EnrollPage";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminCourses from "./pages/AdminCourses";
-import AdminSuccessStories from "./pages/AdminSuccessStories";
-import AdminEnrollments from "./pages/AdminEnrollments";
-import AdminPaymentSettings from "./pages/AdminPaymentSettings";
-import AdminBatches from "./pages/AdminBatches";
-import AdminSiteSettings from "./pages/AdminSiteSettings";
+import Home from "./screens/Home";
+import HomeV2 from "./screens/HomeV2";
+import V2Courses from "./screens/V2Courses";
+import V2CourseDetail from "./screens/V2CourseDetail";
+import V2About from "./screens/V2About";
+import V2SuccessStories from "./screens/V2SuccessStories";
+import V2HowItWorks from "./screens/V2HowItWorks";
+import V2Contact from "./screens/V2Contact";
+import CoursesPage from "./screens/CoursesPage";
+import CourseDetailPage from "./screens/CourseDetailPage";
+import SuccessStoriesPage from "./screens/SuccessStoriesPage";
+import EnrollPage from "./screens/EnrollPage";
+import AdminDashboard from "./screens/AdminDashboard";
+import AdminCourses from "./screens/AdminCourses";
+import AdminSuccessStories from "./screens/AdminSuccessStories";
+import AdminEnrollments from "./screens/AdminEnrollments";
+import AdminPaymentSettings from "./screens/AdminPaymentSettings";
+import AdminBatches from "./screens/AdminBatches";
+import AdminSiteSettings from "./screens/AdminSiteSettings";
+import AdminSettings from "./screens/AdminSettings";
+import AdminProfile from "./screens/AdminProfile";
+import AdminLayout from "./components/AdminLayout";
+import AdminMockTests from "./screens/AdminMockTests";
+import AdminMockTestEditor from "./screens/AdminMockTestEditor";
+import AdminCambridgeLibrary from "./screens/AdminCambridgeLibrary";
+import AdminMockResults from "./screens/AdminMockResults";
+import AdminUsers from "./screens/AdminUsers";
+import AdminUserCreate from "./screens/AdminUserCreate";
+import AdminUserEdit from "./screens/AdminUserEdit";
+import AdminRoles from "./screens/AdminRoles";
+import AdminResources from "./screens/AdminResources";
+import AdminResourceForm from "./screens/AdminResourceForm";
+import AdminMedia from "./screens/AdminMedia";
+import AdminEnrollmentDetail from "./screens/AdminEnrollmentDetail";
+import StudentDashboard from "./screens/StudentDashboard";
+import StudentAttempt from "./screens/StudentAttempt";
 
 function Router() {
-  return (
-    <Switch>
-      {/* Public Pages */}
-      <Route path={"/"} component={Home} />
-      <Route path={"/courses"} component={CoursesPage} />
-      <Route path={"/courses/:slug"} component={CourseDetailPage} />
-      <Route path={"/success-stories"} component={SuccessStoriesPage} />
-      <Route path={"/enroll"} component={EnrollPage} />
-      {/* Certificate Verify — hidden until feature is ready, redirect to home */}
-      {/* <Route path={"/verify"} component={CertificateVerify} /> */}
-
-      {/* Admin Pages */}
-      <Route path={"/admin"} component={AdminDashboard} />
-      <Route path={"/admin/courses"} component={AdminCourses} />
-      <Route path={"/admin/success-stories"} component={AdminSuccessStories} />
-      <Route path={"/admin/enrollments"} component={AdminEnrollments} />
-      <Route path={"/admin/payment-settings"} component={AdminPaymentSettings} />
-      <Route path={"/admin/batches"} component={AdminBatches} />
-      <Route path={"/admin/site-settings"} component={AdminSiteSettings} />
-
-      <Route path={"/404"} component={NotFound} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+  const pathname = usePathname() ?? "/";
+  if (pathname === "/") return <Home />;
+  if (pathname === "/home-2") return <HomeV2 />;
+  // v2 redesign — runs beside the original pages until it replaces them
+  if (pathname === "/v2/courses") return <V2Courses />;
+  if (pathname.startsWith("/v2/courses/"))
+    return <V2CourseDetail key={pathname} />;
+  if (pathname === "/v2/about") return <V2About />;
+  if (pathname === "/v2/success-stories") return <V2SuccessStories />;
+  if (pathname === "/v2/how-it-works") return <V2HowItWorks />;
+  if (pathname === "/v2/contact") return <V2Contact />;
+  if (pathname === "/courses") return <CoursesPage />;
+  if (pathname.startsWith("/courses/")) return <CourseDetailPage />;
+  if (pathname === "/success-stories") return <SuccessStoriesPage />;
+  if (pathname === "/enroll") return <EnrollPage />;
+  // Student mock test area
+  if (
+    [
+      "/student",
+      "/student/practice",
+      "/student/mocks",
+      "/student/results",
+      "/student/batch",
+      "/student/resources",
+      "/student/typing",
+      "/student/profile",
+      "/student/settings",
+    ].includes(pathname)
+  )
+    return <StudentDashboard />;
+  if (pathname.startsWith("/student/attempts/"))
+    return <StudentAttempt key={pathname} />;
+  if (pathname.startsWith("/admin")) {
+    let screen = <AdminDashboard />;
+    if (pathname === "/admin/courses") screen = <AdminCourses key={pathname} />;
+    else if (pathname === "/admin/courses/new")
+      screen = <AdminCourses key={pathname} createMode />;
+    else if (/^\/admin\/courses\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminCourses
+          key={pathname}
+          editId={Number(
+            pathname.match(/^\/admin\/courses\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/success-stories")
+      screen = <AdminSuccessStories key={pathname} />;
+    else if (pathname === "/admin/success-stories/new")
+      screen = <AdminSuccessStories key={pathname} createMode />;
+    else if (/^\/admin\/success-stories\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminSuccessStories
+          key={pathname}
+          editId={Number(
+            pathname.match(/^\/admin\/success-stories\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/enrollments") screen = <AdminEnrollments />;
+    else if (pathname.startsWith("/admin/enrollments/"))
+      screen = <AdminEnrollmentDetail key={pathname} />;
+    else if (pathname === "/admin/payment-settings")
+      screen = <AdminPaymentSettings key={pathname} />;
+    else if (pathname === "/admin/payment-settings/new")
+      screen = <AdminPaymentSettings key={pathname} createMode />;
+    else if (/^\/admin\/payment-settings\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminPaymentSettings
+          key={pathname}
+          editId={Number(
+            pathname.match(/^\/admin\/payment-settings\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/batches")
+      screen = <AdminBatches key={pathname} />;
+    else if (pathname === "/admin/batches/new")
+      screen = <AdminBatches key={pathname} createMode />;
+    else if (/^\/admin\/batches\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminBatches
+          key={pathname}
+          editId={Number(
+            pathname.match(/^\/admin\/batches\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/site-settings")
+      screen = <AdminSiteSettings />;
+    else if (pathname === "/admin/settings") screen = <AdminSettings />;
+    else if (pathname === "/admin/profile") screen = <AdminProfile />;
+    else if (pathname === "/admin/mock-tests") screen = <AdminMockTests />;
+    else if (pathname === "/admin/mock-tests/cambridge")
+      screen = <AdminCambridgeLibrary />;
+    else if (pathname.startsWith("/admin/mock-tests/"))
+      screen = <AdminMockTestEditor key={pathname} />;
+    else if (
+      pathname === "/admin/mock-results" ||
+      pathname.startsWith("/admin/mock-results/")
+    )
+      screen = <AdminMockResults key={pathname} />;
+    else if (pathname === "/admin/users/new") screen = <AdminUserCreate />;
+    else if (/^\/admin\/users\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminUserEdit
+          id={Number(pathname.match(/^\/admin\/users\/(\d+)\/edit$/)?.[1])}
+        />
+      );
+    else if (pathname === "/admin/users" || pathname === "/admin/students")
+      screen = <AdminUsers />;
+    else if (pathname === "/admin/roles") screen = <AdminRoles />;
+    else if (pathname === "/admin/resources/new")
+      screen = <AdminResourceForm kind="resource" />;
+    else if (/^\/admin\/resources\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminResourceForm
+          kind="resource"
+          editId={Number(
+            pathname.match(/^\/admin\/resources\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/resources/vocabulary/new")
+      screen = <AdminResourceForm kind="vocabulary" />;
+    else if (/^\/admin\/resources\/vocabulary\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminResourceForm
+          kind="vocabulary"
+          editId={Number(
+            pathname.match(/^\/admin\/resources\/vocabulary\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
+    else if (pathname === "/admin/resources/vocabulary")
+      screen = <AdminResources initialSection="vocabulary" />;
+    else if (pathname === "/admin/resources") screen = <AdminResources />;
+    else if (pathname === "/admin/media") screen = <AdminMedia />;
+    return <AdminLayout>{screen}</AdminLayout>;
+  }
+  return <NotFound />;
 }
 
 function App() {
   return (
     <ErrorBoundary>
-      <HelmetProvider>
-        <ThemeProvider
-          defaultTheme="light"
-        >
-          <TooltipProvider>
-              <Toaster />
-              <Router />
-          </TooltipProvider>
-        </ThemeProvider>
-      </HelmetProvider>
+      <ThemeProvider defaultTheme="light">
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

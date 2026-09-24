@@ -51,7 +51,7 @@ export const BRAND = {
   FOUNDER_TITLE: "Founder & Lead IELTS Mentor",
   FACEBOOK_URL: "https://www.facebook.com/fluentlearner",
   YOUTUBE_URL: "https://www.youtube.com/@FluentLearnerIELTS",
-  TRAINER_PHOTO: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663213348894/wcPeWCfeDNIsXYhq.jpg",
+  TRAINER_PHOTO: "/trainer.jpg",
 } as const;
 
 // ============================================

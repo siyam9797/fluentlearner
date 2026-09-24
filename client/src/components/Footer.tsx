@@ -5,9 +5,8 @@
  * Smooth scroll support for hash links (/#about, /#contact).
  */
 import { Phone, Mail, MapPin, MessageCircle } from "lucide-react";
-import { CONTACT, BRAND } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
-import { useLocation } from "wouter";
+import { useLocation } from "@/lib/router";
 
 const quickLinks = [
   { label: "Home", href: "/" },

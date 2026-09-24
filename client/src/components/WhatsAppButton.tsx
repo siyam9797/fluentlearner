@@ -4,8 +4,8 @@
  * WhatsApp Business: +8801301872288
  */
 import { useState, useEffect } from "react";
-import { MessageCircle, X } from "lucide-react";
-import { CONTACT } from "@/lib/siteConstants";
+import { X } from "lucide-react";
+import WhatsAppIcon from "@/components/WhatsAppIcon";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 export default function WhatsAppButton() {
@@ -51,7 +51,7 @@ export default function WhatsAppButton() {
       >
         {/* Pulse ring */}
         <span className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-20" />
-        <MessageCircle className="w-7 h-7 text-white relative z-10" />
+        <WhatsAppIcon className="w-8 h-8 text-white relative z-10" />
       </a>
     </div>
   );

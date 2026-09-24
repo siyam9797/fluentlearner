@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Riverside Community Centre map</title>
+  <desc id="desc">Map with entrance, reception, courtyard and locations A to F.</desc>
+  <rect width="900" height="520" fill="#f8f7ec"/>
+  <rect x="55" y="55" width="790" height="400" rx="18" fill="#fff" stroke="#1f1f1f" stroke-width="5"/>
+  <path d="M450 455V285M450 285H175M450 285H725M450 285V105" fill="none" stroke="#afafaf" stroke-width="42"/>
+  <rect x="370" y="220" width="160" height="130" rx="8" fill="#e7e5dc" stroke="#1f1f1f" stroke-width="3"/>
+  <text x="450" y="278" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700">COURTYARD</text>
+  <text x="450" y="305" text-anchor="middle" font-family="Arial" font-size="16">open garden</text>
+  <g font-family="Arial" text-anchor="middle">
+    <rect x="95" y="90" width="180" height="105" rx="8" fill="#f4c9c5" stroke="#1f1f1f" stroke-width="3"/><text x="185" y="135" font-size="30" font-weight="700">A</text><text x="185" y="168" font-size="16">room</text>
+    <rect x="360" y="75" width="180" height="95" rx="8" fill="#f4c9c5" stroke="#1f1f1f" stroke-width="3"/><text x="450" y="120" font-size="30" font-weight="700">B</text><text x="450" y="150" font-size="16">room</text>
+    <rect x="625" y="90" width="180" height="105" rx="8" fill="#f4c9c5" stroke="#1f1f1f" stroke-width="3"/><text x="715" y="135" font-size="30" font-weight="700">C</text><text x="715" y="168" font-size="16">room</text>
+    <rect x="95" y="330" width="180" height="90" rx="8" fill="#f4c9c5" stroke="#1f1f1f" stroke-width="3"/><text x="185" y="382" font-size="30" font-weight="700">D</text>
+    <rect x="625" y="330" width="180" height="90" rx="8" fill="#f4c9c5" stroke="#1f1f1f" stroke-width="3"/><text x="715" y="382" font-size="30" font-weight="700">E</text>
+    <rect x="345" y="390" width="110" height="55" rx="8" fill="#d8ead8" stroke="#1f1f1f" stroke-width="3"/><text x="400" y="425" font-size="25" font-weight="700">F</text>
+    <rect x="475" y="390" width="110" height="55" rx="8" fill="#d9e6f5" stroke="#1f1f1f" stroke-width="3"/><text x="530" y="415" font-size="16" font-weight="700">RECEPTION</text>
+    <text x="450" y="495" font-size="20" font-weight="700">MAIN ENTRANCE ↑</text>
+  </g>
+</svg>

@@ -1,0 +1,55 @@
+export const adminPaletteKeys = [
+  "primary", "secondary", "heading", "body", "placeholder", "border",
+  "card_bg", "background", "sidebar_bg", "success", "failed", "warning", "info",
+] as const;
+
+export type AdminPaletteKey = (typeof adminPaletteKeys)[number];
+export type AdminPalette = Record<AdminPaletteKey, string>;
+
+export const defaultAdminAppearance = {
+  darkMode: false,
+  light: { primary: "#C07F50", secondary: "#FFFFFF", heading: "#1E272E", body: "#646F79", placeholder: "#9AA5AF", border: "#E0E0E0", card_bg: "#FFFFFF", background: "#F8F7EC", sidebar_bg: "#FFFFFF", success: "#2E7D32", failed: "#C62828", warning: "#ED6C02", info: "#1976D2" },
+  dark: { primary: "#E0A978", secondary: "#1E272E", heading: "#F5F1EC", body: "#B7BEC4", placeholder: "#6B7580", border: "#33393F", card_bg: "#20262B", background: "#14181B", sidebar_bg: "#20262B", success: "#4CAF50", failed: "#EF5350", warning: "#FFA726", info: "#42A5F5" },
+};
+
+export type AdminAppearance = typeof defaultAdminAppearance;
+export const adminAppearanceStorageKey = "fluentlearner:appearance";
+export const adminAppearanceChangeEvent = "fluentlearner:appearance-change";
+
+export function loadStoredAdminAppearance(): AdminAppearance | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(adminAppearanceStorageKey) || "null") as Partial<AdminAppearance> | null;
+    if (!parsed) return null;
+    return {
+      darkMode: parsed.darkMode ?? defaultAdminAppearance.darkMode,
+      light: { ...defaultAdminAppearance.light, ...parsed.light },
+      dark: { ...defaultAdminAppearance.dark, ...parsed.dark },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredAdminAppearance(appearance: AdminAppearance) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(adminAppearanceStorageKey, JSON.stringify(appearance));
+  window.dispatchEvent(new CustomEvent(adminAppearanceChangeEvent, { detail: appearance }));
+}
+
+export function appearanceFromSettings(settings?: Record<string, string | null>): AdminAppearance {
+  const appearance: AdminAppearance = {
+    darkMode: settings?.appearance_dark_mode === "true",
+    light: { ...defaultAdminAppearance.light },
+    dark: { ...defaultAdminAppearance.dark },
+  };
+
+  adminPaletteKeys.forEach(key => {
+    const light = settings?.[`appearance_light_${key}`];
+    const dark = settings?.[`appearance_dark_${key}`];
+    if (light) appearance.light[key] = light;
+    if (dark) appearance.dark[key] = dark;
+  });
+
+  return appearance;
+}

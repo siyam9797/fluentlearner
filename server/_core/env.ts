@@ -1,12 +1,9 @@
 export const ENV = {
-  appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
-  uploadDir: process.env.UPLOAD_DIR ?? "",
-  publicUploadUrl: process.env.PUBLIC_UPLOAD_URL ?? "",
+  notificationWebhookUrl: process.env.NOTIFICATION_WEBHOOK_URL ?? "",
+  uploadDir: process.env.UPLOAD_DIR ?? "client/public/uploads",
+  publicUploadUrl: process.env.PUBLIC_UPLOAD_URL ?? "/uploads",
 };

@@ -5,9 +5,8 @@
  */
 import { useState, useEffect } from "react";
 import { Menu, X, Phone, MessageCircle } from "lucide-react";
-import { CONTACT, BRAND } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
-import { useLocation } from "wouter";
+import { useLocation } from "@/lib/router";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -176,7 +175,7 @@ export default function Navbar() {
               }}
               className="mt-4 w-full text-center px-5 py-3 bg-brand-red text-white font-body font-semibold text-sm rounded-lg cursor-pointer"
             >
-              এখনই ভর্তি হন
+              Enroll Now
             </button>
           </div>
         </div>

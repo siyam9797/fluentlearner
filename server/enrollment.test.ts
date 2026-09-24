@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
+const databaseIt = process.env.DATABASE_URL ? it : it.skip;
+
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function createAdminContext(): TrpcContext {
@@ -10,7 +12,7 @@ function createAdminContext(): TrpcContext {
     openId: "admin-user",
     email: "admin@example.com",
     name: "Admin User",
-    loginMethod: "manus",
+    loginMethod: "email",
     role: "admin",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -48,8 +50,8 @@ function createUserContext(): TrpcContext {
     openId: "regular-user",
     email: "user@example.com",
     name: "Regular User",
-    loginMethod: "manus",
-    role: "user",
+    loginMethod: "email",
+    role: "student",
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -94,7 +96,7 @@ describe("courses", () => {
     await expect(caller.courses.adminList()).rejects.toThrow();
   });
 
-  it("admin can create a course", async () => {
+  databaseIt("admin can create a course", async () => {
     const caller = appRouter.createCaller(createAdminContext());
     const result = await caller.courses.create({
       name: "Test IELTS Course",
@@ -129,7 +131,7 @@ describe("paymentSettings", () => {
     await expect(caller.paymentSettings.adminList()).rejects.toThrow();
   });
 
-  it("admin can create a payment method", async () => {
+  databaseIt("admin can create a payment method", async () => {
     const caller = appRouter.createCaller(createAdminContext());
     const result = await caller.paymentSettings.create({
       methodName: "bKash",
@@ -165,7 +167,7 @@ describe("batches", () => {
     await expect(caller.batches.adminList()).rejects.toThrow();
   });
 
-  it("admin can create a batch", async () => {
+  databaseIt("admin can create a batch", async () => {
     const caller = appRouter.createCaller(createAdminContext());
     const result = await caller.batches.create({
       name: "Test Batch March 2026",

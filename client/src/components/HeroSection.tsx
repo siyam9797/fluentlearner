@@ -7,9 +7,9 @@
  */
 import { useEffect, useState } from "react";
 import { useCountUp } from "@/hooks/useScrollAnimation";
-import { Award, Users, TrendingUp, ChevronDown, Star, Play, ArrowRight } from "lucide-react";
-import { useLocation } from "wouter";
-import { SITE_STATS, BRAND } from "@/lib/siteConstants";
+import { Award, Users, TrendingUp, ChevronDown, Star, ArrowRight } from "lucide-react";
+import { useLocation } from "@/lib/router";
+import { SITE_STATS } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 export default function HeroSection() {
@@ -95,7 +95,7 @@ export default function HeroSection() {
                 onClick={() => navigate('/enroll')}
                 className="group px-8 py-3.5 bg-white text-brand-red font-body font-bold text-base rounded-lg hover:bg-gray-50 transition-all duration-300 shadow-lg shadow-black/10 hover:shadow-xl hover:-translate-y-0.5 inline-flex items-center gap-2"
               >
-                এখনই ভর্তি হন
+                Enroll Now
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
@@ -103,7 +103,7 @@ export default function HeroSection() {
                 target="_blank"
                 className="px-8 py-3.5 border-2 border-white/40 text-white font-body font-semibold text-base rounded-lg hover:bg-white/10 hover:border-white/60 transition-all duration-300 inline-flex items-center gap-2"
               >
-                স্টুডেন্ট পোর্টাল
+                Student Portal
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </a>
             </div>
@@ -153,13 +153,13 @@ export default function HeroSection() {
             >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Users className="w-6 h-6 text-yellow-300" />
-                <span className="text-white/70 font-body text-sm uppercase tracking-widest">সফল শিক্ষার্থী</span>
+                <span className="text-white/70 font-body text-sm uppercase tracking-widest">Successful Students</span>
               </div>
               <div className="font-display text-6xl lg:text-7xl font-extrabold text-white">
                 {scorers >= 10_000 ? `${Math.floor(scorers / 1000)}K` : scorers.toLocaleString()}
                 <span className="text-yellow-300 text-4xl">+</span>
               </div>
-              <p className="text-white/50 font-body text-sm mt-2">মার্চ ২০২৬ পর্যন্ত</p>
+              <p className="text-white/50 font-body text-sm mt-2">As of March 2026</p>
             </div>
 
             {/* Two smaller stat cards */}
@@ -173,7 +173,7 @@ export default function HeroSection() {
                 <div className="font-display text-3xl font-extrabold text-white">
                   {(avgScore / 10).toFixed(1)}
                 </div>
-                <p className="text-white/50 font-body text-xs mt-1">গড় ব্যান্ড স্কোর</p>
+                <p className="text-white/50 font-body text-xs mt-1">Average Band Score</p>
               </div>
               <div
                 className={`bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-5 text-center transition-all duration-700 delay-500 ${
@@ -184,7 +184,7 @@ export default function HeroSection() {
                 <div className="font-display text-3xl font-extrabold text-white">
                   {successRate}%
                 </div>
-                <p className="text-white/50 font-body text-xs mt-1">সাফল্যের হার</p>
+                <p className="text-white/50 font-body text-xs mt-1">Success Rate</p>
               </div>
             </div>
 
@@ -199,7 +199,7 @@ export default function HeroSection() {
               </div>
               <div>
                 <p className="text-white/80 font-body text-sm">
-                  <span className="font-bold text-green-300">এখনই ভর্তি চলছে</span> — পরবর্তী ব্যাচ শীঘ্রই শুরু
+                  <span className="font-bold text-green-300">Enrollment Is Open</span> — Next batch starts soon
                 </p>
               </div>
             </div>

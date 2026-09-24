@@ -1,7 +1,25 @@
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, appUsers, courses, successStories, batches, paymentSettings, enrollments, siteSettings, type AppUser, type InsertAppUser, type User, type InsertCourse, type InsertSuccessStory, type InsertBatch, type InsertPaymentSetting, type InsertEnrollment, type InsertSiteSetting } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  appUsers,
+  courses,
+  successStories,
+  batches,
+  paymentSettings,
+  enrollments,
+  siteSettings,
+  type AppUser,
+  type InsertAppUser,
+  type User,
+  type InsertCourse,
+  type InsertSuccessStory,
+  type InsertBatch,
+  type InsertPaymentSetting,
+  type InsertEnrollment,
+} from "./database/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -21,9 +39,9 @@ export async function getDb() {
 // ADMIN EMAILS — these emails get admin role automatically on login
 // ============================================
 const ADMIN_EMAILS = [
-  'jarifurrahim@gmail.com',
-  'aditow.zahid@gmail.com',
-  'rashik@jarifurrahim.one',
+  "jarifurrahim@gmail.com",
+  "aditow.zahid@gmail.com",
+  "rashik@jarifurrahim.one",
 ];
 
 function isAdminEmail(email: string | null | undefined): boolean {
@@ -73,8 +91,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId || isAdminEmail(user.email)) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -101,7 +119,11 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
@@ -121,7 +143,7 @@ export function appUserToAuthUser(appUser: AppUser): User {
     name: appUser.name,
     email: appUser.email,
     loginMethod: "email-password",
-    role: appUser.role === "admin" ? "admin" : "user",
+    role: appUser.role,
     createdAt: appUser.createdAt,
     updatedAt: appUser.updatedAt,
     lastSignedIn: appUser.lastSignedIn ?? appUser.createdAt,
@@ -135,7 +157,11 @@ export async function getAppUserByEmail(email: string) {
     return undefined;
   }
 
-  const result = await db.select().from(appUsers).where(eq(appUsers.email, normalizeEmail(email))).limit(1);
+  const result = await db
+    .select()
+    .from(appUsers)
+    .where(eq(appUsers.email, normalizeEmail(email)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -146,7 +172,11 @@ export async function getAppUserById(id: number) {
     return undefined;
   }
 
-  const result = await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(appUsers)
+    .where(eq(appUsers.id, id))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -161,7 +191,10 @@ export async function createAppUser(data: InsertAppUser) {
   return { id: result[0].insertId };
 }
 
-export async function updateAppUserLastSignedIn(id: number, lastSignedIn = new Date()) {
+export async function updateAppUserLastSignedIn(
+  id: number,
+  lastSignedIn = new Date()
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -175,7 +208,9 @@ export async function updateAppUserLastSignedIn(id: number, lastSignedIn = new D
 export async function getActiveCourses() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(courses)
+  return db
+    .select()
+    .from(courses)
     .where(eq(courses.isActive, true))
     .orderBy(asc(courses.sortOrder), desc(courses.createdAt));
 }
@@ -183,7 +218,9 @@ export async function getActiveCourses() {
 export async function getFeaturedCourses() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(courses)
+  return db
+    .select()
+    .from(courses)
     .where(and(eq(courses.isActive, true), eq(courses.isFeatured, true)))
     .orderBy(asc(courses.sortOrder));
 }
@@ -191,20 +228,29 @@ export async function getFeaturedCourses() {
 export async function getAllCourses() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(courses).orderBy(asc(courses.sortOrder), desc(courses.createdAt));
+  return db
+    .select()
+    .from(courses)
+    .orderBy(asc(courses.sortOrder), desc(courses.createdAt));
 }
 
 export async function getCourseById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(courses).where(eq(courses.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(courses)
+    .where(eq(courses.id, id))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
 export async function getCourseBySlug(slug: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(courses)
+  const result = await db
+    .select()
+    .from(courses)
     .where(and(eq(courses.slug, slug), eq(courses.isActive, true)))
     .limit(1);
   return result.length > 0 ? result[0] : undefined;
@@ -236,7 +282,9 @@ export async function deleteCourse(id: number) {
 export async function getActiveSuccessStories() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(successStories)
+  return db
+    .select()
+    .from(successStories)
     .where(eq(successStories.isActive, true))
     .orderBy(asc(successStories.sortOrder), desc(successStories.createdAt));
 }
@@ -244,21 +292,35 @@ export async function getActiveSuccessStories() {
 export async function getFeaturedSuccessStories() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(successStories)
-    .where(and(eq(successStories.isActive, true), eq(successStories.isFeatured, true)))
+  return db
+    .select()
+    .from(successStories)
+    .where(
+      and(
+        eq(successStories.isActive, true),
+        eq(successStories.isFeatured, true)
+      )
+    )
     .orderBy(asc(successStories.sortOrder));
 }
 
 export async function getAllSuccessStories() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(successStories).orderBy(asc(successStories.sortOrder), desc(successStories.createdAt));
+  return db
+    .select()
+    .from(successStories)
+    .orderBy(asc(successStories.sortOrder), desc(successStories.createdAt));
 }
 
 export async function getSuccessStoryById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(successStories).where(eq(successStories.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(successStories)
+    .where(eq(successStories.id, id))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -269,7 +331,10 @@ export async function createSuccessStory(data: InsertSuccessStory) {
   return { id: result[0].insertId };
 }
 
-export async function updateSuccessStory(id: number, data: Partial<InsertSuccessStory>) {
+export async function updateSuccessStory(
+  id: number,
+  data: Partial<InsertSuccessStory>
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(successStories).set(data).where(eq(successStories.id, id));
@@ -284,7 +349,10 @@ export async function deleteSuccessStory(id: number) {
 export async function getSuccessStoriesCount() {
   const db = await getDb();
   if (!db) return 0;
-  const result = await db.select({ count: sql<number>`count(*)` }).from(successStories).where(eq(successStories.isActive, true));
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(successStories)
+    .where(eq(successStories.isActive, true));
   return result[0]?.count ?? 0;
 }
 
@@ -295,7 +363,9 @@ export async function getSuccessStoriesCount() {
 export async function getActiveBatches() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(batches)
+  return db
+    .select()
+    .from(batches)
     .where(and(eq(batches.isActive, true), eq(batches.isOpen, true)))
     .orderBy(desc(batches.createdAt));
 }
@@ -309,7 +379,11 @@ export async function getAllBatches() {
 export async function getBatchById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(batches).where(eq(batches.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(batches)
+    .where(eq(batches.id, id))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -339,7 +413,9 @@ export async function deleteBatch(id: number) {
 export async function getActivePaymentSettings() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(paymentSettings)
+  return db
+    .select()
+    .from(paymentSettings)
     .where(eq(paymentSettings.isActive, true))
     .orderBy(asc(paymentSettings.sortOrder));
 }
@@ -347,7 +423,10 @@ export async function getActivePaymentSettings() {
 export async function getAllPaymentSettings() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(paymentSettings).orderBy(asc(paymentSettings.sortOrder));
+  return db
+    .select()
+    .from(paymentSettings)
+    .orderBy(asc(paymentSettings.sortOrder));
 }
 
 export async function createPaymentSetting(data: InsertPaymentSetting) {
@@ -357,7 +436,10 @@ export async function createPaymentSetting(data: InsertPaymentSetting) {
   return { id: result[0].insertId };
 }
 
-export async function updatePaymentSetting(id: number, data: Partial<InsertPaymentSetting>) {
+export async function updatePaymentSetting(
+  id: number,
+  data: Partial<InsertPaymentSetting>
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(paymentSettings).set(data).where(eq(paymentSettings.id, id));
@@ -382,7 +464,9 @@ export async function getAllEnrollments() {
 export async function getEnrollmentsByStatus(status: string) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(enrollments)
+  return db
+    .select()
+    .from(enrollments)
     .where(eq(enrollments.status, status as any))
     .orderBy(desc(enrollments.createdAt));
 }
@@ -390,7 +474,11 @@ export async function getEnrollmentsByStatus(status: string) {
 export async function getEnrollmentById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(enrollments).where(eq(enrollments.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.id, id))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -401,16 +489,22 @@ export async function createEnrollment(data: InsertEnrollment) {
   return { id: result[0].insertId };
 }
 
-export async function updateEnrollment(id: number, data: Partial<InsertEnrollment>) {
+export async function updateEnrollment(
+  id: number,
+  data: Partial<InsertEnrollment>
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(enrollments).set(data).where(eq(enrollments.id, id));
 }
 
-export async function checkTransactionIdExists(transactionId: string): Promise<boolean> {
+export async function checkTransactionIdExists(
+  transactionId: string
+): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-  const result = await db.select({ count: sql<number>`count(*)` })
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
     .from(enrollments)
     .where(eq(enrollments.transactionId, transactionId));
   return (result[0]?.count ?? 0) > 0;
@@ -419,10 +513,21 @@ export async function checkTransactionIdExists(transactionId: string): Promise<b
 export async function getEnrollmentStats() {
   const db = await getDb();
   if (!db) return { total: 0, pending: 0, verified: 0, rejected: 0 };
-  const total = await db.select({ count: sql<number>`count(*)` }).from(enrollments);
-  const pending = await db.select({ count: sql<number>`count(*)` }).from(enrollments).where(eq(enrollments.status, "pending"));
-  const verified = await db.select({ count: sql<number>`count(*)` }).from(enrollments).where(eq(enrollments.status, "verified"));
-  const rejected = await db.select({ count: sql<number>`count(*)` }).from(enrollments).where(eq(enrollments.status, "rejected"));
+  const total = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(enrollments);
+  const pending = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(enrollments)
+    .where(eq(enrollments.status, "pending"));
+  const verified = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(enrollments)
+    .where(eq(enrollments.status, "verified"));
+  const rejected = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(enrollments)
+    .where(eq(enrollments.status, "rejected"));
   return {
     total: total[0]?.count ?? 0,
     pending: pending[0]?.count ?? 0,
@@ -438,13 +543,18 @@ export async function getEnrollmentStats() {
 export async function getAllSiteSettings() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(siteSettings).orderBy(asc(siteSettings.settingGroup), asc(siteSettings.settingKey));
+  return db
+    .select()
+    .from(siteSettings)
+    .orderBy(asc(siteSettings.settingGroup), asc(siteSettings.settingKey));
 }
 
 export async function getSiteSettingsByGroup(group: string) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(siteSettings)
+  return db
+    .select()
+    .from(siteSettings)
     .where(eq(siteSettings.settingGroup, group))
     .orderBy(asc(siteSettings.settingKey));
 }
@@ -452,19 +562,28 @@ export async function getSiteSettingsByGroup(group: string) {
 export async function getSiteSettingByKey(key: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(siteSettings)
+  const result = await db
+    .select()
+    .from(siteSettings)
     .where(eq(siteSettings.settingKey, key))
     .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function upsertSiteSetting(key: string, value: string | null, type?: string, group?: string, label?: string) {
+export async function upsertSiteSetting(
+  key: string,
+  value: string | null,
+  type?: string,
+  group?: string,
+  label?: string
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
+
   const existing = await getSiteSettingByKey(key);
   if (existing) {
-    await db.update(siteSettings)
+    await db
+      .update(siteSettings)
       .set({ settingValue: value })
       .where(eq(siteSettings.settingKey, key));
   } else {
@@ -478,13 +597,21 @@ export async function upsertSiteSetting(key: string, value: string | null, type?
   }
 }
 
-export async function bulkUpsertSiteSettings(settings: { key: string; value: string | null; type?: string; group?: string; label?: string }[]) {
+export async function bulkUpsertSiteSettings(
+  settings: {
+    key: string;
+    value: string | null;
+    type?: string;
+    group?: string;
+    label?: string;
+  }[]
+) {
   for (const s of settings) {
     await upsertSiteSetting(s.key, s.value, s.type, s.group, s.label);
   }
 }
 
-export async function generateStudentId(courseId: number): Promise<string> {
+export async function generateStudentId(_courseId: number): Promise<string> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   // Format: FL-YYMM-XXXX (e.g., FL-2603-0042)
@@ -493,9 +620,10 @@ export async function generateStudentId(courseId: number): Promise<string> {
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const prefix = `FL-${yy}${mm}`;
   // Count existing enrollments with this prefix
-  const result = await db.select({ count: sql<number>`count(*)` })
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
     .from(enrollments)
-    .where(sql`${enrollments.studentId} LIKE ${prefix + '%'}`);
+    .where(sql`${enrollments.studentId} LIKE ${prefix + "%"}`);
   const nextNum = (result[0]?.count ?? 0) + 1;
   return `${prefix}-${String(nextNum).padStart(4, "0")}`;
 }

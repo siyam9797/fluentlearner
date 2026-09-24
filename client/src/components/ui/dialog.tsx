@@ -93,12 +93,18 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  page = false,
   onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  page?: boolean;
 }) {
   const { isComposing } = useDialogComposition();
+
+  if (page) {
+    return <div data-slot="page-form" className={cn("w-full", className)}>{children}</div>;
+  }
 
   const handleEscapeKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
@@ -206,4 +212,3 @@ export {
   DialogTitle,
   DialogTrigger
 };
-

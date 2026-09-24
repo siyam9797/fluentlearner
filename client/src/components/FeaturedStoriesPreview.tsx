@@ -1,21 +1,15 @@
 /**
  * FeaturedStoriesPreview — Shows featured success stories from DB on home page
- * Falls back to existing SuccessGallery if no DB stories
+ * Uses database-backed success stories.
  */
 import { trpc } from "@/lib/trpc";
-import { CONTACT, SITE_STATS } from "@/lib/siteConstants";
-import { Trophy, ArrowRight, Award, Star } from "lucide-react";
-import { useLocation } from "wouter";
-import SuccessGallery from "./SuccessGallery";
+import { SITE_STATS } from "@/lib/siteConstants";
+import { Trophy, ArrowRight, Star } from "lucide-react";
+import { useLocation } from "@/lib/router";
 
 export default function FeaturedStoriesPreview() {
   const { data: featuredStories, isLoading } = trpc.successStories.featured.useQuery();
   const [, setLocation] = useLocation();
-
-  // If no featured stories in DB, show the existing static SuccessGallery
-  if (!isLoading && (!featuredStories || featuredStories.length === 0)) {
-    return <SuccessGallery />;
-  }
 
   if (isLoading) {
     return (
@@ -23,7 +17,7 @@ export default function FeaturedStoriesPreview() {
         <div className="container">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-brand-dark" style={{ fontFamily: "var(--font-display)" }}>
-              সাফল্যের গল্প
+              Success Stories
             </h2>
           </div>
           <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
@@ -45,19 +39,19 @@ export default function FeaturedStoriesPreview() {
         <div className="text-center mb-12">
           <span className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-700 px-4 py-1.5 rounded-full text-sm font-medium mb-4">
             <Trophy className="h-4 w-4" />
-            আমাদের গর্ব
+            Our Pride
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-brand-dark mb-3" style={{ fontFamily: "var(--font-display)" }}>
-            সাফল্যের <span className="text-brand-red">গল্প</span>
+            Success <span className="text-brand-red">Stories</span>
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            আমাদের {SITE_STATS.TOTAL_SCORERS.toLocaleString()}+ শিক্ষার্থীর মধ্যে কিছু অনুপ্রেরণামূলক সাফল্যের গল্প
+            A selection of inspiring stories from our {SITE_STATS.TOTAL_SCORERS.toLocaleString()}+ students
           </p>
         </div>
 
         {/* Featured Stories Grid */}
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-          {featuredStories!.slice(0, 8).map((story) => (
+          {(featuredStories ?? []).slice(0, 8).map((story) => (
             <div
               key={story.id}
               className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
@@ -65,7 +59,7 @@ export default function FeaturedStoriesPreview() {
             >
               <img
                 src={story.imageUrl}
-                alt={`${story.studentName} এর সাফল্যের গল্প`}
+                alt={`${story.studentName} s success story`}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               {/* Overlay */}
@@ -100,7 +94,7 @@ export default function FeaturedStoriesPreview() {
             onClick={() => setLocation("/success-stories")}
             className="inline-flex items-center gap-2 px-8 py-3 border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-semibold transition-all duration-300"
           >
-            সব সাফল্যের গল্প দেখুন
+            View All Success Stories
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

@@ -40,10 +40,10 @@ export function useSiteSettings() {
 
     // Hero
     heroTitle: get("hero_title", "Your Path to IELTS Success"),
-    heroSubtitle: get("hero_subtitle", "আপনার IELTS সাফল্যের নির্ভরযোগ্য সঙ্গী"),
+    heroSubtitle: get("hero_subtitle", "Your trusted partner for IELTS success"),
     heroDescription: get("hero_description", "Expert-led IELTS preparation with one-to-one mentorship — trusted by 10K+ successful scorers across Bangladesh."),
     heroImage: get("hero_image", ""),
-    heroCtaText: get("hero_cta_text", "এখনই ভর্তি হন"),
+    heroCtaText: get("hero_cta_text", "Enroll Now"),
     heroCtaLink: get("hero_cta_link", "/enroll"),
 
     // Stats
@@ -55,14 +55,14 @@ export function useSiteSettings() {
     facebookFollowers: get("stat_facebook_followers", SITE_STATS.FACEBOOK_FOLLOWERS),
 
     // CTA commitment card
-    ctaCommitmentTitle: get("cta_commitment_title", "আমাদের প্রতিশ্রুতি"),
+    ctaCommitmentTitle: get("cta_commitment_title", "Our Commitment"),
     ctaCommitmentDescription: get("cta_commitment_description", ""),
     ctaSupportValue: get("cta_support_value", "24/7"),
-    ctaPriceLabel: get("cta_price_label", "VIP কোর্স শুরু মাত্র"),
-    ctaOfferLabel: get("cta_offer_label", "সীমিত সময়ের অফার"),
+    ctaPriceLabel: get("cta_price_label", "VIP courses start at"),
+    ctaOfferLabel: get("cta_offer_label", "Limited-time offer"),
 
     // About
-    aboutTitle: get("about_title", "আমাদের সম্পর্কে"),
+    aboutTitle: get("about_title", "About Us"),
     aboutDescription: get("about_description", ""),
     aboutImage: get("about_image", ""),
     aboutMission: get("about_mission", ""),
@@ -87,6 +87,6 @@ export function useSiteSettings() {
 
     // Footer
     footerText: get("footer_text", `© ${new Date().getFullYear()} FluentLearner. All rights reserved.`),
-    footerTagline: get("footer_tagline", "আপনার IELTS সাফল্যের নির্ভরযোগ্য সঙ্গী"),
+    footerTagline: get("footer_tagline", "Your trusted partner for IELTS success"),
   };
 }

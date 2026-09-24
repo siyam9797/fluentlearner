@@ -1,8 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { publicProcedure, adminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -18,7 +17,6 @@ import {
   getActiveSuccessStories,
   getFeaturedSuccessStories,
   getAllSuccessStories,
-  getSuccessStoryById,
   createSuccessStory,
   updateSuccessStory,
   deleteSuccessStory,
@@ -48,9 +46,17 @@ import {
   updateAppUserLastSignedIn,
 } from "./db";
 import { storagePut } from "./storage";
-import { sdk } from "./_core/sdk";
+import { sessionService } from "./_core/session";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
+import {
+  learningResourcesRouter,
+  mockTestsRouter,
+  studentRouter,
+  studentsRouter,
+  usersRouter,
+} from "./mockRouters";
+import { deleteMediaFile, listMediaFiles } from "./media";
 
 // ============================================
 // Zod schemas for validation
@@ -67,7 +73,9 @@ const courseInput = z.object({
   price: z.string().optional().nullable(),
   badge: z.string().optional().nullable(),
   badgeColor: z.string().optional().nullable(),
-  category: z.enum(["ielts", "spoken", "grammar", "study-abroad", "other"]).default("ielts"),
+  category: z
+    .enum(["ielts", "spoken", "grammar", "study-abroad", "other"])
+    .default("ielts"),
   level: z.enum(["beginner", "intermediate", "advanced", "all"]).default("all"),
   features: z.array(z.string()).optional().nullable(),
   learningOutcomes: z.array(z.string()).optional().nullable(),
@@ -75,12 +83,18 @@ const courseInput = z.object({
   maxStudents: z.number().optional().nullable(),
   enrolledCount: z.number().optional().nullable(),
   fullDescription: z.string().optional().nullable(),
-  curriculum: z.array(z.object({ title: z.string(), content: z.string() })).optional().nullable(),
+  curriculum: z
+    .array(z.object({ title: z.string(), content: z.string() }))
+    .optional()
+    .nullable(),
   targetAudience: z.string().optional().nullable(),
   instructorName: z.string().optional().nullable(),
   instructorBio: z.string().optional().nullable(),
   instructorPhoto: z.string().optional().nullable(),
-  courseFaq: z.array(z.object({ question: z.string(), answer: z.string() })).optional().nullable(),
+  courseFaq: z
+    .array(z.object({ question: z.string(), answer: z.string() }))
+    .optional()
+    .nullable(),
   videoUrl: z.string().optional().nullable(),
   slug: z.string().optional().nullable(),
   enrollMessage: z.string().optional().nullable(),
@@ -96,7 +110,15 @@ const successStoryInput = z.object({
   bandScore: z.string().optional().nullable(),
   courseName: z.string().optional().nullable(),
   testimonial: z.string().optional().nullable(),
-  category: z.enum(["ielts-score", "visa-success", "university-admission", "spoken-english", "other"]).default("ielts-score"),
+  category: z
+    .enum([
+      "ielts-score",
+      "visa-success",
+      "university-admission",
+      "spoken-english",
+      "other",
+    ])
+    .default("ielts-score"),
   achievementDate: z.string().optional().nullable(),
   sortOrder: z.number().default(0),
   isActive: z.boolean().default(true),
@@ -126,15 +148,15 @@ const paymentSettingInput = z.object({
 });
 
 const enrollmentInput = z.object({
-  studentName: z.string().min(1, "আপনার নাম লিখুন"),
-  studentMobile: z.string().min(11, "সঠিক মোবাইল নম্বর দিন"),
+  studentName: z.string().min(1, "Enter your name"),
+  studentMobile: z.string().min(11, "Enter a valid mobile number"),
   studentEmail: z.string().optional().nullable(),
   courseId: z.number(),
   batchId: z.number().optional().nullable(),
-  paymentMethod: z.string().min(1, "পেমেন্ট পদ্ধতি নির্বাচন করুন"),
-  paymentAccountNumber: z.string().min(1, "প্রেরকের নম্বর দিন"),
-  transactionId: z.string().min(1, "ট্রানজেকশন আইডি দিন"),
-  paymentAmount: z.string().min(1, "পেমেন্টের পরিমাণ দিন"),
+  paymentMethod: z.string().min(1, "Select a payment method"),
+  paymentAccountNumber: z.string().min(1, "Enter the sender number"),
+  transactionId: z.string().min(1, "Enter the transaction ID"),
+  paymentAmount: z.string().min(1, "Enter the payment amount"),
   paymentScreenshotUrl: z.string().optional().nullable(),
 });
 
@@ -143,11 +165,45 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     login: publicProcedure
-      .input(z.object({
-        email: z.string().email(),
-        password: z.string().min(1),
-      }))
+      .input(
+        z.object({
+          email: z.string().email(),
+          password: z.string().min(1),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
+        const localEmail = (
+          process.env.LOCAL_ADMIN_EMAIL || "admin@localhost.test"
+        ).toLowerCase();
+        const localPassword = process.env.LOCAL_ADMIN_PASSWORD || "admin12345";
+        if (
+          process.env.NODE_ENV !== "production" &&
+          input.email.toLowerCase() === localEmail &&
+          input.password === localPassword
+        ) {
+          const maxAge = 1000 * 60 * 60 * 24;
+          const name = process.env.LOCAL_ADMIN_NAME || "Local Administrator";
+          const sessionToken =
+            await sessionService.createLocalAdminSessionToken(
+              localEmail,
+              name,
+              maxAge
+            );
+          ctx.setCookie(COOKIE_NAME, sessionToken, maxAge);
+          const now = new Date();
+          return {
+            id: 0,
+            openId: "local:admin",
+            email: localEmail,
+            name,
+            loginMethod: "local",
+            role: "super_admin" as const,
+            createdAt: now,
+            updatedAt: now,
+            lastSignedIn: now,
+          };
+        }
+
         const invalidCredentials = new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid email or password",
@@ -158,7 +214,10 @@ export const appRouter = router({
           throw invalidCredentials;
         }
 
-        const passwordMatches = await verifyPassword(input.password, appUser.passwordHash);
+        const passwordMatches = await verifyPassword(
+          input.password,
+          appUser.passwordHash
+        );
         if (!passwordMatches) {
           throw invalidCredentials;
         }
@@ -166,15 +225,17 @@ export const appRouter = router({
         const signedInAt = new Date();
         await updateAppUserLastSignedIn(appUser.id, signedInAt);
 
-        const sessionToken = await sdk.createAppSessionToken(appUser.id);
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 1000 * 60 * 60 * 24 * 365 });
+        const maxAge = 1000 * 60 * 60 * 24 * 365;
+        const sessionToken = await sessionService.createAppSessionToken(
+          appUser.id,
+          maxAge
+        );
+        ctx.setCookie(COOKIE_NAME, sessionToken, maxAge);
 
         return appUserToAuthUser({ ...appUser, lastSignedIn: signedInAt });
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.clearCookie(COOKIE_NAME);
       return { success: true } as const;
     }),
   }),
@@ -305,14 +366,16 @@ export const appRouter = router({
         // Check for duplicate transaction ID
         const exists = await checkTransactionIdExists(input.transactionId);
         if (exists) {
-          throw new Error("এই ট্রানজেকশন আইডি আগেই ব্যবহৃত হয়েছে। অনুগ্রহ করে সঠিক ট্রানজেকশন আইডি দিন।");
+          throw new Error(
+            "This transaction ID has already been used. Please enter a valid transaction ID."
+          );
         }
         const result = await createEnrollment(input);
         // Notify admin about new enrollment
         try {
           await notifyOwner({
-            title: `🎓 নতুন ভর্তি আবেদন — ${input.studentName}`,
-            content: `নাম: ${input.studentName}\nমোবাইল: ${input.studentMobile}\nপেমেন্ট: ${input.paymentMethod} — ${input.paymentAmount}\nTrxID: ${input.transactionId}\n\nAdmin panel-এ গিয়ে verify করুন।`,
+            title: `🎓 New Enrollment Application — ${input.studentName}`,
+            content: `Name: ${input.studentName}\nMobile: ${input.studentMobile}\nPayment: ${input.paymentMethod} — ${input.paymentAmount}\nTrxID: ${input.transactionId}\n\nReview and verify it in the admin panel.`,
           });
         } catch (e) {
           console.warn("[Enrollment] Failed to notify owner:", e);
@@ -340,16 +403,19 @@ export const appRouter = router({
 
     /** Admin: verify an enrollment — assigns student ID */
     verify: adminProcedure
-      .input(z.object({
-        id: z.number(),
-        batchId: z.number().optional().nullable(),
-        adminNotes: z.string().optional().nullable(),
-      }))
+      .input(
+        z.object({
+          id: z.number(),
+          batchId: z.number().optional().nullable(),
+          adminNotes: z.string().optional().nullable(),
+        })
+      )
       .mutation(async ({ input }) => {
         const enrollment = await getEnrollmentById(input.id);
         if (!enrollment) throw new Error("Enrollment not found");
-        if (enrollment.status !== "pending") throw new Error("Only pending enrollments can be verified");
-        
+        if (enrollment.status !== "pending")
+          throw new Error("Only pending enrollments can be verified");
+
         const studentId = await generateStudentId(enrollment.courseId);
         await updateEnrollment(input.id, {
           status: "verified",
@@ -363,14 +429,16 @@ export const appRouter = router({
 
     /** Admin: reject an enrollment */
     reject: adminProcedure
-      .input(z.object({
-        id: z.number(),
-        rejectionReason: z.string().min(1, "প্রত্যাখ্যানের কারণ লিখুন"),
-      }))
+      .input(
+        z.object({
+          id: z.number(),
+          rejectionReason: z.string().min(1, "Enter a rejection reason"),
+        })
+      )
       .mutation(async ({ input }) => {
         const enrollment = await getEnrollmentById(input.id);
         if (!enrollment) throw new Error("Enrollment not found");
-        
+
         await updateEnrollment(input.id, {
           status: "rejected",
           rejectionReason: input.rejectionReason,
@@ -380,18 +448,22 @@ export const appRouter = router({
 
     /** Admin: update enrollment details */
     update: adminProcedure
-      .input(z.object({
-        id: z.number(),
-        data: z.object({
-          studentName: z.string().optional(),
-          studentMobile: z.string().optional(),
-          studentEmail: z.string().optional().nullable(),
-          batchId: z.number().optional().nullable(),
-          studentId: z.string().optional().nullable(),
-          adminNotes: z.string().optional().nullable(),
-          status: z.enum(["pending", "verified", "rejected", "refunded"]).optional(),
-        }),
-      }))
+      .input(
+        z.object({
+          id: z.number(),
+          data: z.object({
+            studentName: z.string().optional(),
+            studentMobile: z.string().optional(),
+            studentEmail: z.string().optional().nullable(),
+            batchId: z.number().optional().nullable(),
+            studentId: z.string().optional().nullable(),
+            adminNotes: z.string().optional().nullable(),
+            status: z
+              .enum(["pending", "verified", "rejected", "refunded"])
+              .optional(),
+          }),
+        })
+      )
       .mutation(async ({ input }) => {
         await updateEnrollment(input.id, input.data);
         return { success: true };
@@ -404,11 +476,13 @@ export const appRouter = router({
   upload: router({
     /** Admin: upload an image file to S3 */
     image: adminProcedure
-      .input(z.object({
-        base64: z.string(),
-        filename: z.string(),
-        contentType: z.string().default("image/jpeg"),
-      }))
+      .input(
+        z.object({
+          base64: z.string(),
+          filename: z.string(),
+          contentType: z.string().default("image/jpeg"),
+        })
+      )
       .mutation(async ({ input }) => {
         const buffer = Buffer.from(input.base64, "base64");
         const ext = input.filename.split(".").pop() || "jpg";
@@ -419,21 +493,111 @@ export const appRouter = router({
 
     /** Public: upload payment screenshot (limited to 2MB) */
     paymentScreenshot: publicProcedure
-      .input(z.object({
-        base64: z.string(),
-        filename: z.string(),
-        contentType: z.string().default("image/jpeg"),
-      }))
+      .input(
+        z.object({
+          base64: z.string(),
+          filename: z.string(),
+          contentType: z.string().default("image/jpeg"),
+        })
+      )
       .mutation(async ({ input }) => {
         const buffer = Buffer.from(input.base64, "base64");
         // Limit to 2MB
         if (buffer.length > 2 * 1024 * 1024) {
-          throw new Error("ফাইল সাইজ ২MB-এর বেশি হতে পারবে না");
+          throw new Error("File size cannot exceed 2MB");
         }
         const ext = input.filename.split(".").pop() || "jpg";
         const key = `uploads/payment-screenshots/${nanoid()}.${ext}`;
         const { url } = await storagePut(key, buffer, input.contentType);
         return { url, key };
+      }),
+  }),
+
+  media: router({
+    list: adminProcedure.query(() => listMediaFiles()),
+    upload: adminProcedure
+      .input(
+        z.object({
+          base64: z.string(),
+          filename: z.string().min(1),
+          contentType: z.string().min(1),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const allowedTypes = new Set([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+          "image/avif",
+          "video/mp4",
+          "video/webm",
+          "video/quicktime",
+          "audio/mpeg",
+          "audio/wav",
+          "audio/x-wav",
+          "audio/mp4",
+          "audio/x-m4a",
+          "audio/aac",
+          "audio/ogg",
+          "audio/webm",
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-powerpoint",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/plain",
+          "text/csv",
+        ]);
+        if (!allowedTypes.has(input.contentType))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This file type is not supported.",
+          });
+        const categories = input.contentType.startsWith("image/")
+          ? { folder: "images", limit: 10 * 1024 * 1024 }
+          : input.contentType.startsWith("video/")
+            ? { folder: "videos", limit: 64 * 1024 * 1024 }
+            : input.contentType.startsWith("audio/")
+              ? { folder: "audio", limit: 60 * 1024 * 1024 }
+              : { folder: "documents", limit: 25 * 1024 * 1024 };
+        const buffer = Buffer.from(input.base64, "base64");
+        if (buffer.length > categories.limit)
+          throw new TRPCError({
+            code: "PAYLOAD_TOO_LARGE",
+            message: "This file is larger than the allowed limit.",
+          });
+        const extension =
+          input.filename
+            .split(".")
+            .pop()
+            ?.toLowerCase()
+            .replace(/[^a-z0-9]/g, "") || "bin";
+        const result = await storagePut(
+          `uploads/${categories.folder}/${nanoid()}-${input.filename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/\.[^.]+$/, "")}.${extension}`,
+          buffer,
+          input.contentType
+        );
+        return result;
+      }),
+    delete: adminProcedure
+      .input(z.object({ key: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        try {
+          await deleteMediaFile(input.key);
+          return { success: true } as const;
+        } catch (error) {
+          throw new TRPCError({
+            code:
+              error instanceof Error && error.message.includes("in use")
+                ? "CONFLICT"
+                : "BAD_REQUEST",
+            message:
+              error instanceof Error ? error.message : "Could not delete file",
+          });
+        }
       }),
   }),
 
@@ -459,18 +623,31 @@ export const appRouter = router({
 
     /** Admin: bulk update site settings */
     update: adminProcedure
-      .input(z.array(z.object({
-        key: z.string().min(1),
-        value: z.string().nullable(),
-        type: z.string().optional(),
-        group: z.string().optional(),
-        label: z.string().optional(),
-      })))
+      .input(
+        z.array(
+          z.object({
+            key: z.string().min(1),
+            value: z.string().nullable(),
+            type: z.string().optional(),
+            group: z.string().optional(),
+            label: z.string().optional(),
+          })
+        )
+      )
       .mutation(async ({ input }) => {
         await bulkUpsertSiteSettings(input);
         return { success: true };
       }),
   }),
+
+  // ============================================
+  // IELTS MOCK TESTS — Admin builder + student exam area
+  // ============================================
+  mockTests: mockTestsRouter,
+  students: studentsRouter,
+  users: usersRouter,
+  learningResources: learningResourcesRouter,
+  student: studentRouter,
 });
 
 export type AppRouter = typeof appRouter;

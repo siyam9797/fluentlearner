@@ -2,22 +2,22 @@
  * ComparisonTable — Psychological Trust Element
  * Why FluentLearner vs generic coaching centers.
  * Cialdini's Authority + Contrast Principle: Shows clear advantages.
- * Does NOT name competitors directly — uses "অন্যান্য প্ল্যাটফর্ম" generically.
+ * Does not name competitors directly.
  */
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Check, X, Shield } from "lucide-react";
 import { SITE_STATS, CONTACT, PRICING } from "@/lib/siteConstants";
 
 const comparisons = [
-  { feature: "One-to-One Mentoring", featureBn: "ব্যক্তিগত মেন্টরিং", us: true, others: false },
-  { feature: "24/7 WhatsApp Support", featureBn: "২৪/৭ WhatsApp সাপোর্ট", us: true, others: false },
-  { feature: "Recorded Classes", featureBn: "রেকর্ডেড ক্লাস", us: true, others: true },
-  { feature: "Mock Tests with Feedback", featureBn: "মক টেস্ট ও ফিডব্যাক", us: true, others: true },
-  { feature: "Personalized Study Plan", featureBn: "ব্যক্তিগত স্টাডি প্ল্যান", us: true, others: false },
-  { feature: "Writing Review per Student", featureBn: "প্রতিটি Writing আলাদা রিভিউ", us: true, others: false },
-  { feature: "Affordable VIP Pricing", featureBn: `সাশ্রয়ী VIP মূল্য (${PRICING.VIP_1M} থেকে)`, us: true, others: false },
-  { feature: `Proven ${SITE_STATS.SUCCESS_RATE}% Success Rate`, featureBn: `প্রমাণিত ${SITE_STATS.SUCCESS_RATE}% সাফল্যের হার`, us: true, others: false },
-  { feature: `${SITE_STATS.TOTAL_SCORERS.toLocaleString()}+ Successful Students`, featureBn: `${SITE_STATS.TOTAL_SCORERS.toLocaleString()}+ সফল শিক্ষার্থী`, us: true, others: false },
+  { feature: "One-to-One Mentoring", detail: "Personal mentoring", us: true, others: false },
+  { feature: "24/7 WhatsApp Support", detail: "Support whenever you need it", us: true, others: false },
+  { feature: "Recorded Classes", detail: "Review lessons anytime", us: true, others: true },
+  { feature: "Mock Tests with Feedback", detail: "Actionable performance feedback", us: true, others: true },
+  { feature: "Personalized Study Plan", detail: "A plan based on your goals", us: true, others: false },
+  { feature: "Writing Review per Student", detail: "Individual writing reviews", us: true, others: false },
+  { feature: "Affordable VIP Pricing", detail: `Plans from ${PRICING.VIP_1M}`, us: true, others: false },
+  { feature: `Proven ${SITE_STATS.SUCCESS_RATE}% Success Rate`, detail: "A trusted track record", us: true, others: false },
+  { feature: `${SITE_STATS.TOTAL_SCORERS.toLocaleString()}+ Successful Students`, detail: "A growing learner community", us: true, others: false },
 ];
 
 export default function ComparisonTable() {
@@ -36,14 +36,14 @@ export default function ComparisonTable() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            কেন FluentLearner?
+            Why FluentLearner?
           </span>
           <h2
             className={`font-display text-brand-dark text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight transition-all duration-600 delay-100 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            পার্থক্যটা <span className="text-brand-red">স্পষ্ট</span>
+            The difference is <span className="text-brand-red">clear</span>
           </h2>
         </div>
 
@@ -65,7 +65,7 @@ export default function ComparisonTable() {
               </div>
             </div>
             <div className="col-span-3 p-4 sm:p-5 text-center border-l border-white/10">
-              <span className="font-body text-xs text-white/50">অন্যান্য</span>
+              <span className="font-body text-xs text-white/50">Others</span>
             </div>
           </div>
 
@@ -79,8 +79,8 @@ export default function ComparisonTable() {
               style={{ transitionDelay: isVisible ? `${300 + index * 60}ms` : "0ms" }}
             >
               <div className="col-span-6 p-4 sm:p-5">
-                <p className="font-display text-brand-dark text-sm font-semibold">{item.featureBn}</p>
-                <p className="text-brand-charcoal/40 font-body text-xs mt-0.5">{item.feature}</p>
+                <p className="font-display text-brand-dark text-sm font-semibold">{item.feature}</p>
+                <p className="text-brand-charcoal/40 font-body text-xs mt-0.5">{item.detail}</p>
               </div>
               <div className="col-span-3 p-4 sm:p-5 flex items-center justify-center border-l border-gray-50">
                 <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center">
@@ -114,7 +114,7 @@ export default function ComparisonTable() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-3.5 bg-brand-red text-white font-display font-bold text-base rounded-xl hover:bg-brand-red-dark transition-all duration-300 shadow-lg shadow-brand-red/20 hover:-translate-y-0.5"
           >
-            আজই শুরু করুন — বিনামূল্যে কথা বলুন
+            Start Today — Book a Free Consultation
           </a>
         </div>
       </div>

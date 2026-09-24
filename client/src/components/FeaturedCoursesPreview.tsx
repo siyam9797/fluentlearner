@@ -5,21 +5,21 @@
 import { trpc } from "@/lib/trpc";
 
 import { BookOpen, Clock, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation } from "@/lib/router";
 
 // Static fallback courses (shown when DB has no featured courses)
 const staticCourses = [
   {
     id: -1,
-    name: "IELTS সম্পূর্ণ প্রস্তুতি",
+    name: "Complete IELTS Preparation",
     nameEn: "IELTS Complete Preparation",
-    shortDescription: "Listening, Reading, Writing, Speaking — সব মডিউলের সম্পূর্ণ প্রস্তুতি",
+    shortDescription: "Listening, Reading, Writing, Speaking — complete preparation for every module",
     price: "৳8,500",
     originalPrice: "৳12,000",
-    duration: "2 মাস",
+    duration: "2 months",
     badge: "Most Popular",
     badgeColor: "bg-red-500",
-    features: ["1-on-1 মেন্টরশিপ", "মক টেস্ট", "স্টাডি ম্যাটেরিয়াল"],
+    features: ["One-to-One Mentoring", "Mock Tests", "Study Materials"],
     category: "ielts",
     imageUrl: null,
   },
@@ -27,10 +27,10 @@ const staticCourses = [
     id: -2,
     name: "Spoken English Mastery",
     nameEn: "Spoken English Mastery",
-    shortDescription: "আত্মবিশ্বাসের সাথে ইংরেজিতে কথা বলুন — ৩০ দিনে পরিবর্তন দেখুন",
+    shortDescription: "Speak English confidently and see progress in 30 days",
     price: "৳5,000",
     originalPrice: "৳7,500",
-    duration: "1 মাস",
+    duration: "1 month",
     badge: "Trending",
     badgeColor: "bg-green-500",
     features: ["Daily Practice", "Real Conversation", "Pronunciation Guide"],
@@ -41,10 +41,10 @@ const staticCourses = [
     id: -3,
     name: "IELTS VIP Batch",
     nameEn: "IELTS VIP Batch",
-    shortDescription: "সর্বোচ্চ ১০ জনের ব্যাচে ব্যক্তিগত মনোযোগ ও গ্যারান্টিড স্কোর",
+    shortDescription: "Personal attention in a small batch of up to 10 students",
     price: "৳15,000",
     originalPrice: "৳20,000",
-    duration: "3 মাস",
+    duration: "3 months",
     badge: "Premium",
     badgeColor: "bg-purple-500",
     features: ["Max 10 Students", "Guaranteed Score", "Extra Mock Tests"],
@@ -75,13 +75,13 @@ export default function FeaturedCoursesPreview() {
         <div className="text-center mb-12">
           <span className="inline-flex items-center gap-2 bg-brand-red/10 text-brand-red px-4 py-1.5 rounded-full text-sm font-medium mb-4">
             <Sparkles className="h-4 w-4" />
-            আমাদের কোর্সসমূহ
+            Our Courses
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-brand-dark mb-3" style={{ fontFamily: "var(--font-display)" }}>
-            আপনার লক্ষ্যে পৌঁছানোর <span className="text-brand-red">সঠিক পথ</span>
+            Your path to <span className="text-brand-red">the right outcome</span>
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            আন্তর্জাতিক মানের কারিকুলাম ও অভিজ্ঞ মেন্টরের সাথে আপনার IELTS ও English দক্ষতা গড়ে তুলুন
+            Build your IELTS and English skills with an international-standard curriculum and experienced mentors
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default function FeaturedCoursesPreview() {
                   <div className="relative h-40 overflow-hidden">
                     <img
                       src={course.imageUrl}
-                      alt={`${course.name} কোর্সের ছবি`}
+                      alt={`${course.nameEn || course.name} course image`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
@@ -138,7 +138,7 @@ export default function FeaturedCoursesPreview() {
                     style={{ fontFamily: "var(--font-display)" }}
                     onClick={() => { if (course.slug) setLocation(`/courses/${course.slug}`); }}
                   >
-                    {course.name}
+                    {course.nameEn || course.name}
                   </h3>
                   {course.nameEn && course.nameEn !== course.name && (
                     <p className="text-xs text-gray-500 mb-2">{course.nameEn}</p>
@@ -181,14 +181,14 @@ export default function FeaturedCoursesPreview() {
                         onClick={() => setLocation(`/courses/${course.slug}`)}
                         className="flex-1 flex items-center justify-center gap-1 border border-brand-red/30 text-brand-red hover:bg-brand-red/5 py-2.5 rounded-lg text-sm font-medium transition-all"
                       >
-                        বিস্তারিত
+                        View Details
                       </button>
                     )}
                     <button
                       onClick={() => handleEnroll(course)}
                       className={`${course.slug ? 'flex-1' : 'w-full'} flex items-center justify-center gap-2 bg-brand-red hover:bg-brand-red-dark text-white py-2.5 rounded-lg text-sm font-semibold transition-all`}
                     >
-                      ভর্তি হন
+                      Enroll
                     </button>
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export default function FeaturedCoursesPreview() {
             onClick={() => setLocation("/courses")}
             className="inline-flex items-center gap-2 px-8 py-3 border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-semibold transition-all duration-300"
           >
-            সব কোর্স দেখুন
+            View All Courses
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

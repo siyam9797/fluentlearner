@@ -17,7 +17,7 @@ const testimonials = [
     course: "VIP 1-to-1",
     scores: { L: 8.5, R: 8.0, W: 7.0, S: 7.5 },
     text: "The mentor is truly professional. He is keen to find out strong as well as weak points of individual candidate. My score improved significantly in only 15 days coaching.",
-    textBn: "মাত্র ১৫ দিনের কোচিং-এ Band 8.0!",
+    textBn: "Band 8.0 after only 15 days of coaching!",
     initials: "MC",
     highlight: true,
     verified: true,
@@ -29,7 +29,7 @@ const testimonials = [
     course: "IELTS VIP",
     scores: { L: 9.0, R: 8.0, W: 7.0, S: 6.0 },
     text: "Alhamdulillah! The one-to-one preparation approach at FluentLearner helped me achieve my dream score. Listening 9.0!",
-    textBn: "Listening-এ 9.0 — সর্বোচ্চ স্কোর!",
+    textBn: "Listening 9.0 — a perfect score!",
     initials: "DA",
     highlight: false,
     verified: true,
@@ -41,7 +41,7 @@ const testimonials = [
     course: "IELTS VIP (RUET)",
     scores: { L: 8.5, R: 8.0, W: 7.0, S: 7.5 },
     text: "FluentLearner's structured approach and dedicated mentoring helped me achieve Band 8.0. The mock tests were incredibly helpful.",
-    textBn: "RUET থেকে Band 8.0!",
+    textBn: "Band 8.0 from a RUET graduate!",
     initials: "SC",
     highlight: false,
     verified: true,
@@ -53,7 +53,7 @@ const testimonials = [
     course: "IELTS VIP",
     scores: { L: 8.5, R: 8.5, W: 6.5, S: 6.5 },
     text: "Really indebted to Zahid Bhai. His dedication and enthusiasm towards teaching is remarkable. FluentLearner is definitely the best choice.",
-    textBn: "Reading ও Listening দুটোতেই 8.5!",
+    textBn: "8.5 in both Reading and Listening!",
     initials: "LT",
     highlight: false,
     verified: true,
@@ -65,7 +65,7 @@ const testimonials = [
     course: "IELTS VIP",
     scores: { L: 8.0, R: 8.5, W: 6.5, S: 7.0 },
     text: "Thanks bhaiya and apu for your constant support. The guidance made all the difference in my IELTS preparation journey.",
-    textBn: "Reading 8.5 — WhatsApp প্রমাণ সহ!",
+    textBn: "Reading 8.5 — verified result!",
     initials: "JB",
     highlight: false,
     verified: true,
@@ -77,7 +77,7 @@ const testimonials = [
     course: "IELTS VIP",
     scores: { L: 7.5, R: 7.0, W: 6.5, S: 7.0 },
     text: "Huge thanks to Allah, and then to Fluent Learner, especially Zahid Vaiya and Ruhi Apu — their support, mocks, and guidance changed everything.",
-    textBn: "Mock test থেকে প্রায় সব প্রশ্ন এসেছিল!",
+    textBn: "The mock tests closely matched the real exam!",
     initials: "NK",
     highlight: false,
     verified: true,
@@ -125,21 +125,21 @@ export default function TestimonialsSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            সাফল্যের গল্প
+            Success Stories
           </span>
           <h2
             className={`font-display text-brand-dark text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight transition-all duration-600 delay-100 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            আমাদের শিক্ষার্থীরা <span className="text-brand-red">সফল</span>
+            Our Students <span className="text-brand-red">Succeed</span>
           </h2>
           <p
             className={`mt-4 text-brand-charcoal/60 font-body text-lg leading-relaxed transition-all duration-600 delay-200 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            প্রকৃত শিক্ষার্থীদের প্রকৃত ফলাফল — প্রতিটি স্কোর যাচাইযোগ্য এবং প্রমাণিত।
+            Real students, real results — every score is verifiable.
           </p>
         </div>
 
@@ -153,7 +153,7 @@ export default function TestimonialsSection() {
             <div className="lg:col-span-7">
               <div className="flex items-center gap-2 mb-3">
                 <Trophy className="w-5 h-5 text-yellow-300" />
-                <span className="text-yellow-300 font-body text-sm font-bold uppercase tracking-wider">সর্বোচ্চ স্কোরার</span>
+                <span className="text-yellow-300 font-body text-sm font-bold uppercase tracking-wider">Top Scorer</span>
               </div>
               <Quote className="w-8 h-8 text-white/20 mb-3" />
               <p className="text-white/90 font-body text-base lg:text-lg leading-relaxed italic mb-2">
@@ -170,7 +170,7 @@ export default function TestimonialsSection() {
                   <div className="flex items-center gap-2">
                     <p className="font-display text-white text-base font-bold">{testimonials[0].name}</p>
                     {testimonials[0].verified && (
-                      <span className="text-[10px] bg-white/20 text-white/80 px-2 py-0.5 rounded-full font-body">যাচাইকৃত</span>
+                      <span className="text-[10px] bg-white/20 text-white/80 px-2 py-0.5 rounded-full font-body">Verified</span>
                     )}
                   </div>
                   <p className="text-white/60 font-body text-sm">{testimonials[0].course}</p>
@@ -267,7 +267,7 @@ export default function TestimonialsSection() {
           }`}
         >
           <p className="text-brand-charcoal/50 font-body text-base mb-4">
-            <span className="text-brand-red font-bold">{SITE_STATS.TOTAL_SCORERS.toLocaleString()}+</span> সফল শিক্ষার্থীর সাথে যোগ দিন। আপনার সাফল্যের গল্প পরবর্তী হতে পারে।
+            <span className="text-brand-red font-bold">{SITE_STATS.TOTAL_SCORERS.toLocaleString()}+</span> successful students. Your success story could be next.
           </p>
           <a
             href={`https://wa.me/${CONTACT.WHATSAPP_BUSINESS}?text=Assalamu%20Alaikum%2C%20I%20want%20to%20start%20my%20IELTS%20preparation%20with%20FluentLearner`}
@@ -275,7 +275,7 @@ export default function TestimonialsSection() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-3.5 bg-brand-red text-white font-body font-bold text-base rounded-lg hover:bg-brand-red-dark transition-all duration-300 shadow-lg shadow-brand-red/20 hover:-translate-y-0.5"
           >
-            আজই শুরু করুন
+            Start Today
           </a>
         </div>
       </div>

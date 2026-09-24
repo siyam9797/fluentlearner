@@ -86,6 +86,8 @@ jspm_packages/
 
 # Next.js build output
 .next
+client/.next/
+client/public/uploads/
 
 # Nuxt.js build / generate output
 .nuxt
@@ -113,3 +115,5 @@ temp/
 # User uploaded files
 uploads/
 
+# Local DB backups written by `npm run sync:live`
+.local-backups/

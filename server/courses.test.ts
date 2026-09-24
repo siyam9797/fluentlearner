@@ -24,7 +24,7 @@ function createAdminContext(): TrpcContext {
       openId: "admin-user",
       email: "admin@example.com",
       name: "Admin User",
-      loginMethod: "manus",
+      loginMethod: "email",
       role: "admin",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -48,8 +48,8 @@ function createUserContext(): TrpcContext {
       openId: "regular-user",
       email: "user@example.com",
       name: "Regular User",
-      loginMethod: "manus",
-      role: "user",
+      loginMethod: "email",
+      role: "student",
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),
@@ -149,7 +149,9 @@ describe("courses.getBySlug (public)", () => {
 
   it("returns null for non-existent slug", async () => {
     const caller = appRouter.createCaller(createPublicContext());
-    const result = await caller.courses.getBySlug({ slug: "this-slug-does-not-exist-xyz" });
+    const result = await caller.courses.getBySlug({
+      slug: "this-slug-does-not-exist-xyz",
+    });
     expect(result).toBeUndefined();
   });
 

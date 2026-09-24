@@ -1,28 +1,37 @@
-import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import type { User } from "../database/schema";
+import { sessionService } from "./session";
 
 export type TrpcContext = {
-  req: CreateExpressContextOptions["req"];
-  res: CreateExpressContextOptions["res"];
+  req: Request;
+  responseHeaders: Headers;
   user: User | null;
+  setCookie(name: string, value: string, maxAge: number): void;
+  clearCookie(name: string): void;
 };
 
-export async function createContext(
-  opts: CreateExpressContextOptions
-): Promise<TrpcContext> {
-  let user: User | null = null;
+function cookieValue(name: string, value: string, maxAge: number) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(maxAge / 1000)}${secure}`;
+}
 
+export async function createContext({ req, resHeaders }: FetchCreateContextFnOptions): Promise<TrpcContext> {
+  let user: User | null = null;
   try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
+    user = await sessionService.authenticateRequest(req);
+  } catch {
     user = null;
   }
 
   return {
-    req: opts.req,
-    res: opts.res,
+    req,
+    responseHeaders: resHeaders,
     user,
+    setCookie(name, value, maxAge) {
+      resHeaders.append("set-cookie", cookieValue(name, value, maxAge));
+    },
+    clearCookie(name) {
+      resHeaders.append("set-cookie", cookieValue(name, "", 0));
+    },
   };
 }

@@ -3,8 +3,7 @@
  * Trainer personal branding section with photo and highlights.
  */
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import { GraduationCap, Globe, HeartHandshake, Lightbulb, Award, Users } from "lucide-react";
-import { SITE_STATS, BRAND } from "@/lib/siteConstants";
+import { GraduationCap, Globe, HeartHandshake, Lightbulb, Award } from "lucide-react";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const highlights = [

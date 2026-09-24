@@ -7,7 +7,7 @@
  */
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Shield, ArrowRight, Phone, CheckCircle, Sparkles } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation } from "@/lib/router";
 import { CONTACT, PRICING } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { trpc } from "@/lib/trpc";
@@ -29,15 +29,15 @@ export default function CTASection() {
   const featuredVipCourse = featuredCourses?.find((course) => course.category === "ielts") ?? featuredCourses?.[0];
   const vipPrice = featuredVipCourse?.price || PRICING.VIP_1M;
   const vipOriginalPrice = featuredVipCourse ? featuredVipCourse.originalPrice : PRICING.VIP_ORIGINAL;
-  const totalScorersBn = totalScorers.toLocaleString("bn-BD");
-  const successRateBn = successRate.toLocaleString("bn-BD");
+  const totalScorersBn = totalScorers.toLocaleString("en-US");
+  const successRateBn = successRate.toLocaleString("en-US");
   const guarantees = [
-    `প্রমাণিত ${successRateBn}% সাফল্যের হার`,
-    "One-to-One ব্যক্তিগত মেন্টরিং",
-    "২৪/৭ WhatsApp সাপোর্ট",
-    "রেকর্ডেড ক্লাস + স্টাডি ম্যাটেরিয়াল",
-    "মক টেস্ট ও বিস্তারিত ফিডব্যাক",
-    "সার্টিফিকেট অব কমপ্লিশন",
+    `Proven ${successRateBn}% Success Rate`,
+    "Personal One-to-One Mentoring",
+    "24/7 WhatsApp Support",
+    "Recorded Classes + Study Materials",
+    "Mock Tests with Detailed Feedback",
+    "Certificate of Completion",
   ];
 
   return (
@@ -58,7 +58,7 @@ export default function CTASection() {
               }`}
             >
               <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span className="text-white font-body text-sm font-medium">সীমিত সিট — এখনই ভর্তি হন</span>
+              <span className="text-white font-body text-sm font-medium">Seats are limited — Enroll Now</span>
             </div>
 
             <h2
@@ -66,7 +66,7 @@ export default function CTASection() {
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
               }`}
             >
-              আপনার <span className="text-yellow-300">IELTS সাফল্যের</span> যাত্রা শুরু করুন আজই
+              Start your <span className="text-yellow-300">IELTS success</span> journey today
             </h2>
 
             <p
@@ -74,7 +74,7 @@ export default function CTASection() {
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
               }`}
             >
-              {totalScorersBn}+ সফল শিক্ষার্থীর বিশ্বস্ত প্ল্যাটফর্মে যোগ দিন। আমাদের VIP কোর্সে ব্যক্তিগত মনোযোগ পান এবং আপনার স্বপ্নের Band Score অর্জন করুন।
+              {totalScorersBn}+ successful students. Join the platform trusted by our students. Get personal attention in our VIP course and achieve your target band score.
             </p>
 
             {/* Guarantees Grid */}
@@ -103,7 +103,7 @@ export default function CTASection() {
                 onClick={() => navigate('/enroll')}
                 className="group px-8 py-4 bg-white text-brand-red font-display font-bold text-base rounded-xl hover:bg-gray-50 transition-all duration-300 shadow-xl shadow-black/10 hover:-translate-y-1 inline-flex items-center gap-2"
               >
-                এখনই ভর্তি হন
+                Enroll Now
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
@@ -111,7 +111,7 @@ export default function CTASection() {
                 className="px-8 py-4 border-2 border-white/40 text-white font-body font-semibold text-base rounded-xl hover:bg-white/10 hover:border-white/60 transition-all duration-300 inline-flex items-center gap-2"
               >
                 <Phone className="w-4 h-4" />
-                কল করুন — {CONTACT.PHONE_SHORT}
+                Call — {CONTACT.PHONE_SHORT}
               </a>
             </div>
           </div>
@@ -130,22 +130,22 @@ export default function CTASection() {
                 {ctaCommitmentTitle}
               </h3>
               <p className="text-white/70 font-body text-base leading-relaxed mb-6">
-                {ctaCommitmentDescription || `আমরা প্রতিটি শিক্ষার্থীর সাফল্যে প্রতিশ্রুতিবদ্ধ। আমাদের ${successRateBn}% সাফল্যের হার প্রমাণ করে যে আমাদের পদ্ধতি কার্যকর।`}
+                {ctaCommitmentDescription || `We are committed to every student’s success. Our ${successRateBn}% success rate shows that our method works.`}
               </p>
 
               {/* Trust metrics */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white/10 rounded-xl p-3">
                   <div className="font-display text-2xl font-extrabold text-yellow-300">{successRate}%</div>
-                  <p className="text-white/50 font-body text-[10px] mt-1">সাফল্যের হার</p>
+                  <p className="text-white/50 font-body text-[10px] mt-1">Success Rate</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-3">
                   <div className="font-display text-2xl font-extrabold text-yellow-300">{avgBandScore}</div>
-                  <p className="text-white/50 font-body text-[10px] mt-1">গড় ব্যান্ড</p>
+                  <p className="text-white/50 font-body text-[10px] mt-1">Average Band</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-3">
                   <div className="font-display text-2xl font-extrabold text-yellow-300">{ctaSupportValue}</div>
-                  <p className="text-white/50 font-body text-[10px] mt-1">সাপোর্ট</p>
+                  <p className="text-white/50 font-body text-[10px] mt-1">Support</p>
                 </div>
               </div>
 

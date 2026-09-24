@@ -1,0 +1,21 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/typescript/client.tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts",
+    "**/*.ts",
+    "**/*.tsx",
+    "../server/**/*.ts",
+    "../shared/**/*.ts",
+    "../server/database/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../server/**/*.test.ts"
+  ]
+}

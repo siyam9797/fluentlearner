@@ -13,39 +13,39 @@ import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const getFaqs = (totalScorers: string, successRate: string) => [
   {
-    question: "অনলাইন কোর্সে কি সত্যিই ভালো ফলাফল পাওয়া সম্ভব?",
-    questionEn: "Can I really get good results from an online course?",
-    answer: `অবশ্যই! আমাদের ${totalScorers}+ সফল শিক্ষার্থীর বেশিরভাগই অনলাইন ব্যাচ থেকে। অনলাইনে one-to-one mentoring-এ আপনি আরও বেশি ব্যক্তিগত মনোযোগ পান। Sajal Chaklader (Band 8.0, RUET) এবং Dr Milon Chowdhury (Band 8.0) — দুজনেই আমাদের অনলাইন VIP ব্যাচ থেকে এই স্কোর অর্জন করেছেন।`,
+    question: "Can I really get good results from an online course?",
+    questionEn: "Online learning with personal mentoring",
+    answer: `Absolutely. Most of our ${totalScorers}+ successful students joined online batches. One-to-one mentoring gives you focused attention, structured feedback, and direct support from your mentor.`,
   },
   {
-    question: "কোর্সের মেয়াদ কতদিন? আমি কি ১ মাসে IELTS প্রস্তুতি নিতে পারব?",
-    questionEn: "How long is the course? Can I prepare in 1 month?",
-    answer: "আমাদের IELTS VIP Course-এ দুটি প্ল্যান আছে — Plan A (১ মাস, ৳৮,৫০০) এবং Plan B (২ মাস, ৳১০,০০০)। যদি আপনার ইংরেজির ভিত্তি মোটামুটি ভালো থাকে, তাহলে ১ মাসেই Band 7.0+ সম্ভব। Dr Milon Chowdhury মাত্র ১৫ দিনের কোচিং-এ Band 8.0 পেয়েছেন!",
+    question: "How long is the course? Can I prepare in one month?",
+    questionEn: "Flexible one-month and two-month plans",
+    answer: "Our IELTS VIP Course offers Plan A for one month and Plan B for two months. If your English foundation is already solid, an intensive one-month plan can help you make significant progress.",
   },
   {
-    question: "Writing-এ কম স্কোর আসে — আপনারা কিভাবে সাহায্য করবেন?",
+    question: "I score low in Writing. How can you help?",
     questionEn: "I score low in Writing — how can you help?",
-    answer: "Writing হলো বেশিরভাগ বাংলাদেশি শিক্ষার্থীর দুর্বল জায়গা। আমাদের VIP কোর্সে প্রতিটি Writing Task আলাদাভাবে review করা হয়, detailed feedback দেওয়া হয়, এবং proven templates শেখানো হয়। আমাদের শিক্ষার্থীরা গড়ে Writing-এ 6.0-7.0 পাচ্ছেন, যা বেশিরভাগ university requirement পূরণ করে।",
+    answer: "Every writing task is reviewed individually. You receive detailed feedback, proven structures, vocabulary guidance, and practical exercises based on IELTS band descriptors.",
   },
   {
-    question: "আমি কি ক্লাস মিস করলে রেকর্ডিং পাব?",
+    question: "Will I get recordings if I miss a class?",
     questionEn: "Will I get recordings if I miss a class?",
-    answer: "হ্যাঁ! প্রতিটি ক্লাসের রেকর্ডিং দেওয়া হয়। এছাড়াও Study Material, Mock Test, এবং ২৪/৭ WhatsApp সাপোর্ট পাবেন। আপনি যেকোনো সময় আপনার সুবিধামতো ক্লাস দেখতে পারবেন।",
+    answer: "Yes. Class recordings, study materials, mock tests, and WhatsApp support are included, so you can review lessons at a convenient time.",
   },
   {
-    question: "অন্যান্য প্ল্যাটফর্মের তুলনায় FluentLearner কেন বেছে নেব?",
+    question: "Why should I choose FluentLearner over other platforms?",
     questionEn: "Why should I choose FluentLearner over others?",
-    answer: `তিনটি কারণে: (১) One-to-One Mentoring — গ্রুপ ক্লাসে ব্যক্তিগত মনোযোগ পাওয়া যায় না, আমরা প্রতিটি শিক্ষার্থীর দুর্বলতা আলাদাভাবে address করি। (২) Proven Track Record — ${totalScorers}+ সফল শিক্ষার্থী, ${successRate}% সাফল্যের হার। (৩) Affordable Pricing — মাত্র ৳৮,৫০০ থেকে শুরু, যা অন্যান্য VIP কোর্সের তুলনায় অনেক কম।`,
+    answer: `You receive one-to-one mentoring, a proven track record of ${totalScorers}+ successful students and a ${successRate}% success rate, plus practical course plans at accessible prices.`,
   },
   {
-    question: "কোর্স শেষে কি সার্টিফিকেট দেওয়া হয়?",
+    question: "Do you provide a certificate after course completion?",
     questionEn: "Do you provide a certificate after course completion?",
-    answer: "হ্যাঁ, কোর্স সফলভাবে সম্পন্ন করলে FluentLearner থেকে একটি Certificate of Completion দেওয়া হয়। তবে মনে রাখবেন, আসল সার্টিফিকেট হলো আপনার IELTS Band Score — এবং সেটাই আমাদের মূল লক্ষ্য।",
+    answer: "Yes. Students who successfully complete a course receive a FluentLearner Certificate of Completion. Our primary goal, however, is helping you achieve your target IELTS band score.",
   },
   {
-    question: "পেমেন্ট কিভাবে করব? কিস্তিতে দেওয়া যাবে?",
+    question: "How do I pay? Can I pay in installments?",
     questionEn: "How do I pay? Can I pay in installments?",
-    answer: "bKash, Nagad, Rocket, বা Bank Transfer-এ পেমেন্ট করতে পারবেন। কিস্তির ব্যবস্থাও আছে — বিস্তারিত জানতে WhatsApp-এ যোগাযোগ করুন (01301-872288)। আমরা আপনার সুবিধামতো পেমেন্ট প্ল্যান তৈরি করে দেব।",
+    answer: "You can pay by bKash, Nagad, Rocket, or bank transfer. Installment options may be available; contact us on WhatsApp to discuss a suitable payment plan.",
   },
 ];
 
@@ -115,21 +115,21 @@ export default function FAQSection() {
                   isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                 }`}
               >
-                সচরাচর জিজ্ঞাসা
+                Frequently Asked Questions
               </span>
               <h2
                 className={`font-display text-brand-dark text-3xl sm:text-4xl font-extrabold leading-tight mb-4 transition-all duration-600 delay-100 ${
                   isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                 }`}
               >
-                আপনার প্রশ্নের <span className="text-brand-red">উত্তর</span>
+                Answers to your <span className="text-brand-red">questions</span>
               </h2>
               <p
                 className={`text-brand-charcoal/60 font-body text-base leading-relaxed mb-6 transition-all duration-600 delay-200 ${
                   isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                 }`}
               >
-                IELTS প্রস্তুতি নিয়ে আপনার মনে যে প্রশ্নগুলো আসতে পারে, তার উত্তর এখানে পাবেন। আরও কিছু জানতে চাইলে সরাসরি WhatsApp-এ জিজ্ঞেস করুন।
+                Find answers to common questions about IELTS preparation. Contact us on WhatsApp if you need more help.
               </p>
               <a
                 href={`https://wa.me/${CONTACT.WHATSAPP_BUSINESS}?text=Assalamu%20Alaikum%2C%20I%20have%20a%20question%20about%20FluentLearner%20courses`}
@@ -140,7 +140,7 @@ export default function FAQSection() {
                 }`}
                 style={{ transitionDelay: isVisible ? "300ms" : "0ms" }}
               >
-                আরও প্রশ্ন আছে? জিজ্ঞেস করুন
+                Ask Another Question
               </a>
             </div>
           </div>

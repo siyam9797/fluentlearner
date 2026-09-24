@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { Clock, Users, Flame, ArrowRight } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation } from "@/lib/router";
 import { trpc } from "@/lib/trpc";
 
 function parseBatchDate(value: string): Date | null {
@@ -21,8 +21,8 @@ function parseBatchDate(value: string): Date | null {
 
 function formatBatchDate(date: Date): string {
   const monthsBn = [
-    "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
-    "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
   const monthsEn = [
     "January", "February", "March", "April", "May", "June",
@@ -100,12 +100,12 @@ export default function UrgencyBanner() {
             </div>
             <div>
               <p className="text-white font-display text-sm font-bold">
-                পরবর্তী ব্যাচ শুরু: <span className="text-yellow-300">{formatBatchDate(batchDate)}</span>
+                Next Batch Starts: <span className="text-yellow-300">{formatBatchDate(batchDate)}</span>
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <Users className="w-3.5 h-3.5 text-brand-red-light" />
                 <span className="text-white/50 font-body text-xs">
-                  মাত্র <span className="text-yellow-300 font-bold">{seatsRemaining.toLocaleString("bn-BD")}টি</span> সিট বাকি আছে
+                  Only <span className="text-yellow-300 font-bold">{seatsRemaining.toLocaleString("en-US")}</span> seats remaining
                 </span>
               </div>
             </div>
@@ -116,10 +116,10 @@ export default function UrgencyBanner() {
             <Clock className="w-4 h-4 text-white/40" />
             <div className="flex items-center gap-1.5">
               {[
-                { value: timeLeft.days, label: "দিন" },
-                { value: timeLeft.hours, label: "ঘণ্টা" },
-                { value: timeLeft.minutes, label: "মিনিট" },
-                { value: timeLeft.seconds, label: "সেকেন্ড" },
+                { value: timeLeft.days, label: "Days" },
+                { value: timeLeft.hours, label: "Hours" },
+                { value: timeLeft.minutes, label: "Minutes" },
+                { value: timeLeft.seconds, label: "Seconds" },
               ].map((unit, i) => (
                 <div key={unit.label} className="flex items-center gap-1.5">
                   <div className="bg-white/10 rounded-lg px-2.5 py-1.5 text-center min-w-[44px]">
@@ -139,7 +139,7 @@ export default function UrgencyBanner() {
             onClick={() => navigate('/enroll')}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-red text-white font-body font-bold text-sm rounded-lg hover:bg-brand-red-light transition-all duration-300 shadow-lg shadow-brand-red/30 hover:-translate-y-0.5 shrink-0 cursor-pointer"
           >
-            এখনই ভর্তি হন
+            Enroll Now
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

@@ -6,7 +6,6 @@
  */
 import { useScrollAnimation, useCountUp } from "@/hooks/useScrollAnimation";
 import { Users, Trophy, TrendingUp, Calendar, Shield } from "lucide-react";
-import { SITE_STATS } from "@/lib/siteConstants";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 function formatCompactCount(value: number): string {
@@ -19,11 +18,11 @@ export default function TrustBar() {
   const ss = useSiteSettings();
 
   const stats = [
-    { icon: Users, value: ss.totalScorers, suffix: "+", label: "সফল শিক্ষার্থী", labelEn: "Successful Scorers" },
-    { icon: Trophy, value: ss.successRate, suffix: "%", label: "সাফল্যের হার", labelEn: "Success Rate" },
-    { icon: TrendingUp, value: 7, suffix: ".0+", label: "গড় ব্যান্ড স্কোর", labelEn: "Avg. Band Score" },
-    { icon: Calendar, value: ss.yearsExperience, suffix: "+", label: "বছরের অভিজ্ঞতা", labelEn: "Years of Excellence" },
-    { icon: Shield, value: 0, suffix: "", label: "কোর্সের ধরণ", labelEn: "Course Type" },
+    { icon: Users, value: ss.totalScorers, suffix: "+", label: "Successful Students", labelEn: "Successful Scorers" },
+    { icon: Trophy, value: ss.successRate, suffix: "%", label: "Success Rate", labelEn: "Success Rate" },
+    { icon: TrendingUp, value: 7, suffix: ".0+", label: "Average Band Score", labelEn: "Avg. Band Score" },
+    { icon: Calendar, value: ss.yearsExperience, suffix: "+", label: "Years of Experience", labelEn: "Years of Excellence" },
+    { icon: Shield, value: 0, suffix: "", label: "Course Type", labelEn: "Course Type" },
   ];
 
   const count0 = useCountUp(stats[0].value, 2000, isVisible);

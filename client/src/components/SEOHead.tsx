@@ -1,18 +1,16 @@
 /**
  * SEOHead Component — Per-page Open Graph + Twitter Card + SEO meta tags
- * Uses react-helmet-async to dynamically set meta tags per route
+ * Uses React metadata elements, which Next.js hoists into the document head.
  * 
  * Brand: FluentLearner IELTS & SPOKEN
  * Domain: https://fluentlearner.com
- * OG Images: CDN-hosted branded images
+ * OG Images: locally hosted branded images
  */
 
-import { Helmet } from "react-helmet-async";
 import { SITE_STATS, CONTACT, BRAND } from "@/lib/siteConstants";
 
 const BASE_URL = "https://fluentlearner.com";
-const OG_DEFAULT = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663213348894/MSLFbmzRAjAzezbB.jpg";
-const OG_SQUARE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663213348894/hOXAElMZLFNaGzeq.jpg";
+const OG_DEFAULT = "/og-default.jpg";
 const SITE_NAME = BRAND.NAME;
 
 interface SEOHeadProps {
@@ -39,7 +37,7 @@ export default function SEOHead({
   const fullUrl = `${BASE_URL}${path}`;
 
   return (
-    <Helmet>
+    <>
       {/* Basic SEO */}
       <title>{title}</title>
       <meta name="description" content={description} />
@@ -62,7 +60,7 @@ export default function SEOHead({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
       <meta name="twitter:image:alt" content={ogImageAlt} />
-    </Helmet>
+    </>
   );
 }
 
