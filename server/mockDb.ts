@@ -1,7 +1,18 @@
 /**
  * Data access and marking for IELTS mock tests.
  */
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  like,
+  not,
+  or,
+  sql,
+} from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   appUsers,
@@ -22,10 +33,11 @@ import {
   type MockTest,
 } from "./database/schema";
 import { getDb } from "./db";
+import { isAiGradingConfigured, queueAiEvaluation } from "./aiGrading";
 import {
   AUTO_MARKED_TYPES,
+  answerScore,
   bandFromRawScore,
-  isAnswerCorrect,
   isAutoMarkedModule,
   overallFromCriteria,
   type MockModule,
@@ -52,6 +64,7 @@ async function db() {
 export type QuestionInput = {
   id?: number;
   type: MockQuestionType;
+  instruction?: string | null;
   prompt: string;
   options?: string[] | null;
   answers?: string[] | null;
@@ -67,6 +80,7 @@ export type SectionInput = {
   title: string;
   instructions?: string | null;
   content?: string | null;
+  questionLayout?: string | null;
   imageUrl?: string | null;
   audioUrl?: string | null;
   questions: QuestionInput[];
@@ -86,6 +100,7 @@ export type TestInput = {
   series?: string | null;
   bookNumber?: number | null;
   testNumber?: number | null;
+  practiceType?: string | null;
 };
 
 export async function listTestsWithStats() {
@@ -173,6 +188,7 @@ export async function saveTestTree(
       series: test.series || null,
       bookNumber: test.series ? (test.bookNumber ?? null) : null,
       testNumber: test.series ? (test.testNumber ?? null) : null,
+      practiceType: test.practiceType || null,
     };
     if (id) {
       await tx.update(mockTests).set(testValues).where(eq(mockTests.id, id));
@@ -198,6 +214,7 @@ export async function saveTestTree(
         title: section.title,
         instructions: section.instructions ?? null,
         content: section.content ?? null,
+        questionLayout: section.questionLayout ?? null,
         imageUrl: section.imageUrl ?? null,
         audioUrl: section.audioUrl ?? null,
         sortOrder: sectionIndex,
@@ -222,6 +239,7 @@ export async function saveTestTree(
           testId: id,
           sectionId,
           type: question.type,
+          instruction: question.instruction ?? null,
           prompt: question.prompt,
           options: question.options ?? null,
           answers: question.answers ?? null,
@@ -344,26 +362,25 @@ export async function finalizeAttempt(attemptId: number) {
     if (!AUTO_MARKED_TYPES.includes(question.type)) continue;
     max += question.points;
     const answer = answers.find(a => a.questionId === question.id);
-    const correct = isAnswerCorrect(
+    const earned = answerScore(
       question.type,
       question.answers,
       answer?.response
     );
-    if (correct) raw += question.points;
+    const correct = earned === question.points;
+    raw += Math.min(earned, question.points);
     if (answer) {
       await database
         .update(mockAnswers)
         .set({ isCorrect: correct })
         .where(eq(mockAnswers.id, answer.id));
     } else {
-      await database
-        .insert(mockAnswers)
-        .values({
-          attemptId,
-          questionId: question.id,
-          response: null,
-          isCorrect: false,
-        });
+      await database.insert(mockAnswers).values({
+        attemptId,
+        questionId: question.id,
+        response: null,
+        isCorrect: false,
+      });
     }
   }
 
@@ -381,8 +398,18 @@ export async function finalizeAttempt(attemptId: number) {
           ? bandFromRawScore(test.module, test.variant, raw, max).toFixed(1)
           : null,
       gradedAt: autoMarked ? now : null,
+      // Writing/Speaking: flag AI marking straight away so the result page shows it as in progress.
+      ...(!autoMarked && isAiGradingConfigured()
+        ? {
+            aiEvaluation: {
+              status: "pending" as const,
+              createdAt: now.toISOString(),
+            },
+          }
+        : {}),
     })
     .where(eq(mockAttempts.id, attemptId));
+  if (!autoMarked) queueAiEvaluation(attemptId);
 
   const [updated] = await database
     .select()
@@ -411,7 +438,15 @@ export async function getOwnedAttempt(attemptId: number, userId: number) {
   return attempt;
 }
 
-export async function startAttempt(testId: number, userId: number) {
+/**
+ * Start (or resume) an attempt. The student picks the mode: "exam" is timed and limited by the
+ * test's attempt allowance; "practice" is untimed and unlimited.
+ */
+export async function startAttempt(
+  testId: number,
+  userId: number,
+  mode: "exam" | "practice"
+) {
   const database = await db();
   const [test] = await database
     .select()
@@ -432,12 +467,19 @@ export async function startAttempt(testId: number, userId: number) {
     )
     .orderBy(desc(mockAttempts.startedAt));
 
-  for (const attempt of attempts.filter(a => a.status === "in_progress")) {
+  for (const attempt of attempts.filter(
+    a => a.status === "in_progress" && a.mode === mode
+  )) {
     const current = await loadAttempt(attempt.id);
     if (current?.status === "in_progress") return current; // resume
   }
 
-  if (test.maxAttempts && attempts.length >= test.maxAttempts) {
+  const examAttempts = attempts.filter(a => a.mode === "exam");
+  if (
+    mode === "exam" &&
+    test.maxAttempts &&
+    examAttempts.length >= test.maxAttempts
+  ) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "You have used all attempts for this test",
@@ -445,10 +487,11 @@ export async function startAttempt(testId: number, userId: number) {
   }
 
   const now = new Date();
-  const timed = test.mode === "exam" && test.durationMinutes;
+  const timed = mode === "exam" && test.durationMinutes;
   const [result] = await database.insert(mockAttempts).values({
     testId,
     userId,
+    mode,
     startedAt: now,
     deadlineAt: timed
       ? new Date(now.getTime() + test.durationMinutes! * 60_000)
@@ -568,20 +611,34 @@ export async function listStudentTests(userId: number) {
 
   return tests.map(test => {
     const mine = attempts.filter(a => a.testId === test.id);
+    const bands = mine.map(a => Number(a.band)).filter(Number.isFinite);
+    // Students take any test as an exam or as practice; each mode keeps its own progress.
+    const stateFor = (mode: "exam" | "practice") => {
+      const inMode = mine.filter(a => a.mode === mode);
+      const inProgress = inMode.find(
+        a => a.status === "in_progress" && !isExpired(a)
+      );
+      return {
+        attemptsUsed: inMode.length,
+        attemptsLeft:
+          mode === "exam" && test.maxAttempts
+            ? Math.max(0, test.maxAttempts - inMode.length)
+            : null,
+        inProgressAttemptId: inProgress?.id ?? null,
+        lastAttempt: inMode[0] ?? null,
+      };
+    };
     const inProgress = mine.find(
       a => a.status === "in_progress" && !isExpired(a)
     );
-    const bands = mine.map(a => Number(a.band)).filter(Number.isFinite);
     return {
       ...test,
       questionCount: Number(counts.find(c => c.testId === test.id)?.n ?? 0),
       attemptsUsed: mine.length,
-      attemptsLeft: test.maxAttempts
-        ? Math.max(0, test.maxAttempts - mine.length)
-        : null,
       bestBand: bands.length ? Math.max(...bands) : null,
       inProgressAttemptId: inProgress?.id ?? null,
       lastAttempt: mine[0] ?? null,
+      modes: { exam: stateFor("exam"), practice: stateFor("practice") },
     };
   });
 }
@@ -817,6 +874,10 @@ export async function gradeAttempt(input: {
       band: band === null ? null : band.toFixed(1),
       feedback: input.feedback ?? attempt.feedback,
       gradedAt: new Date(),
+      // A mentor's grade replaces any AI grade shown to the student.
+      ...(attempt.aiEvaluation?.applied
+        ? { aiEvaluation: { ...attempt.aiEvaluation, applied: false } }
+        : {}),
     })
     .where(eq(mockAttempts.id, attempt.id));
 }
@@ -934,4 +995,47 @@ export async function updateStudent(
   if (!student)
     throw new TRPCError({ code: "NOT_FOUND", message: "Student not found" });
   await database.update(appUsers).set(values).where(eq(appUsers.id, id));
+}
+
+/**
+ * A student's enrollments, newest first, found by their login email.
+ * Online checkouts that were started but never paid (transactionId "bkash:…") are left out.
+ */
+export async function getStudentEnrollments(email: string) {
+  const database = await db();
+  return database
+    .select({
+      id: enrollments.id,
+      status: enrollments.status,
+      studentMobile: enrollments.studentMobile,
+      paymentMethod: enrollments.paymentMethod,
+      paymentAmount: enrollments.paymentAmount,
+      transactionId: enrollments.transactionId,
+      studentId: enrollments.studentId,
+      createdAt: enrollments.createdAt,
+      verifiedAt: enrollments.verifiedAt,
+      courseName: courses.name,
+      courseNameEn: courses.nameEn,
+      batchName: batches.name,
+    })
+    .from(enrollments)
+    .leftJoin(courses, eq(courses.id, enrollments.courseId))
+    .leftJoin(batches, eq(batches.id, enrollments.batchId))
+    .where(
+      and(
+        eq(enrollments.studentEmail, email.trim().toLowerCase()),
+        not(like(enrollments.transactionId, "bkash:%"))
+      )
+    )
+    .orderBy(desc(enrollments.createdAt));
+}
+
+/** Students have no phone field of their own; their mobile lives on their enrollments, where admins see it. */
+export async function updateStudentMobile(email: string, mobile: string) {
+  const database = await db();
+  const result = await database
+    .update(enrollments)
+    .set({ studentMobile: mobile })
+    .where(eq(enrollments.studentEmail, email.trim().toLowerCase()));
+  return result[0].affectedRows;
 }

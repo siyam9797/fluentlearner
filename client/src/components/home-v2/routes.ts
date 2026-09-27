@@ -10,14 +10,13 @@ export const V2 = {
   stories: "/v2/success-stories",
   process: "/v2/how-it-works",
   contact: "/v2/contact",
-  /** No v2 version yet — the original enrolment flow is reused. */
-  enroll: (courseId?: number) => (courseId && courseId > 0 ? `/enroll?courseId=${courseId}` : "/enroll"),
+  enroll: (courseId?: number) =>
+    courseId && courseId > 0 ? `/v2/enroll?courseId=${courseId}` : "/v2/enroll",
 } as const;
 
-export const V2_NAV = [
-  { label: "Courses", href: V2.courses },
-  { label: "About", href: V2.about },
-  { label: "Success Stories", href: V2.stories },
-  { label: "How It Works", href: V2.process },
-  { label: "Contact", href: V2.contact },
-];
+/** Links saved before v2 had its own enrol page point at "/enroll"; send those to the v2 page instead. */
+export function toV2Href(href: string) {
+  return href === "/enroll" || href.startsWith("/enroll?")
+    ? `/v2${href}`
+    : href;
+}

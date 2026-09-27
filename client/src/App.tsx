@@ -12,6 +12,7 @@ import V2About from "./screens/V2About";
 import V2SuccessStories from "./screens/V2SuccessStories";
 import V2HowItWorks from "./screens/V2HowItWorks";
 import V2Contact from "./screens/V2Contact";
+import V2Enroll from "./screens/V2Enroll";
 import CoursesPage from "./screens/CoursesPage";
 import CourseDetailPage from "./screens/CourseDetailPage";
 import SuccessStoriesPage from "./screens/SuccessStoriesPage";
@@ -23,10 +24,12 @@ import AdminEnrollments from "./screens/AdminEnrollments";
 import AdminPaymentSettings from "./screens/AdminPaymentSettings";
 import AdminBatches from "./screens/AdminBatches";
 import AdminSiteSettings from "./screens/AdminSiteSettings";
+import AdminWebsite from "./screens/AdminWebsite";
 import AdminSettings from "./screens/AdminSettings";
 import AdminProfile from "./screens/AdminProfile";
 import AdminLayout from "./components/AdminLayout";
-import AdminMockTests from "./screens/AdminMockTests";
+import AdminMockTests, { isMockModule } from "./screens/AdminMockTests";
+import type { MockModule } from "@shared/mock";
 import AdminMockTestEditor from "./screens/AdminMockTestEditor";
 import AdminCambridgeLibrary from "./screens/AdminCambridgeLibrary";
 import AdminMockResults from "./screens/AdminMockResults";
@@ -53,6 +56,7 @@ function Router() {
   if (pathname === "/v2/success-stories") return <V2SuccessStories />;
   if (pathname === "/v2/how-it-works") return <V2HowItWorks />;
   if (pathname === "/v2/contact") return <V2Contact />;
+  if (pathname === "/v2/enroll") return <V2Enroll />;
   if (pathname === "/courses") return <CoursesPage />;
   if (pathname.startsWith("/courses/")) return <CourseDetailPage />;
   if (pathname === "/success-stories") return <SuccessStoriesPage />;
@@ -132,18 +136,32 @@ function Router() {
       );
     else if (pathname === "/admin/site-settings")
       screen = <AdminSiteSettings />;
+    else if (
+      pathname === "/admin/website" ||
+      pathname.startsWith("/admin/website/")
+    )
+      screen = <AdminWebsite />;
     else if (pathname === "/admin/settings") screen = <AdminSettings />;
     else if (pathname === "/admin/profile") screen = <AdminProfile />;
-    else if (pathname === "/admin/mock-tests") screen = <AdminMockTests />;
-    else if (pathname === "/admin/mock-tests/cambridge")
+    // /admin/ielts redirects to Listening (next.config.ts); render it here too in case it doesn't.
+    else if (pathname === "/admin/ielts")
+      screen = <AdminMockTests key="listening" module="listening" />;
+    else if (isMockModule(pathname.slice("/admin/ielts/".length)))
+      screen = (
+        <AdminMockTests
+          key={pathname}
+          module={pathname.slice("/admin/ielts/".length) as MockModule}
+        />
+      );
+    else if (pathname === "/admin/ielts/cambridge")
       screen = <AdminCambridgeLibrary />;
-    else if (pathname.startsWith("/admin/mock-tests/"))
-      screen = <AdminMockTestEditor key={pathname} />;
     else if (
-      pathname === "/admin/mock-results" ||
-      pathname.startsWith("/admin/mock-results/")
+      pathname === "/admin/ielts/attempts" ||
+      pathname.startsWith("/admin/ielts/attempts/")
     )
       screen = <AdminMockResults key={pathname} />;
+    else if (pathname.startsWith("/admin/ielts/"))
+      screen = <AdminMockTestEditor key={pathname} />;
     else if (pathname === "/admin/users/new") screen = <AdminUserCreate />;
     else if (/^\/admin\/users\/\d+\/edit$/.test(pathname))
       screen = (

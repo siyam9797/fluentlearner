@@ -29,12 +29,11 @@ import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { interTight } from "@/components/home-v2/font";
-import { DecorSquare } from "@/components/home-v2/primitives";
+import { DecorSquare, HV_FIELD } from "@/components/home-v2/primitives";
 import { V2 } from "@/components/home-v2/routes";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 
-const fieldClass =
-  "w-full rounded-[5px] border border-ink/20 bg-white px-4 py-3.5 text-base outline-none transition-colors focus:border-ink";
+const fieldClass = HV_FIELD;
 
 function StudentLogin() {
   const [email, setEmail] = useState("");
@@ -128,9 +127,12 @@ export default function StudentShell({
     enabled: isStudent && !loading,
   });
   const { get } = useSiteSettings();
+  // Page and card colours come from Admin → Settings → Appearance (Background / Card BG).
   const background = get("appearance_light_background", "#F8F7EC");
+  const cardBackground = get("appearance_light_card_bg", "#FFFFFF");
   const portalStyle = {
     "--color-cream": background,
+    "--student-card": cardBackground,
     backgroundColor: background,
   } as CSSProperties;
 
@@ -251,7 +253,7 @@ export default function StudentShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex items-center gap-3 rounded-[6px] px-3 py-3 text-sm font-medium transition-colors",
+                  "group flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-3 text-sm font-medium transition-colors",
                   pathname === item.href
                     ? "bg-brand-red text-white"
                     : "text-white/65 hover:bg-white/8 hover:text-white"
@@ -268,7 +270,7 @@ export default function StudentShell({
           className="relative mt-auto border-t border-white/10 p-5"
         >
           {accountOpen && (
-            <div className="absolute bottom-[calc(100%+8px)] left-5 right-5 overflow-hidden rounded-[8px] border border-white/10 bg-[#292929] p-2 shadow-[0_18px_45px_rgba(0,0,0,.3)]">
+            <div className="absolute bottom-[calc(100%+8px)] left-5 right-5 overflow-hidden rounded-[var(--radius-card)] border border-white/10 bg-[#292929] p-2 shadow-[0_18px_45px_rgba(0,0,0,.3)]">
               <div className="flex items-center gap-3 px-2 py-2.5">
                 {studentProfile?.avatarUrl ? (
                   <img
@@ -296,7 +298,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={() => go("/")}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
               >
                 <Globe2 className="h-4 w-4" />
                 <span className="flex-1">View website</span>
@@ -305,7 +307,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={() => go("/student/profile")}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
               >
                 <UserRound className="h-4 w-4" />
                 My profile
@@ -313,7 +315,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={() => go("/student/batch")}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
               >
                 <CalendarDays className="h-4 w-4" />
                 My batch
@@ -321,7 +323,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={() => go("/student/resources")}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
               >
                 <FolderOpen className="h-4 w-4" />
                 Resources
@@ -329,7 +331,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={() => go("/student/settings")}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-white/8 hover:text-white"
               >
                 <Settings className="h-4 w-4" />
                 Settings
@@ -338,7 +340,7 @@ export default function StudentShell({
               <button
                 type="button"
                 onClick={signOut}
-                className="flex w-full items-center gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-red-500/10 hover:text-red-300"
+                className="flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-left text-sm text-white/65 hover:bg-red-500/10 hover:text-red-300"
               >
                 <LogOut className="h-4 w-4" />
                 Sign out
@@ -350,7 +352,7 @@ export default function StudentShell({
             aria-expanded={accountOpen}
             aria-label="Open student account menu"
             onClick={() => setAccountOpen(value => !value)}
-            className="flex w-full items-center gap-3 rounded-[7px] border border-white/10 bg-white/5 p-3 text-left transition-colors hover:bg-white/8"
+            className="flex w-full items-center gap-3 rounded-[var(--radius-control)] border border-white/10 bg-white/5 p-3 text-left transition-colors hover:bg-white/8"
           >
             {studentProfile?.avatarUrl ? (
               <img

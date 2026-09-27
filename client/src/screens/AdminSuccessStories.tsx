@@ -506,7 +506,7 @@ export default function AdminSuccessStories({
                           })
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -607,18 +607,7 @@ export default function AdminSuccessStories({
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        createMode || editId
-                          ? navigate("/admin/success-stories")
-                          : setDialogOpen(false)
-                      }
-                      className="admin-button admin-button-secondary"
-                    >
-                      Cancel
-                    </Button>
+                  <div className="flex gap-2 pt-8">
                     <Button
                       onClick={handleSave}
                       disabled={
@@ -632,6 +621,17 @@ export default function AdminSuccessStories({
                       {createMutation.isPending || updateMutation.isPending
                         ? "Saving..."
                         : "Save"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        createMode || editId
+                          ? navigate("/admin/success-stories")
+                          : setDialogOpen(false)
+                      }
+                      className="admin-button admin-button-secondary"
+                    >
+                      Cancel
                     </Button>
                   </div>
                 </div>

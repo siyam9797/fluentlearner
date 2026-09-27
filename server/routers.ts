@@ -1,3 +1,11 @@
+import { isBkashConfigured } from "./bkash";
+import {
+  NEW_PASSWORD_COOKIE,
+  bkashPaymentSummary,
+  isValidPaymentId,
+  requestOrigin,
+  startBkashEnrollment,
+} from "./payments";
 import { COOKIE_NAME } from "@shared/const";
 import { verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
@@ -358,6 +366,63 @@ export const appRouter = router({
   // ============================================
   // ENROLLMENTS — Public (submit) + Admin (manage)
   // ============================================
+  /** Online payments (bKash Tokenized Checkout) for the v2 enroll page. */
+  payments: router({
+    available: publicProcedure.query(() => ({ bkash: isBkashConfigured() })),
+
+    bkashStart: publicProcedure
+      .input(
+        z.object({
+          courseId: z.number(),
+          studentName: z.string().trim().min(1, "Enter your name"),
+          studentMobile: z
+            .string()
+            .transform(value => value.replace(/[\s-]/g, ""))
+            .pipe(
+              z
+                .string()
+                .regex(/^01[3-9]\d{8}$/, "Enter a valid 11-digit mobile number")
+            ),
+          studentEmail: z.string().trim().email("Enter a valid email address"),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (!isBkashConfigured())
+          throw new Error(
+            "Online payment isn't available right now. Please contact us to enroll."
+          );
+        return startBkashEnrollment({
+          courseId: input.courseId,
+          studentName: input.studentName,
+          studentMobile: input.studentMobile,
+          studentEmail: input.studentEmail,
+          callbackURL: `${requestOrigin(ctx.req)}/api/payments/bkash/callback`,
+        });
+      }),
+
+    bkashResult: publicProcedure
+      .input(z.object({ paymentID: z.string() }))
+      .query(async ({ input, ctx }) => {
+        if (!isValidPaymentId(input.paymentID)) return null;
+        const summary = await bkashPaymentSummary(input.paymentID);
+        if (!summary) return null;
+        // The generated password is only shown to the student who was just signed in to that account.
+        const cookie = ctx.req.headers.get("cookie") ?? "";
+        const match = new RegExp(
+          `(?:^|;\\s*)${NEW_PASSWORD_COOKIE}=([^;]+)`
+        ).exec(cookie);
+        const signedInAsStudent =
+          ctx.user?.email?.toLowerCase() === summary.email.toLowerCase();
+        return {
+          ...summary,
+          password:
+            summary.account === "created" && signedInAsStudent && match
+              ? decodeURIComponent(match[1])
+              : null,
+        };
+      }),
+  }),
+
   enrollments: router({
     /** Public: submit a new enrollment */
     submit: publicProcedure

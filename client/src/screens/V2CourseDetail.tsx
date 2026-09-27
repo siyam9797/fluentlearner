@@ -3,7 +3,7 @@ import { BookOpen, CalendarClock, Check, Clock, Users } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useV2Content } from "@/components/home-v2/useV2Content";
 import HvLayout, { HvPageHeader } from "@/components/home-v2/HvLayout";
 import HvAccordion from "@/components/home-v2/HvAccordion";
 import HvCTA from "@/components/home-v2/HvCTA";
@@ -19,7 +19,10 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 function toEmbedUrl(url: string) {
-  return url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/").replace(/&.*$/, "");
+  return url
+    .replace("watch?v=", "embed/")
+    .replace("youtu.be/", "youtube.com/embed/")
+    .replace(/&.*$/, "");
 }
 
 function SectionTitle({ children }: { children: string }) {
@@ -48,18 +51,28 @@ function CheckList({ items }: { items: string[] }) {
 
 export default function V2CourseDetail() {
   const [pathname] = useLocation();
-  const ss = useSiteSettings();
+  const ss = useV2Content();
+  const { t } = ss;
   const slug = decodeURIComponent(pathname.split("/")[3] ?? "");
   const isId = /^\d+$/.test(slug);
 
-  const bySlug = trpc.courses.getBySlug.useQuery({ slug }, { enabled: !isId && !!slug });
-  const byId = trpc.courses.getById.useQuery({ id: Number(slug) }, { enabled: isId });
+  const bySlug = trpc.courses.getBySlug.useQuery(
+    { slug },
+    { enabled: !isId && !!slug }
+  );
+  const byId = trpc.courses.getById.useQuery(
+    { id: Number(slug) },
+    { enabled: isId }
+  );
   const { data: course, isLoading } = isId ? byId : bySlug;
 
   if (isLoading) {
     return (
       <HvLayout>
-        <div className="flex min-h-[70vh] items-center justify-center pt-24" role="status">
+        <div
+          className="flex min-h-[70vh] items-center justify-center pt-24"
+          role="status"
+        >
           <span className="h-10 w-10 animate-spin rounded-full border-2 border-ink border-t-transparent" />
           <span className="sr-only">Loading course</span>
         </div>
@@ -71,11 +84,16 @@ export default function V2CourseDetail() {
     return (
       <HvLayout>
         <HvPageHeader
-          crumbs={[{ label: "Courses", href: V2.courses }, { label: "Not found" }]}
-          title="This course isn't available"
-          description="It may have been renamed or is no longer offered. Browse our current courses instead."
+          crumbs={[
+            { label: "Courses", href: V2.courses },
+            { label: "Not found" },
+          ]}
+          title={t("v2_course_missing_title")}
+          description={t("v2_course_missing_text")}
         >
-          <HvButton href={V2.courses} variant="dark">View All Courses</HvButton>
+          <HvButton href={V2.courses} variant="dark">
+            {t("v2_course_missing_button")}
+          </HvButton>
         </HvPageHeader>
         <div className="pb-24" />
       </HvLayout>
@@ -87,23 +105,38 @@ export default function V2CourseDetail() {
   const outcomes = course.learningOutcomes ?? [];
   const curriculum = course.curriculum ?? [];
   const faqs = course.courseFaq ?? [];
-  const seatsLeft = course.maxStudents ? Math.max(0, course.maxStudents - (course.enrolledCount ?? 0)) : null;
-  const whatsappHref = `https://wa.me/${ss.contactWhatsapp}?text=${encodeURIComponent(
-    course.enrollMessage || `I would like to learn more about the "${title}" course.`,
+  const seatsLeft = course.maxStudents
+    ? Math.max(0, course.maxStudents - (course.enrolledCount ?? 0))
+    : null;
+  const whatsappHref = `https://wa.me/${ss.whatsappNumber}?text=${encodeURIComponent(
+    course.enrollMessage ||
+      `I would like to learn more about the "${title}" course.`
   )}`;
 
   const facts = [
-    { icon: BookOpen, label: "Level", value: LEVEL_LABELS[course.level] ?? null },
+    {
+      icon: BookOpen,
+      label: "Level",
+      value: LEVEL_LABELS[course.level] ?? null,
+    },
     { icon: Clock, label: "Duration", value: course.duration },
     { icon: CalendarClock, label: "Schedule", value: course.schedule },
-    { icon: Users, label: "Batch size", value: course.maxStudents ? `Up to ${course.maxStudents} students` : null },
+    {
+      icon: Users,
+      label: "Batch size",
+      value: course.maxStudents ? `Up to ${course.maxStudents} students` : null,
+    },
   ].filter(fact => fact.value);
 
   return (
     <HvLayout>
       <SEOHead
         title={`${title} | FluentLearner`}
-        description={course.shortDescription || course.description || `${title} — FluentLearner IELTS coaching`}
+        description={
+          course.shortDescription ||
+          course.description ||
+          `${title} — FluentLearner IELTS coaching`
+        }
         path={`/courses/${course.slug || course.id}`}
         ogImage={course.imageUrl || undefined}
         type="article"
@@ -118,16 +151,18 @@ export default function V2CourseDetail() {
             {CATEGORY_LABELS[course.category] ?? "Course"}
           </span>
           {course.badge && (
-            <span className="rounded-full border border-ink/20 px-4 py-1.5 text-sm font-medium">{course.badge}</span>
+            <span className="rounded-full border border-ink/20 px-4 py-1.5 text-sm font-medium">
+              {course.badge}
+            </span>
           )}
         </div>
       </HvPageHeader>
 
       <section className="pb-20 pt-12 lg:pb-32 lg:pt-16">
-        <div className="mx-auto grid max-w-[1230px] gap-12 px-4 lg:grid-cols-[1fr_380px] lg:gap-16">
+        <div className="mx-auto grid max-w-[1262px] gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_380px] lg:gap-16">
           <div className="flex min-w-0 flex-col gap-14 lg:gap-16">
             {course.videoUrl ? (
-              <div className="aspect-video overflow-hidden rounded-[5px] bg-ink">
+              <div className="aspect-video overflow-hidden rounded-[var(--radius-card)] bg-ink">
                 <iframe
                   src={toEmbedUrl(course.videoUrl)}
                   title={`${title} introduction video`}
@@ -137,13 +172,20 @@ export default function V2CourseDetail() {
                 />
               </div>
             ) : course.imageUrl ? (
-              <img src={course.imageUrl} alt={`${title} course`} className="aspect-[16/9] w-full rounded-[5px] object-cover" />
+              <img
+                src={course.imageUrl}
+                alt={`${title} course`}
+                className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover"
+              />
             ) : null}
 
             {facts.length > 0 && (
-              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[5px] bg-ink/15 md:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] bg-ink/15 md:grid-cols-4">
                 {facts.map(fact => (
-                  <div key={fact.label} className="flex flex-col gap-2 bg-sand p-5">
+                  <div
+                    key={fact.label}
+                    className="flex flex-col gap-2 bg-sand p-5"
+                  >
                     <dt className="flex items-center gap-2 text-sm text-ink/60">
                       <fact.icon className="h-4 w-4" aria-hidden="true" />
                       {fact.label}
@@ -156,7 +198,7 @@ export default function V2CourseDetail() {
 
             {(course.fullDescription || course.description) && (
               <Reveal>
-                <SectionTitle>About this course</SectionTitle>
+                <SectionTitle>{t("v2_course_about_title")}</SectionTitle>
                 <div className="whitespace-pre-line text-lg leading-relaxed text-ink/80">
                   {course.fullDescription || course.description}
                 </div>
@@ -165,19 +207,21 @@ export default function V2CourseDetail() {
 
             {outcomes.length > 0 && (
               <Reveal>
-                <SectionTitle>What you'll learn</SectionTitle>
+                <SectionTitle>{t("v2_course_outcomes_title")}</SectionTitle>
                 <CheckList items={outcomes} />
               </Reveal>
             )}
 
             {curriculum.length > 0 && (
               <Reveal>
-                <SectionTitle>Curriculum</SectionTitle>
+                <SectionTitle>{t("v2_course_curriculum_title")}</SectionTitle>
                 <HvAccordion
                   numbered
                   items={curriculum.map(module => ({
                     title: module.title,
-                    body: <p className="whitespace-pre-line">{module.content}</p>,
+                    body: (
+                      <p className="whitespace-pre-line">{module.content}</p>
+                    ),
                   }))}
                 />
               </Reveal>
@@ -185,13 +229,15 @@ export default function V2CourseDetail() {
 
             {course.targetAudience && (
               <Reveal>
-                <SectionTitle>Who this course is for</SectionTitle>
-                <p className="whitespace-pre-line text-lg leading-relaxed text-ink/80">{course.targetAudience}</p>
+                <SectionTitle>{t("v2_course_audience_title")}</SectionTitle>
+                <p className="whitespace-pre-line text-lg leading-relaxed text-ink/80">
+                  {course.targetAudience}
+                </p>
               </Reveal>
             )}
 
             {course.instructorName && (
-              <Reveal className="flex flex-col gap-6 rounded-[5px] bg-ink p-6 text-cream sm:flex-row sm:items-center lg:p-8">
+              <Reveal className="flex flex-col gap-6 rounded-[var(--radius-card)] bg-ink p-6 text-cream sm:flex-row sm:items-center lg:p-8">
                 {course.instructorPhoto && (
                   <img
                     src={course.instructorPhoto}
@@ -200,48 +246,90 @@ export default function V2CourseDetail() {
                   />
                 )}
                 <div>
-                  <p className="text-sm uppercase tracking-[0.14em] text-ash">Your mentor</p>
-                  <h2 className="mt-1 text-2xl text-cream">{course.instructorName}</h2>
-                  {course.instructorBio && <p className="mt-3 whitespace-pre-line text-ash">{course.instructorBio}</p>}
+                  <p className="text-sm uppercase tracking-[0.14em] text-ash">
+                    {t("v2_course_mentor_label")}
+                  </p>
+                  <h2 className="mt-1 text-2xl text-cream">
+                    {course.instructorName}
+                  </h2>
+                  {course.instructorBio && (
+                    <p className="mt-3 whitespace-pre-line text-ash">
+                      {course.instructorBio}
+                    </p>
+                  )}
                 </div>
               </Reveal>
             )}
 
             {faqs.length > 0 && (
               <Reveal>
-                <SectionTitle>Frequently asked questions</SectionTitle>
+                <SectionTitle>{t("v2_course_faq_title")}</SectionTitle>
                 <HvAccordion
                   defaultOpen={null}
-                  items={faqs.map(faq => ({ title: faq.question, body: <p className="whitespace-pre-line">{faq.answer}</p> }))}
+                  items={faqs.map(faq => ({
+                    title: faq.question,
+                    body: <p className="whitespace-pre-line">{faq.answer}</p>,
+                  }))}
                 />
               </Reveal>
             )}
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="rounded-[5px] bg-brand-red p-6 text-white lg:p-8">
-              <p className="text-sm text-white/75">Course fee</p>
+            <div className="rounded-[var(--radius-card)] bg-brand-red p-6 text-white lg:p-8">
+              <p className="text-sm text-white/75">
+                {t("v2_course_fee_label")}
+              </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[44px] font-semibold leading-none">{course.price || "Contact us"}</span>
-                {course.originalPrice && <span className="text-lg text-white/60 line-through">{course.originalPrice}</span>}
+                <span className="text-[44px] font-semibold leading-none">
+                  {course.price || t("v2_course_no_price")}
+                </span>
+                {course.originalPrice && (
+                  <span className="text-lg text-white/60 line-through">
+                    {course.originalPrice}
+                  </span>
+                )}
               </div>
               {seatsLeft !== null && seatsLeft > 0 && (
                 <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-white" aria-hidden="true" />
+                  <span
+                    className="h-2 w-2 animate-pulse rounded-full bg-white"
+                    aria-hidden="true"
+                  />
                   {seatsLeft} seats left
                 </p>
               )}
 
               <div className="mt-8 flex flex-col gap-3">
-                <HvButton href={V2.enroll(course.id)} variant="inverse" className="w-full">Enroll Now</HvButton>
-                <HvButton href={whatsappHref} variant="light" external className="w-full">Ask on WhatsApp</HvButton>
+                <HvButton
+                  href={V2.enroll(course.id)}
+                  variant="inverse"
+                  className="w-full"
+                >
+                  {t("v2_course_enroll_text")}
+                </HvButton>
+                <HvButton
+                  href={whatsappHref}
+                  variant="light"
+                  external
+                  className="w-full"
+                >
+                  {t("v2_course_whatsapp_text")}
+                </HvButton>
               </div>
 
               {features.length > 0 && (
                 <ul className="mt-8 flex flex-col gap-3 border-t border-white/20 pt-6">
                   {features.map(feature => (
-                    <li key={feature} className="flex items-start gap-3 text-white/90">
-                      <Check className="mt-0.5 h-4 w-4 flex-none" strokeWidth={3} aria-hidden="true" />
+                    <li
+                      key={feature}
+                      className="flex items-start gap-3 text-white/90"
+                    >
+                      <Check
+                        className="mt-0.5 h-4 w-4 flex-none"
+                        strokeWidth={3}
+                        aria-hidden="true"
+                      />
                       {feature}
                     </li>
                   ))}
@@ -252,7 +340,7 @@ export default function V2CourseDetail() {
         </div>
       </section>
 
-      <HvCTA />
+      {ss.on("v2_course_cta_show") && <HvCTA />}
     </HvLayout>
   );
 }

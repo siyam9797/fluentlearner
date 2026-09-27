@@ -375,6 +375,23 @@ export const MOCK_QUESTION_TYPES = [
   "short_answer",
   "writing",
   "speaking",
+  "one_choice",
+  "two_choices",
+  "three_choices",
+  "four_choices",
+  "five_choices",
+  "matching",
+  "map_labeling",
+  "plan_labeling",
+  "visual_labeling",
+  "diagram_labeling",
+  "form_completion",
+  "note_completion",
+  "table_completion",
+  "flow_chart_completion",
+  "summary_completion",
+  "sentence_completion",
+  "short_answers",
 ] as const;
 
 /** One mock test covers one IELTS module. */
@@ -408,6 +425,8 @@ export const mockTests = mysqlTable(
     series: varchar("series", { length: 50 }),
     bookNumber: int("bookNumber"),
     testNumber: int("testNumber"),
+    /** Official IELTS question type this practice set drills (PRACTICE_TYPES key), or null for full tests */
+    practiceType: varchar("practiceType", { length: 60 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -417,6 +436,7 @@ export const mockTests = mysqlTable(
       table.bookNumber,
       table.testNumber
     ),
+    index("mock_tests_practice_type_idx").on(table.practiceType),
   ]
 );
 
@@ -430,6 +450,8 @@ export const mockSections = mysqlTable(
     instructions: text("instructions"),
     /** Reading passage text or writing/speaking context */
     content: text("content"),
+    /** Optional Listening layout using [[question number]] placeholders. */
+    questionLayout: text("questionLayout"),
     imageUrl: text("imageUrl"),
     audioUrl: text("audioUrl"),
     sortOrder: int("sortOrder").default(0).notNull(),
@@ -444,6 +466,8 @@ export const mockQuestions = mysqlTable(
     testId: int("testId").notNull(),
     sectionId: int("sectionId").notNull(),
     type: mysqlEnum("type", MOCK_QUESTION_TYPES).notNull(),
+    /** Instructions shown immediately before this question/group. */
+    instruction: text("instruction"),
     prompt: text("prompt").notNull(),
     /** Choices for mcq */
     options: json("options").$type<string[]>(),
@@ -461,6 +485,23 @@ export const mockQuestions = mysqlTable(
   table => [index("mock_questions_test_idx").on(table.testId)]
 );
 
+/** Stored AI evaluation of a Writing/Speaking attempt. */
+export type AiEvaluation = {
+  status: "pending" | "done" | "failed";
+  /** Criterion name → band (multiples of 0.5) */
+  criteria?: Record<string, number>;
+  /** Short reason per criterion */
+  comments?: Record<string, string>;
+  band?: number;
+  feedback?: string;
+  answerFeedback?: { questionId: number; feedback: string }[];
+  /** True once the AI result was written into the attempt's grade (practice tests) */
+  applied?: boolean;
+  model?: string;
+  error?: string;
+  createdAt: string;
+};
+
 export const mockAttempts = mysqlTable(
   "mock_attempts",
   {
@@ -471,6 +512,8 @@ export const mockAttempts = mysqlTable(
     status: mysqlEnum("status", ["in_progress", "submitted", "graded"])
       .default("in_progress")
       .notNull(),
+    /** Chosen by the student when starting: "exam" is timed and mentor-marked, "practice" is untimed with answers and AI marking shown straight away */
+    mode: mysqlEnum("mode", ["exam", "practice"]).default("exam").notNull(),
     startedAt: timestamp("startedAt").defaultNow().notNull(),
     /** Hard deadline for timed attempts */
     deadlineAt: timestamp("deadlineAt"),
@@ -482,6 +525,8 @@ export const mockAttempts = mysqlTable(
     criteria: json("criteria").$type<Record<string, number>>(),
     feedback: text("feedback"),
     gradedAt: timestamp("gradedAt"),
+    /** AI marking of Writing/Speaking (see server/aiGrading.ts); applied as the grade for practice, a suggestion for exams */
+    aiEvaluation: json("aiEvaluation").$type<AiEvaluation>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

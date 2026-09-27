@@ -26,7 +26,13 @@ export default function HvAccordion({
         const isOpen = open === i;
         const panelId = `${baseId}-panel-${i}`;
         return (
-          <div key={item.title} className={cn("border-b", dark ? "border-white/15" : "border-ink/15")}>
+          <div
+            key={item.title}
+            className={cn(
+              "border-b",
+              dark ? "border-white/15" : "border-ink/15"
+            )}
+          >
             <h3>
               <button
                 type="button"
@@ -36,7 +42,12 @@ export default function HvAccordion({
                 className="group flex w-full items-center gap-5 py-6 text-left"
               >
                 {numbered && (
-                  <span className={cn("w-8 flex-none text-sm font-medium", dark ? "text-ash" : "text-ink/50")}>
+                  <span
+                    className={cn(
+                      "w-8 flex-none text-sm font-medium",
+                      dark ? "text-ash" : "text-ink/50"
+                    )}
+                  >
                     {String(i + 1).padStart(2, "0")}
                   </span>
                 )}
@@ -45,7 +56,7 @@ export default function HvAccordion({
                     "flex-1 text-lg font-medium transition-colors sm:text-xl",
                     dark ? "text-cream" : "text-ink",
                     "group-hover:text-brand-red",
-                    isOpen && "text-brand-red",
+                    isOpen && "text-brand-red"
                   )}
                 >
                   {item.title}
@@ -53,7 +64,11 @@ export default function HvAccordion({
                 <span
                   className={cn(
                     "flex h-9 w-9 flex-none items-center justify-center rounded-full transition-all duration-300",
-                    isOpen ? "rotate-45 bg-brand-red text-white" : dark ? "bg-white/10 text-cream" : "bg-sand text-ink",
+                    isOpen
+                      ? "rotate-45 bg-brand-red text-white"
+                      : dark
+                        ? "bg-white/10 text-cream"
+                        : "bg-sand text-ink"
                   )}
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
@@ -63,10 +78,21 @@ export default function HvAccordion({
             <div
               id={panelId}
               role="region"
-              className={cn("grid transition-[grid-template-rows] duration-400 ease-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
+              className={cn(
+                "grid transition-[grid-template-rows] duration-400 ease-out",
+                isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              )}
             >
               <div className="overflow-hidden">
-                <div className={cn("pb-6 pr-14", numbered && "pl-[52px]", dark ? "text-ash" : "text-ink/75")}>{item.body}</div>
+                <div
+                  className={cn(
+                    "pb-6 pr-14",
+                    numbered && "pl-[52px]",
+                    dark ? "text-ash" : "text-ink/75"
+                  )}
+                >
+                  {item.body}
+                </div>
               </div>
             </div>
           </div>

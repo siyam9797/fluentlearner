@@ -6,16 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { canAccessAdminDashboard } from "@shared/roles";
 import { trpc } from "@/lib/trpc";
-import {
-  Plus,
-  Check,
-  X,
-  AlertCircle,
-  Loader2,
-  CreditCard,
-  ToggleLeft,
-  ToggleRight,
-} from "lucide-react";
+import { Plus, Check, X, AlertCircle, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import { useLocation } from "@/lib/router";
@@ -24,6 +15,7 @@ import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
+import { Switch } from "@/components/ui/switch";
 
 interface PaymentForm {
   methodName: string;
@@ -338,30 +330,22 @@ export default function AdminPaymentSettings({
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() =>
-                  setForm(prev => ({ ...prev, isActive: !prev.isActive }))
+              <Switch
+                id="payment-active"
+                checked={form.isActive}
+                onCheckedChange={checked =>
+                  setForm(prev => ({ ...prev, isActive: checked }))
                 }
-                className="flex items-center gap-2 text-sm"
+              />
+              <label
+                htmlFor="payment-active"
+                className="cursor-pointer text-sm"
               >
-                {form.isActive ? (
-                  <ToggleRight className="w-8 h-8 text-green-600" />
-                ) : (
-                  <ToggleLeft className="w-8 h-8 text-gray-400" />
-                )}
-                <span
-                  className={
-                    form.isActive
-                      ? "text-green-700 font-medium"
-                      : "text-gray-500"
-                  }
-                >
-                  {form.isActive ? "Active" : "Inactive"}
-                </span>
-              </button>
+                {form.isActive ? "Active" : "Inactive"}
+              </label>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-8">
               <button
                 onClick={handleSave}
                 disabled={createMutation.isPending || updateMutation.isPending}

@@ -11,6 +11,7 @@ import {
   ROLE_DEFINITIONS,
   type AppRole,
 } from "@shared/roles";
+import AdminSelect from "@/components/AdminSelect";
 
 const inputClass =
   "mt-2 h-11 w-full border border-[var(--admin-border)] bg-[var(--admin-card)] px-3 text-sm outline-none focus:border-[var(--admin-primary)]";
@@ -86,7 +87,7 @@ export default function AdminUserCreate() {
           <h1 className="font-display text-2xl font-semibold text-[var(--admin-heading)]">
             User management access required
           </h1>
-          <p className="mt-2 text-sm text-[var(--admin-placeholder)]">
+          <p className="mt-2 text-sm text-[var(--admin-body)]">
             Only Super Admin and Admin accounts can create users.
           </p>
         </div>
@@ -102,32 +103,32 @@ export default function AdminUserCreate() {
       />
 
       {created ? (
-        <section className="max-w-2xl bg-[var(--admin-card)] p-6 sm:p-8">
+        <section className="rounded-[var(--radius-card)] max-w-2xl bg-[var(--admin-card)] p-6 sm:p-8">
           <span className="grid h-11 w-11 place-items-center bg-[color-mix(in_srgb,var(--admin-success)_14%,transparent)] text-[var(--admin-success)]">
             <Check className="h-5 w-5" />
           </span>
           <h2 className="mt-5 font-display text-2xl font-semibold text-[var(--admin-heading)]">
             User created successfully
           </h2>
-          <p className="mt-2 text-sm text-[var(--admin-placeholder)]">
+          <p className="mt-2 text-sm text-[var(--admin-body)]">
             Copy these credentials now and share them securely. The password is
             only shown on this screen.
           </p>
           <dl className="mt-6 divide-y divide-[var(--admin-border)] border-y border-[var(--admin-border)] text-sm">
             <div className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]">
-              <dt className="text-[var(--admin-placeholder)]">Email</dt>
+              <dt className="text-[var(--admin-body)]">Email</dt>
               <dd className="font-medium text-[var(--admin-heading)]">
                 {created.email}
               </dd>
             </div>
             <div className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]">
-              <dt className="text-[var(--admin-placeholder)]">Password</dt>
+              <dt className="text-[var(--admin-body)]">Password</dt>
               <dd className="font-mono font-semibold text-[var(--admin-heading)]">
                 {created.password}
               </dd>
             </div>
             <div className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]">
-              <dt className="text-[var(--admin-placeholder)]">Role</dt>
+              <dt className="text-[var(--admin-body)]">Role</dt>
               <dd className="font-medium text-[var(--admin-heading)]">
                 {ROLE_DEFINITIONS[created.role].label}
               </dd>
@@ -162,7 +163,7 @@ export default function AdminUserCreate() {
             <h2 className="font-display text-xl font-semibold text-[var(--admin-heading)]">
               Account information
             </h2>
-            <p className="mt-1 text-sm text-[var(--admin-placeholder)]">
+            <p className="mt-1 text-sm text-[var(--admin-body)]">
               Enter the user details and assign their platform role.
             </p>
           </div>
@@ -197,7 +198,7 @@ export default function AdminUserCreate() {
             </label>
             <label className="text-sm font-medium text-[var(--admin-heading)]">
               Role
-              <select
+              <AdminSelect
                 value={form.role}
                 onChange={event =>
                   setForm(current => ({
@@ -205,15 +206,14 @@ export default function AdminUserCreate() {
                     role: event.target.value as AppRole,
                   }))
                 }
-                className={inputClass}
               >
                 {assignableRoles.map(role => (
                   <option key={role} value={role}>
                     {ROLE_DEFINITIONS[role].label}
                   </option>
                 ))}
-              </select>
-              <span className="mt-2 block text-xs font-normal leading-5 text-[var(--admin-placeholder)]">
+              </AdminSelect>
+              <span className="mt-2 block text-xs font-normal leading-5 text-[var(--admin-body)]">
                 {ROLE_DEFINITIONS[form.role].description}
               </span>
             </label>

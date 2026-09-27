@@ -60,6 +60,10 @@
 }
 
 :root {
+  /* Corner radius for every button, input, dropdown and text area (v2 site, student portal, admin). */
+  --radius-control: 10px;
+  /* Corner radius for cards and panels (a little rounder than controls, so controls nest inside neatly). */
+  --radius-card: 12px;
   --primary: oklch(0.5 0.2 25);
   --primary-foreground: oklch(0.99 0 0);
   --sidebar-primary: oklch(0.5 0.2 25);
@@ -185,12 +189,12 @@
   .admin-button,
   .admin-primary-button {
     @apply inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap border px-5 text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
   }
   .admin-primary-button,
   .admin-button-primary {
     height: 2.75rem !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
     background: var(--admin-primary, #d9aa8c) !important;
     border-color: var(--admin-primary, #d9aa8c) !important;
     color: var(--admin-secondary, #fff) !important;
@@ -201,7 +205,7 @@
   }
   .admin-button-secondary {
     height: 2.75rem !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
     background: var(--admin-card, #f1f1f1) !important;
     border-color: transparent !important;
     color: var(--admin-heading, #30363d) !important;
@@ -210,33 +214,112 @@
     color: var(--admin-primary, #c07f50) !important;
     filter: brightness(0.97);
   }
+  /* Square icon buttons in admin headers: view toggle, search, filter, close. */
+  .admin-icon-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: var(--radius-control) !important;
+    background: var(--admin-card, #f1f1f1);
+    color: var(--admin-heading, #30363d);
+    transition: color 0.15s;
+  }
+  .admin-icon-button:hover,
+  .admin-icon-button[aria-pressed="true"] {
+    color: var(--admin-primary, #c07f50);
+  }
+  /* AdminSelect and the shared shadcn Select share one look inside the admin. */
+  .admin-select,
+  .admin-theme [data-slot="select-trigger"] {
+    border-radius: var(--radius-control) !important;
+  }
+  .admin-theme [data-slot="select-trigger"] {
+    height: 2.75rem !important;
+    border-color: var(--admin-border) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--admin-heading);
+  }
+  .admin-theme [data-slot="select-trigger"]:is(:hover, [data-state="open"]) {
+    border-color: var(--admin-primary) !important;
+  }
+  .admin-select-menu,
+  .admin-theme [data-slot="select-content"],
+  body.admin-theme [data-slot="select-content"] {
+    border: 1px solid var(--admin-border) !important;
+    border-radius: var(--radius-card) !important;
+    background: var(--admin-background) !important;
+    color: var(--admin-heading);
+    box-shadow: 0 16px 40px rgba(20, 25, 30, 0.14) !important;
+    animation: admin-select-in 0.14s ease-out;
+  }
+  body.admin-theme [data-slot="select-item"] {
+    min-height: 2.25rem;
+    border-radius: calc(var(--radius-control) - 3px) !important;
+    color: var(--admin-heading);
+  }
+  body.admin-theme [data-slot="select-item"][data-highlighted] {
+    background: var(--admin-card) !important;
+  }
+  body.admin-theme [data-slot="select-item"][data-state="checked"] {
+    color: var(--admin-primary);
+    font-weight: 500;
+  }
+  @keyframes admin-select-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+  .admin-filter-panel {
+    border-radius: var(--radius-card);
+    background: var(--admin-background, #fff);
+    box-shadow: 0 24px 60px rgba(20, 25, 30, 0.18);
+    animation: admin-filter-in 0.2s ease-out;
+  }
+  @keyframes admin-filter-in {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+  }
   .admin-filter-button {
     height: 2.25rem !important;
   }
   .admin-button-danger {
     height: 2.75rem !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
     background: var(--admin-failed, #c62828) !important;
     border-color: var(--admin-failed, #c62828) !important;
     color: var(--admin-secondary, #fff) !important;
   }
   .admin-button-success {
     height: 2.75rem !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
     background: var(--admin-success, #2e7d32) !important;
     border-color: var(--admin-success, #2e7d32) !important;
     color: var(--admin-secondary, #fff) !important;
   }
-  .admin-theme button,
+  .admin-theme button {
+    border-radius: var(--radius-control);
+  }
+  /* Shared UI buttons carry their own rounded-* utility, which would otherwise win over the rule above. */
   .admin-theme [data-slot="button"] {
-    border-radius: 6px;
+    border-radius: var(--radius-control) !important;
   }
   .admin-theme [data-slot="button"] {
     font-weight: 500;
   }
+  /* Every admin card: Card BG, card radius, no border or shadow (same as the Overview cards). */
   .admin-theme [data-slot="card"] {
     border: 0 !important;
-    border-radius: 8px;
+    border-radius: var(--radius-card) !important;
+    background: var(--admin-card) !important;
+    box-shadow: none !important;
   }
   .admin-theme .admin-card,
   .admin-standard-page [class~="rounded-xl"][class~="border"] {
@@ -250,8 +333,9 @@
   .admin-theme .admin-content {
     background: var(--admin-background);
   }
+  /* The sidebar (and the mobile top bar) take their colour from Settings → Appearance → Background. */
   .admin-theme aside.admin-sidebar {
-    background-color: var(--admin-sidebar, #fff) !important;
+    background-color: var(--admin-background) !important;
   }
   .admin-theme :is(h1, h2, h3, h4, h5, h6) {
     color: var(--admin-heading) !important;
@@ -290,14 +374,22 @@
       [class~="text-[#9ba0a6]"],
       [class~="text-[#a2a7ad]"]
     ) {
+    color: var(--admin-body) !important;
+  }
+  /* Placeholder colour is only for hints in empty inputs, text areas and dropdowns. */
+  .admin-theme :is(input, textarea)::placeholder {
     color: var(--admin-placeholder) !important;
   }
-  .admin-theme :is(input, textarea, select)::placeholder {
-    color: var(--admin-placeholder);
+  .admin-theme [data-slot="select-trigger"][data-placeholder],
+  .admin-theme select:has(option[value=""]:checked) {
+    color: var(--admin-placeholder) !important;
+  }
+  .admin-theme select option {
+    color: var(--admin-heading);
   }
   .admin-theme :is(input, textarea, select) {
     background-color: transparent !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
     border-color: var(--admin-border) !important;
     color: var(--admin-heading);
   }
@@ -308,7 +400,7 @@
       [data-slot="select-trigger"]
     ) {
     background-color: transparent !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-control) !important;
   }
   .admin-theme
     :is(
@@ -321,17 +413,56 @@
     ) {
     background-color: var(--admin-card) !important;
   }
+  /* Every neutral grey border in the admin uses Settings → Appearance → Border.
+     Accent borders (primary, focus, red/green/amber status boxes) keep their own colour. */
   .admin-theme
     :is(
+      .border-gray-100,
       .border-gray-200,
       .border-gray-300,
-      .border-\[\#dedede\],
+      .border-gray-400,
+      .border-\[\#c9ccd0\],
+      .border-\[\#d5d7d9\],
+      .border-\[\#d7d7d7\],
+      .border-\[\#d8d8d8\],
       .border-\[\#d9d9d9\],
+      .border-\[\#dedede\],
       .border-\[\#e3e3e3\],
+      .border-\[\#e4e4e4\],
       .border-\[\#e5e5e5\],
-      .border-\[\#e6e6e6\]
+      .border-\[\#e6e6e6\],
+      .border-\[\#eeeeee\],
+      .divide-gray-100 > *,
+      .divide-gray-200 > *,
+      .hover\:border-gray-200:hover,
+      .hover\:border-gray-400:hover
     ) {
     border-color: var(--admin-border) !important;
+  }
+  /* Tailwind greys follow Settings → Appearance: dark greys are Heading, the rest Body. Placeholder is only for input hints. */
+  .admin-theme
+    :is(.text-black, .text-gray-900, .text-gray-800, .text-gray-700) {
+    color: var(--admin-heading) !important;
+  }
+  .admin-theme
+    :is(.text-gray-600, .text-gray-500, .text-gray-400, .text-gray-300) {
+    color: var(--admin-body) !important;
+  }
+  .admin-theme
+    :is(
+      .hover\:text-\[\#c76f42\]:hover,
+      .hover\:text-brand-red:hover,
+      .hover\:text-red-600:hover
+    ) {
+    color: var(--admin-primary) !important;
+  }
+  .admin-theme
+    :is(
+      .focus\:border-\[\#c76f42\]:focus,
+      .focus\:border-red-500:focus,
+      .hover\:border-\[\#c76f42\]:hover
+    ) {
+    border-color: var(--admin-primary) !important;
   }
   .admin-theme :is(.text-brand-red, .text-red-600, .text-\[\#c76f42\]) {
     color: var(--admin-primary) !important;
@@ -401,7 +532,7 @@
   .admin-standard-page input:not([type="checkbox"]):not([type="radio"]),
   .admin-standard-page select,
   .admin-standard-page textarea {
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     border-color: var(--admin-border, #d9d9d9);
     box-shadow: none;
   }
@@ -449,6 +580,11 @@
   /* ============================================
      Home v2 (/home-2)
      ============================================ */
+  /* Always reserve the scrollbar's width on v2 pages, so moving between short and long
+     pages (or opening a lightbox that locks scrolling) doesn't shift the layout sideways. */
+  html:has(.home-v2) {
+    scrollbar-gutter: stable;
+  }
   .home-v2 {
     /* --font-inter-tight is set by next/font on this element, so reference it here, not via :root */
     font-family: var(--font-inter-tight), "Inter Tight", "Segoe UI", sans-serif;
@@ -483,7 +619,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 5px;
+    border-radius: var(--radius-control);
     padding: 16px 22px;
     font-size: 16px;
     font-weight: 500;
@@ -512,7 +648,10 @@
     overflow: hidden;
   }
   .hv-btn-label > span {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .hv-btn-label > span + span {
@@ -524,6 +663,20 @@
   .hv-btn:hover .hv-btn-label > span,
   .hv-btn:focus-visible .hv-btn-label > span {
     transform: translateY(-100%);
+  }
+
+  /* Compact sizes for dashboards (student portal) */
+  .hv-btn-sm {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+  .hv-btn-xs {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .hv-btn:disabled {
+    pointer-events: none;
+    opacity: 0.4;
   }
 
   .hv-btn-dark {
@@ -562,6 +715,17 @@
   .hv-btn-light:hover,
   .hv-btn-light:focus-visible {
     color: #fff;
+  }
+
+  /* Outline for dark backgrounds (e.g. the listening player) */
+  .hv-btn-ghost {
+    border: 1px solid rgb(255 255 255 / 0.25);
+    color: #fff;
+    --hv-fill: #fff;
+  }
+  .hv-btn-ghost:hover,
+  .hv-btn-ghost:focus-visible {
+    color: var(--color-ink);
   }
 
   /* Round arrow button: the arrow exits right and re-enters from the left */
@@ -660,7 +824,7 @@
     position: relative;
     overflow: visible !important;
     border: 0 !important;
-    border-radius: 0 !important;
+    border-radius: var(--radius-card) !important;
     background: var(--admin-card) !important;
     box-shadow: none !important;
   }
@@ -668,8 +832,10 @@
     gap: 0 !important;
     padding: 0 !important;
   }
+  /* The card itself can't clip (its actions menu overflows), so the image rounds its own top corners. */
   .admin-list-card-image {
     overflow: hidden;
+    border-radius: var(--radius-card) var(--radius-card) 0 0 !important;
     background: color-mix(in srgb, var(--admin-body) 6%, var(--admin-card));
   }
   .admin-list-table-wrap {
@@ -708,6 +874,13 @@
     padding-right: 0;
     text-align: right;
   }
+  /* Every admin table sits flush with the page edges; !important beats px-* utilities on cells. */
+  .admin-content table :is(th, td):first-child {
+    padding-left: 0 !important;
+  }
+  .admin-content table :is(th, td):last-child {
+    padding-right: 0 !important;
+  }
   .admin-dual-view-page .overflow-x-auto:has(> table) {
     position: relative;
     overflow-x: auto;
@@ -736,11 +909,47 @@
     color: var(--admin-body);
     font-size: 13px;
   }
+  /* Breathing room between a form label and the field (or hint) below it. */
+  .admin-theme [data-slot="label"] + :not([data-slot="switch"]) {
+    margin-top: 0.5rem;
+  }
+  /* Admin checkboxes: transparent until checked, then filled with the primary colour and a white tick.
+     !important is needed to beat the general `.admin-theme :is(input, textarea, select)` rule above. */
+  .admin-theme input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1px solid var(--admin-border) !important;
+    border-radius: 3px !important;
+    background: transparent center / 12px 12px no-repeat !important;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s;
+  }
+  .admin-theme input[type="checkbox"]:hover:not(:disabled) {
+    border-color: var(--admin-primary) !important;
+  }
+  .admin-theme input[type="checkbox"]:checked {
+    border-color: var(--admin-primary) !important;
+    background-color: var(--admin-primary) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E") !important;
+  }
+  .admin-theme input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--admin-primary);
+    outline-offset: 2px;
+  }
+  .admin-theme input[type="checkbox"]:disabled {
+    opacity: 0.5;
+  }
   .admin-status-label {
     display: inline-flex;
     align-items: center;
     min-height: 24px;
     padding: 3px 9px;
+    border-radius: calc(var(--radius-control) - 4px) !important;
     background: var(--admin-success);
     color: var(--admin-secondary);
     font-size: 11px;
@@ -748,7 +957,7 @@
     line-height: 1;
   }
   .admin-status-label.inactive {
-    background: var(--admin-placeholder);
+    background: color-mix(in srgb, var(--admin-body) 55%, transparent);
   }
   .admin-status-label.warning {
     background: var(--admin-warning);
@@ -850,7 +1059,7 @@
     align-items: center;
     padding: 4px 8px;
     white-space: nowrap;
-    border-radius: 4px !important;
+    border-radius: calc(var(--radius-control) - 4px) !important;
     font-size: 11px;
     font-weight: 600;
   }

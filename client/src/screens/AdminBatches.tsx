@@ -14,8 +14,6 @@ import {
   Loader2,
   Users,
   Calendar,
-  ToggleLeft,
-  ToggleRight,
   BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +23,8 @@ import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
+import { Switch } from "@/components/ui/switch";
+import AdminSelect from "@/components/AdminSelect";
 
 interface BatchForm {
   name: string;
@@ -222,7 +222,7 @@ export default function AdminBatches({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Course
                 </label>
-                <select
+                <AdminSelect
                   value={form.courseId || ""}
                   onChange={e =>
                     setForm(prev => ({
@@ -232,7 +232,7 @@ export default function AdminBatches({
                         : null,
                     }))
                   }
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none"
+                  className="w-full"
                 >
                   <option value="">All Courses</option>
                   {courses.map(c => (
@@ -240,7 +240,7 @@ export default function AdminBatches({
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </AdminSelect>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -275,28 +275,19 @@ export default function AdminBatches({
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() =>
-                  setForm(prev => ({ ...prev, isOpen: !prev.isOpen }))
+              <Switch
+                id="batch-open"
+                checked={form.isOpen}
+                onCheckedChange={checked =>
+                  setForm(prev => ({ ...prev, isOpen: checked }))
                 }
-                className="flex items-center gap-2 text-sm"
-              >
-                {form.isOpen ? (
-                  <ToggleRight className="w-8 h-8 text-green-600" />
-                ) : (
-                  <ToggleLeft className="w-8 h-8 text-gray-400" />
-                )}
-                <span
-                  className={
-                    form.isOpen ? "text-green-700 font-medium" : "text-gray-500"
-                  }
-                >
-                  {form.isOpen ? "Enrollment Open" : "Enrollment Closed"}
-                </span>
-              </button>
+              />
+              <label htmlFor="batch-open" className="cursor-pointer text-sm">
+                {form.isOpen ? "Enrollment Open" : "Enrollment Closed"}
+              </label>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-8">
               <button
                 onClick={handleSave}
                 disabled={createMutation.isPending || updateMutation.isPending}

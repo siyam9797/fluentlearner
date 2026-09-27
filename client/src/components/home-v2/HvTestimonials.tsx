@@ -4,10 +4,14 @@ import { cn } from "@/lib/utils";
 import { DecorSquare } from "./primitives";
 import { useStoryCards } from "./hooks";
 import { FALLBACK_STORIES } from "./data";
+import { useV2Content } from "./useV2Content";
 
 export default function HvTestimonials() {
+  const { t } = useV2Content();
   const fromDb = useStoryCards().filter(story => story.quote);
-  const slides = fromDb.length ? fromDb : FALLBACK_STORIES.filter(story => story.quote);
+  const slides = fromDb.length
+    ? fromDb
+    : FALLBACK_STORIES.filter(story => story.quote);
   const [index, setIndex] = useState(0);
   const count = slides.length;
   if (!count) return null;
@@ -16,21 +20,34 @@ export default function HvTestimonials() {
   const go = (step: number) => setIndex(i => (i + step + count) % count);
 
   return (
-    <section className="bg-ink py-20 lg:py-32" aria-roledescription="carousel" aria-label="Student testimonials">
-      <div className="mx-auto max-w-[1230px] px-4">
+    <section
+      className="bg-ink py-20 lg:py-32"
+      aria-roledescription="carousel"
+      aria-label="Student testimonials"
+    >
+      <div className="mx-auto max-w-[1262px] px-5 sm:px-8">
         <div className="flex flex-col-reverse gap-10 md:flex-row md:items-stretch md:gap-12 lg:gap-20">
           <div className="flex flex-1 flex-col justify-between gap-10">
             <div className="flex items-center gap-2">
               <DecorSquare />
-              <h2 className="text-lg text-cream">Testimonials</h2>
+              <h2 className="text-lg text-cream">
+                {t("v2_testimonials_label")}
+              </h2>
             </div>
 
-            <div key={current.id} className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 motion-reduce:animate-none" aria-live="polite">
+            <div
+              key={current.id}
+              className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 motion-reduce:animate-none"
+              aria-live="polite"
+            >
               <p className="text-[22px] sm:text-[28px] lg:text-[32px] font-medium leading-[1.2] text-cream">
                 “{current.quote}”
               </p>
               <p className="text-lg font-medium text-cream">
-                <em>— {current.name}{current.band ? `, Band ${current.band}` : ""}</em>
+                <em>
+                  — {current.name}
+                  {current.band ? `, Band ${current.band}` : ""}
+                </em>
               </p>
             </div>
 
@@ -53,7 +70,8 @@ export default function HvTestimonials() {
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <span className="ml-3 text-sm text-ash">
-                  {String((index % count) + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}
+                  {String((index % count) + 1).padStart(2, "0")} /{" "}
+                  {String(count).padStart(2, "0")}
                 </span>
               </div>
             )}
@@ -67,8 +85,8 @@ export default function HvTestimonials() {
                 alt={i === index % count ? `${slide.name}'s IELTS result` : ""}
                 loading="lazy"
                 className={cn(
-                  "absolute inset-0 h-full w-full rounded-[5px] object-cover object-[50%_30%] transition-opacity duration-500",
-                  i === index % count ? "opacity-100" : "opacity-0",
+                  "absolute inset-0 h-full w-full rounded-[var(--radius-card)] object-cover object-[50%_30%] transition-opacity duration-500",
+                  i === index % count ? "opacity-100" : "opacity-0"
                 )}
               />
             ))}

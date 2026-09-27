@@ -38,7 +38,7 @@ export default function AdminRoles() {
           <h1 className="font-display text-2xl font-semibold text-[var(--admin-heading)]">
             Role access required
           </h1>
-          <p className="mt-2 text-sm text-[var(--admin-placeholder)]">
+          <p className="mt-2 text-sm text-[var(--admin-body)]">
             Only Super Admin and Admin accounts can view role management.
           </p>
         </div>
@@ -49,7 +49,7 @@ export default function AdminRoles() {
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
       <AdminPageHeader title="Roles" />
-      <p className="-mt-5 mb-8 max-w-2xl text-sm leading-6 text-[var(--admin-placeholder)]">
+      <p className="-mt-5 mb-8 max-w-2xl text-sm leading-6 text-[var(--admin-body)]">
         These five roles define who uses the platform and the responsibilities
         assigned to each account type.
       </p>
@@ -62,7 +62,7 @@ export default function AdminRoles() {
           return (
             <article
               key={role}
-              className={`bg-[var(--admin-card)] p-6 ${index === 0 ? "md:col-span-2" : ""}`}
+              className={`rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6 ${index === 0 ? "md:col-span-2" : ""}`}
             >
               <div className="flex items-start gap-4">
                 <span className="grid h-11 w-11 shrink-0 place-items-center bg-[color-mix(in_srgb,var(--admin-primary)_12%,transparent)] text-[var(--admin-primary)]">
@@ -71,7 +71,7 @@ export default function AdminRoles() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--admin-placeholder)]">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--admin-body)]">
                         Role {String(index + 1).padStart(2, "0")}
                       </p>
                       <h2 className="mt-1 font-display text-xl font-semibold text-[var(--admin-heading)]">

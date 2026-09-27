@@ -26,6 +26,7 @@ import {
 } from "@shared/roles";
 import {
   BookOpen,
+  ChevronDown,
   ChevronUp,
   ClipboardCheck,
   CreditCard,
@@ -37,6 +38,7 @@ import {
   Home,
   ImageIcon,
   Layers,
+  LayoutTemplate,
   LogOut,
   Menu,
   Settings,
@@ -52,7 +54,57 @@ type NavigationItem = {
   icon: typeof Home;
   also?: string[];
   userManagement?: boolean;
+  /** Sub-menu shown under the item while one of its pages is open. */
+  children?: { label: string; href: string; also?: string[] }[];
 };
+
+type AdminThemeStyle = CSSProperties & Record<`--${string}`, string>;
+
+function AdminPortalTheme({
+  style,
+  darkMode,
+}: {
+  style: AdminThemeStyle;
+  darkMode: boolean;
+}) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const properties = Object.entries(style).map(([name, value]) => ({
+      name,
+      value: String(value),
+      previousValue: root.style.getPropertyValue(name),
+      previousPriority: root.style.getPropertyPriority(name),
+    }));
+    const hadAdminTheme = body.classList.contains("admin-theme");
+    const hadAdminDark = body.classList.contains("admin-dark");
+
+    for (const property of properties) {
+      root.style.setProperty(property.name, property.value);
+    }
+    body.classList.add("admin-theme");
+    body.classList.toggle("admin-dark", darkMode);
+
+    return () => {
+      for (const property of properties) {
+        if (property.previousValue) {
+          root.style.setProperty(
+            property.name,
+            property.previousValue,
+            property.previousPriority
+          );
+        } else {
+          root.style.removeProperty(property.name);
+        }
+      }
+      if (!hadAdminTheme) body.classList.remove("admin-theme");
+      if (hadAdminDark) body.classList.add("admin-dark");
+      else body.classList.remove("admin-dark");
+    };
+  }, [darkMode, style]);
+
+  return null;
+}
 
 const navigationGroups: { label: string; items: NavigationItem[] }[] = [
   {
@@ -64,12 +116,25 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
     items: [
       { label: "Courses", href: "/admin/courses", icon: BookOpen },
       { label: "Batches", href: "/admin/batches", icon: Layers },
-      { label: "Resources", href: "/admin/resources", icon: FolderOpen },
       {
-        label: "Mock Tests",
-        href: "/admin/mock-tests",
+        label: "Resources",
+        href: "/admin/resources",
+        icon: FolderOpen,
+        children: [
+          { label: "Resource files", href: "/admin/resources" },
+          { label: "Vocabulary", href: "/admin/resources/vocabulary" },
+        ],
+      },
+      {
+        label: "IELTS Modules",
+        href: "/admin/ielts",
         icon: ClipboardCheck,
-        also: ["/admin/mock-results"],
+        children: [
+          { label: "Listening", href: "/admin/ielts/listening" },
+          { label: "Reading", href: "/admin/ielts/reading" },
+          { label: "Writing", href: "/admin/ielts/writing" },
+          { label: "Speaking", href: "/admin/ielts/speaking" },
+        ],
       },
     ],
   },
@@ -96,6 +161,20 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
   {
     label: "Website",
     items: [
+      {
+        label: "Website",
+        href: "/admin/website",
+        icon: LayoutTemplate,
+        children: [
+          {
+            label: "Pages",
+            href: "/admin/website",
+            also: ["/admin/website/pages"],
+          },
+          { label: "Menus", href: "/admin/website/menus" },
+          { label: "Settings", href: "/admin/website/settings" },
+        ],
+      },
       {
         label: "Success Stories",
         href: "/admin/success-stories",
@@ -126,7 +205,7 @@ function Login() {
     <main className="min-h-screen bg-[#f8f7ec] px-5 flex items-center justify-center text-[#24292f]">
       <form
         onSubmit={submit}
-        className="w-full max-w-[390px] border border-[#e3e3e3] bg-white p-8 shadow-[0_16px_50px_rgba(24,32,40,0.06)]"
+        className="w-full max-w-[390px] rounded-[var(--radius-card)] bg-[var(--admin-card)] p-8"
       >
         <div className="mb-8">
           <div className="mb-5 flex h-11 w-11 items-center justify-center border border-[#e4e4e4] bg-[#fafafa]">
@@ -279,7 +358,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     "--admin-border": palette.border,
     "--admin-card": palette.card_bg,
     "--admin-background": palette.background,
-    "--admin-sidebar": palette.sidebar_bg,
     "--admin-success": palette.success,
     "--admin-failed": palette.failed,
     "--admin-warning": palette.warning,
@@ -297,10 +375,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     "--border": palette.border,
     "--input": palette.border,
     "--ring": palette.primary,
-  } as CSSProperties;
+  } as AdminThemeStyle;
 
   const sidebar = (
-    <aside className="admin-sidebar flex h-full w-[260px] flex-col bg-white px-3 py-3">
+    <aside className="admin-sidebar flex h-full w-[260px] flex-col bg-[var(--admin-background)] px-3 py-3">
       <button
         onClick={() => go("/admin")}
         className="px-1 text-left font-display text-xl font-bold tracking-tight text-[#24292f]"
@@ -315,7 +393,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             <h2
               id={`admin-nav-${group.label.toLowerCase()}`}
-              className="mb-1 px-1 text-[10px] font-medium uppercase text-[var(--admin-placeholder)]"
+              className="mb-1 px-1 text-[10px] font-medium uppercase text-[var(--admin-body)]"
             >
               {group.label}
             </h2>
@@ -331,15 +409,53 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       (href !== "/admin" && location.startsWith(`${href}/`))
                   );
                   const Icon = item.icon;
+                  const matches = (href: string, also: string[] = []) =>
+                    [href, ...also].some(
+                      path =>
+                        location === path || location.startsWith(`${path}/`)
+                    );
+                  // The parent's own path is a prefix of its children's, so match children exactly first.
+                  const activeChild =
+                    item.children?.find(
+                      child =>
+                        child.href !== item.href &&
+                        matches(child.href, child.also)
+                    ) ??
+                    item.children?.find(
+                      child => child.href === item.href && active
+                    );
                   return (
-                    <button
-                      key={item.href}
-                      onClick={() => go(item.href)}
-                      className={`flex h-11 w-full items-center gap-3 px-1 text-left text-sm transition-colors ${active ? "text-[#c76f42]" : "text-[#343a40] hover:text-black"}`}
-                    >
-                      <Icon className="h-[17px] w-[17px] stroke-[1.5]" />
-                      <span>{item.label}</span>
-                    </button>
+                    <div key={item.href}>
+                      <button
+                        onClick={() => go(item.href)}
+                        aria-expanded={item.children ? active : undefined}
+                        className={`flex h-11 w-full items-center gap-3 px-1 text-left text-sm transition-colors ${active ? "text-[#c76f42]" : "text-[#343a40] hover:text-black"}`}
+                      >
+                        <Icon className="h-[17px] w-[17px] stroke-[1.5]" />
+                        <span className="flex-1">{item.label}</span>
+                        {item.children && (
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${active ? "" : "-rotate-90"}`}
+                          />
+                        )}
+                      </button>
+                      {item.children && active && (
+                        <div className="mb-1 ml-[9px] space-y-0.5 border-l border-[#e3e3e3] pl-5">
+                          {item.children.map(child => (
+                            <button
+                              key={child.href}
+                              onClick={() => go(child.href)}
+                              aria-current={
+                                activeChild === child ? "page" : undefined
+                              }
+                              className={`flex h-8 w-full items-center text-left text-[13px] transition-colors ${activeChild === child ? "font-medium text-[#c76f42]" : "text-[#5c636b] hover:text-black"}`}
+                            >
+                              {child.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
             </div>
@@ -348,7 +464,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </nav>
       <div ref={accountRef} className="relative mt-auto shrink-0">
         {accountOpen && (
-          <div className="absolute bottom-[calc(100%+8px)] left-0 w-full border border-[#d9d9d9] bg-[#f7f7f7] p-3 shadow-[0_12px_32px_rgba(25,30,35,0.08)]">
+          <div className="absolute bottom-[calc(100%+8px)] left-0 w-full rounded-[var(--radius-card)] border border-[var(--admin-border)] bg-[var(--admin-background)] p-3 shadow-[0_16px_40px_rgba(20,25,30,0.14)]">
             <div className="flex items-center gap-2.5 px-1 pb-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#292d32] text-xs font-semibold text-white">
                 {avatar}
@@ -401,7 +517,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           aria-expanded={accountOpen}
           aria-label="Open account menu"
           onClick={() => setAccountOpen(value => !value)}
-          className="flex w-full items-center gap-2.5 border border-[#dedede] bg-[#f7f7f7] p-2.5 text-left hover:bg-[#f2f2f2]"
+          className="flex w-full items-center gap-2.5 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-2.5 text-left hover:brightness-[0.98]"
         >
           <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[#292d32] text-xs font-semibold text-white">
             {avatar}
@@ -425,6 +541,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       className={`admin-theme min-h-screen ${appearance.darkMode ? "admin-dark" : ""}`}
       style={themeStyle}
     >
+      <AdminPortalTheme style={themeStyle} darkMode={appearance.darkMode} />
       <div className="fixed inset-y-0 left-0 z-40 hidden border-r border-[#dedede] lg:block">
         {sidebar}
       </div>
@@ -439,7 +556,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#e6e6e6] bg-white px-4 lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#e6e6e6] bg-[var(--admin-background)] px-4 lg:hidden">
         <button onClick={() => setMobileOpen(true)}>
           <Menu className="h-5 w-5" />
         </button>

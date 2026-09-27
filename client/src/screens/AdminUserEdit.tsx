@@ -11,6 +11,7 @@ import {
   ROLE_DEFINITIONS,
   type AppRole,
 } from "@shared/roles";
+import AdminSelect from "@/components/AdminSelect";
 
 const field =
   "mt-2 h-11 w-full border border-[var(--admin-border)] bg-white px-3 text-sm outline-none focus:border-[var(--admin-primary)]";
@@ -83,7 +84,7 @@ export default function AdminUserEdit({ id }: { id: number }) {
         {isLoading ? (
           <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-primary)]" />
         ) : (
-          <span className="text-sm text-[var(--admin-placeholder)]">
+          <span className="text-sm text-[var(--admin-body)]">
             User not found.
           </span>
         )}
@@ -120,7 +121,7 @@ export default function AdminUserEdit({ id }: { id: number }) {
           </label>
           <label className="text-sm font-medium">
             Role
-            <select
+            <AdminSelect
               value={form.role}
               disabled={roleLocked}
               onChange={event =>
@@ -129,15 +130,14 @@ export default function AdminUserEdit({ id }: { id: number }) {
                   role: event.target.value as AppRole,
                 }))
               }
-              className={`${field} disabled:opacity-60`}
             >
               {(roleLocked ? APP_ROLES : assignableRoles).map(role => (
                 <option key={role} value={role}>
                   {ROLE_DEFINITIONS[role].label}
                 </option>
               ))}
-            </select>
-            <span className="mt-2 block text-xs font-normal text-[var(--admin-placeholder)]">
+            </AdminSelect>
+            <span className="mt-2 block text-xs font-normal text-[var(--admin-body)]">
               {ROLE_DEFINITIONS[form.role].description}
             </span>
           </label>

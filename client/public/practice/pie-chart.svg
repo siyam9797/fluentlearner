@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="Arial, sans-serif" font-size="13">
+  <rect width="640" height="420" fill="#fff"/>
+  <text x="320" y="28" text-anchor="middle" font-size="16" font-weight="bold">How students travelled to a university, 2005 and 2025</text>
+  <!-- 2005: car 45, bus 25, bicycle 10, walking 20 | 2025: car 20, bus 30, bicycle 30, walking 20 -->
+  <g transform="translate(170,200)">
+    <path d="M0,0 L0,-120 A120,120 0 0,1 37.1,114.1 Z" fill="#1f1f1f"/>
+    <path d="M0,0 L37.1,114.1 A120,120 0 0,1 -114.1,37.1 Z" fill="#b3261e"/>
+    <path d="M0,0 L-114.1,37.1 A120,120 0 0,1 -114.1,-37.1 Z" fill="#e7a29c"/>
+    <path d="M0,0 L-114.1,-37.1 A120,120 0 0,1 0,-120 Z" fill="#bdbdbd"/>
+    <g fill="#fff" font-weight="bold" text-anchor="middle"><text x="62" y="-8">45%</text><text x="-40" y="72">25%</text></g>
+    <g font-weight="bold" text-anchor="middle"><text x="-88" y="5">10%</text><text x="-52" y="-62">20%</text></g>
+    <text y="150" text-anchor="middle" font-size="15" font-weight="bold">2005</text>
+  </g>
+  <g transform="translate(470,200)">
+    <path d="M0,0 L0,-120 A120,120 0 0,1 114.1,-37.1 Z" fill="#1f1f1f"/>
+    <path d="M0,0 L114.1,-37.1 A120,120 0 0,1 -37.1,114.1 Z" fill="#b3261e"/>
+    <path d="M0,0 L-37.1,114.1 A120,120 0 0,1 -114.1,-37.1 Z" fill="#e7a29c"/>
+    <path d="M0,0 L-114.1,-37.1 A120,120 0 0,1 0,-120 Z" fill="#bdbdbd"/>
+    <g fill="#fff" font-weight="bold" text-anchor="middle"><text x="42" y="-62">20%</text><text x="50" y="50">30%</text></g>
+    <g font-weight="bold" text-anchor="middle"><text x="-70" y="38">30%</text><text x="-52" y="-62">20%</text></g>
+    <text y="150" text-anchor="middle" font-size="15" font-weight="bold">2025</text>
+  </g>
+  <g><rect x="150" y="380" width="14" height="14" fill="#1f1f1f"/><text x="170" y="392">Car</text><rect x="230" y="380" width="14" height="14" fill="#b3261e"/><text x="250" y="392">Bus</text><rect x="310" y="380" width="14" height="14" fill="#e7a29c"/><text x="330" y="392">Bicycle</text><rect x="410" y="380" width="14" height="14" fill="#bdbdbd"/><text x="430" y="392">Walking</text></g>
+</svg>

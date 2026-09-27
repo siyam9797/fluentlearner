@@ -82,7 +82,7 @@ export default function AdminUsers() {
           <h1 className="font-display text-2xl font-semibold text-[var(--admin-heading)]">
             User management access required
           </h1>
-          <p className="mt-2 text-sm text-[var(--admin-placeholder)]">
+          <p className="mt-2 text-sm text-[var(--admin-body)]">
             Only Super Admin and Admin accounts can manage users.
           </p>
         </div>
@@ -104,7 +104,7 @@ export default function AdminUsers() {
         }
       />
 
-      <div className="-mt-5 mb-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--admin-placeholder)]">
+      <div className="-mt-5 mb-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--admin-body)]">
         <span>{users.length} total users</span>
         {APP_ROLES.map(role => (
           <span key={role}>
@@ -115,7 +115,7 @@ export default function AdminUsers() {
       </div>
 
       {shared && (
-        <div className="mb-6 flex flex-col gap-3 bg-[color-mix(in_srgb,var(--admin-success)_12%,var(--admin-card))] p-5 sm:flex-row sm:items-center">
+        <div className="rounded-[var(--radius-card)] mb-6 flex flex-col gap-3 bg-[color-mix(in_srgb,var(--admin-success)_12%,var(--admin-card))] p-5 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-semibold text-[var(--admin-heading)]">
               Account credentials are ready
@@ -146,7 +146,7 @@ export default function AdminUsers() {
           <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-primary)]" />
         </div>
       ) : users.length === 0 ? (
-        <div className="py-16 text-center text-[var(--admin-placeholder)]">
+        <div className="py-16 text-center text-[var(--admin-body)]">
           <UserRound className="mx-auto mb-3 h-10 w-10" />
           No user accounts yet.
         </div>
@@ -172,7 +172,7 @@ export default function AdminUsers() {
                     <p className="font-semibold text-[var(--admin-heading)]">
                       {account.name || "Unnamed user"}
                     </p>
-                    <p className="mt-0.5 text-xs text-[var(--admin-placeholder)]">
+                    <p className="mt-0.5 text-xs text-[var(--admin-body)]">
                       {account.email}
                     </p>
                   </td>
@@ -247,7 +247,7 @@ export default function AdminUsers() {
                   <h3 className="truncate font-semibold text-[var(--admin-heading)]">
                     {account.name || "Unnamed user"}
                   </h3>
-                  <p className="truncate text-xs text-[var(--admin-placeholder)]">
+                  <p className="truncate text-xs text-[var(--admin-body)]">
                     {account.email}
                   </p>
                 </div>
@@ -283,9 +283,7 @@ export default function AdminUsers() {
               <div className="mt-6">{roleLabel(account)}</div>
               <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--admin-border)] pt-4 text-xs">
                 <div>
-                  <dt className="text-[var(--admin-placeholder)]">
-                    Last sign-in
-                  </dt>
+                  <dt className="text-[var(--admin-body)]">Last sign-in</dt>
                   <dd className="mt-1 font-medium text-[var(--admin-heading)]">
                     {account.lastSignedIn
                       ? new Date(account.lastSignedIn).toLocaleDateString(
@@ -295,7 +293,7 @@ export default function AdminUsers() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--admin-placeholder)]">Status</dt>
+                  <dt className="text-[var(--admin-body)]">Status</dt>
                   <dd className="mt-1">
                     <span
                       className={`admin-status-label ${account.isActive ? "" : "inactive"}`}

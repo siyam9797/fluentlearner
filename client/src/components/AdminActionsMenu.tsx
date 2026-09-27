@@ -76,7 +76,7 @@ export default function AdminActionsMenu({
           <div
             role="menu"
             className="admin-actions-popup"
-          style={{ ...position, zIndex: 2147483647 }}
+            style={{ ...position, zIndex: 2147483647 }}
             onPointerDown={event => event.stopPropagation()}
             onClick={() => setPosition(null)}
           >

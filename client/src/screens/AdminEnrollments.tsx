@@ -25,6 +25,7 @@ import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
+import AdminFilterDrawer from "@/components/AdminFilterDrawer";
 import { useLocation } from "@/lib/router";
 
 type StatusFilter = "pending" | "verified" | "rejected" | "refunded";
@@ -34,7 +35,7 @@ const statusConfig: Record<
   { label: string; color: string; bg: string; icon: any }
 > = {
   pending: {
-    label: "Pending Verification",
+    label: "Pending",
     color: "text-amber-700",
     bg: "bg-amber-50 border-amber-200",
     icon: Clock,
@@ -119,13 +120,6 @@ export default function AdminEnrollments() {
       (e.studentId && e.studentId.toLowerCase().includes(q))
     );
   });
-  const toggleStatus = (status: StatusFilter) => {
-    setSelectedStatuses(current => {
-      return current.includes(status)
-        ? current.filter(item => item !== status)
-        : [...current, status];
-    });
-  };
   const filterControl = (
     <div className="relative">
       <button
@@ -133,7 +127,7 @@ export default function AdminEnrollments() {
         onClick={() => setFilterOpen(open => !open)}
         aria-label="Filter enrollments"
         aria-expanded={filterOpen}
-        className="grid h-11 w-11 shrink-0 place-items-center bg-gray-100 text-gray-600 transition-colors hover:text-brand-red"
+        className="admin-icon-button"
       >
         <ListFilter className="h-4 w-4" />
         {selectedStatuses.length > 0 && (
@@ -143,55 +137,28 @@ export default function AdminEnrollments() {
         )}
       </button>
       {filterOpen && (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setFilterOpen(false)}
-            className="absolute inset-0 rounded-none bg-black/20"
-          />
-          <aside className="absolute inset-y-0 right-0 w-full max-w-sm bg-white p-6 shadow-[-16px_0_40px_rgba(20,25,30,0.12)]">
-            <div className="mb-8 flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-xl font-semibold text-gray-900">
-                  Filter enrollments
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Select one or more statuses.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                aria-label="Close filters"
-                className="grid h-10 w-10 shrink-0 place-items-center bg-gray-100 text-gray-600 hover:text-brand-red"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-1">
-              {(["pending", "verified", "rejected"] as StatusFilter[]).map(
-                status => {
-                  const checked = selectedStatuses.includes(status);
-                  return (
-                    <label
-                      key={status}
-                      className="flex h-12 cursor-pointer items-center gap-3 rounded-md px-3 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleStatus(status)}
-                        className="h-4 w-4 accent-[var(--admin-primary)]"
-                      />
-                      <span>{statusConfig[status]?.label}</span>
-                    </label>
-                  );
-                }
-              )}
-            </div>
-          </aside>
-        </div>
+        <AdminFilterDrawer
+          title="Filter enrollments"
+          groups={[
+            {
+              key: "status",
+              title: "Status",
+              options: (
+                ["pending", "verified", "rejected"] as StatusFilter[]
+              ).map(status => ({
+                value: status,
+                label: statusConfig[status]?.label ?? status,
+                count: enrollments.filter(e => e.status === status).length,
+              })),
+            },
+          ]}
+          selection={{ status: selectedStatuses }}
+          onChange={next =>
+            setSelectedStatuses((next.status ?? []) as StatusFilter[])
+          }
+          onClose={() => setFilterOpen(false)}
+          resultCount={filteredEnrollments.length}
+        />
       )}
     </div>
   );
@@ -214,7 +181,7 @@ export default function AdminEnrollments() {
                   type="button"
                   onClick={() => setSearchOpen(true)}
                   aria-label="Search enrollments"
-                  className="grid h-11 w-11 shrink-0 place-items-center bg-gray-100 text-gray-600 transition-colors hover:text-brand-red"
+                  className="admin-icon-button"
                 >
                   <Search className="h-4 w-4" />
                 </button>
@@ -253,7 +220,7 @@ export default function AdminEnrollments() {
                 setSearchOpen(false);
               }}
               aria-label="Close search"
-              className="grid h-11 w-11 shrink-0 place-items-center bg-gray-100 text-gray-600 hover:text-brand-red"
+              className="admin-icon-button"
             >
               <X className="h-4 w-4" />
             </button>

@@ -1,10 +1,11 @@
 /**
  * AdminMockTestEditor — build a mock test: settings, sections (passages / parts / tasks) and questions.
- * Routes: /admin/mock-tests/new and /admin/mock-tests/:id
+ * Routes: /admin/ielts/new and /admin/ielts/:id
  */
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type ReactNode,
@@ -15,6 +16,7 @@ import {
   CloudUpload,
   FileInput,
   Loader2,
+  Music2,
   Plus,
   Save,
   Trash2,
@@ -29,13 +31,18 @@ import { fileToBase64 } from "@/lib/fileToBase64";
 import {
   AUTO_MARKED_TYPES,
   CAMBRIDGE,
+  CHOICE_SELECTION_COUNTS,
   DEFAULT_DURATION_MINUTES,
   FIXED_CHOICES,
+  LISTENING_QUESTION_TYPES,
   MODULE_LABELS,
   MODULE_QUESTION_TYPES,
   PAPER_LAYOUT,
+  PRACTICE_TYPES,
   QUESTION_TYPE_LABELS,
   cambridgeTitle,
+  choiceSelectionCount,
+  isCompletionType,
   isAutoMarkedModule,
   optionLetter,
   parseAnswerKey,
@@ -43,12 +50,17 @@ import {
   type MockModule,
   type MockQuestionType,
 } from "@shared/mock";
-import { MODULE_ICONS } from "./AdminMockTests";
+import { MODULE_BLURB, MODULE_ICONS } from "./AdminMockTests";
+import AdminSelect from "@/components/AdminSelect";
+import AdminImageUploader from "@/components/AdminImageUploader";
+import ListeningLayoutBuilder from "@/components/ListeningLayoutBuilder";
+import { Switch } from "@/components/ui/switch";
 
 type QuestionDraft = {
   key: string;
   id?: number;
   type: MockQuestionType;
+  instruction: string;
   prompt: string;
   options: string[];
   answers: string[];
@@ -65,6 +77,7 @@ type SectionDraft = {
   title: string;
   instructions: string;
   content: string;
+  questionLayout: string;
   imageUrl: string;
   audioUrl: string;
   questions: QuestionDraft[];
@@ -83,14 +96,8 @@ type Settings = {
   series: string | null;
   bookNumber: number | null;
   testNumber: number | null;
-};
-
-const MODULE_BLURB: Record<MockModule, string> = {
-  reading: "Passages with auto-marked questions and band conversion.",
-  listening: "Audio parts with auto-marked questions and band conversion.",
-  writing:
-    "Task 1 and Task 2 with word counts. You mark against the four criteria.",
-  speaking: "Parts 1–3 recorded in the browser. You listen and mark.",
+  /** PRACTICE_TYPES key when this practice test drills one question type */
+  practiceType: string | null;
 };
 
 function newQuestion(
@@ -100,11 +107,12 @@ function newQuestion(
   return {
     key: nanoid(),
     type,
+    instruction: "",
     prompt: "",
-    options: type === "mcq" ? ["", "", "", ""] : [],
+    options: choiceSelectionCount(type) ? ["", "", "", ""] : [],
     answers: [],
     explanation: "",
-    points: 1,
+    points: Math.max(1, choiceSelectionCount(type)),
     minWords: null,
     prepSeconds: null,
     responseSeconds: null,
@@ -122,11 +130,30 @@ function newSection(
     title,
     instructions: "",
     content: "",
+    questionLayout: "",
     imageUrl: "",
     audioUrl: "",
     questions,
     ...extra,
   };
+}
+
+function questionStartNumber(
+  sections: SectionDraft[],
+  sectionIndex: number,
+  questionIndex: number
+) {
+  const before = sections
+    .slice(0, sectionIndex)
+    .flatMap(section => section.questions)
+    .concat(sections[sectionIndex]?.questions.slice(0, questionIndex) ?? []);
+  return (
+    before.reduce(
+      (total, question) =>
+        total + Math.max(1, choiceSelectionCount(question.type)),
+      0
+    ) + 1
+  );
 }
 
 function templateFor(module: MockModule): SectionDraft[] {
@@ -138,12 +165,7 @@ function templateFor(module: MockModule): SectionDraft[] {
         })
       );
     case "listening":
-      return [1, 2, 3, 4].map(n =>
-        newSection(`Part ${n}`, [newQuestion("short_answer")], {
-          instructions:
-            "Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
-        })
-      );
+      return [1, 2, 3, 4].map(n => newSection(`Part ${n}`, []));
     case "writing":
       return [
         newSection(
@@ -288,6 +310,7 @@ function MediaInput({
   onChange: (url: string) => void;
 }) {
   const upload = trpc.mockTests.uploadMedia.useMutation();
+  const inputRef = useRef<HTMLInputElement>(null);
   const pick = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -306,48 +329,90 @@ function MediaInput({
     }
   };
 
-  return (
-    <Field
-      label={label}
-      hint={
-        accept === "audio"
-          ? "Upload an MP3/M4A (max 60 MB) or paste a link."
-          : "PNG or JPG, max 10 MB."
-      }
-    >
-      <div className="flex gap-2">
-        <input
-          className={inputClass}
+  const directUrl = (
+    <div className="mt-3">
+      <span className="mb-1.5 block text-xs font-medium text-gray-600">
+        Or use a direct URL
+      </span>
+      <input
+        className={inputClass}
+        value={value}
+        placeholder="https://…"
+        onChange={e => onChange(e.target.value)}
+      />
+    </div>
+  );
+
+  if (accept === "image") {
+    return (
+      <Field label={label} hint="PNG or JPG, max 10 MB.">
+        <AdminImageUploader
           value={value}
-          placeholder="https://… or upload"
-          onChange={e => onChange(e.target.value)}
+          label={label}
+          maxSizeLabel="Max 10 MB"
+          uploading={upload.isPending}
+          onChange={pick}
+          onMediaSelect={onChange}
+          onRemove={() => onChange("")}
         />
-        <label className="admin-button admin-button-secondary shrink-0 cursor-pointer">
-          {upload.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CloudUpload className="h-4 w-4" />
-          )}
-          Upload
-          <input
-            type="file"
-            accept={`${accept}/*`}
-            className="hidden"
-            onChange={pick}
-            disabled={upload.isPending}
-          />
-        </label>
-      </div>
-      {value &&
-        (accept === "audio" ? (
-          <audio controls src={value} className="mt-2 w-full" />
+        {directUrl}
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={label}>
+      <div className="relative flex min-h-[184px] items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[#d8d8d8] bg-transparent px-5 py-7">
+        {value ? (
+          <div className="flex w-full flex-col items-center gap-4">
+            <Music2 className="h-8 w-8 stroke-[1.4] text-[#c76f42]" />
+            <audio controls src={value} className="w-full max-w-xl" />
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="absolute right-3 top-3 grid h-8 w-8 place-items-center bg-white text-red-600 shadow-sm hover:bg-red-50"
+              aria-label={`Remove ${label}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={upload.isPending}
+              className="text-xs font-semibold text-[#c76f42] hover:underline"
+            >
+              Replace audio
+            </button>
+          </div>
         ) : (
-          <img
-            src={value}
-            alt=""
-            className="mt-2 max-h-48 rounded border border-gray-200"
-          />
-        ))}
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={upload.isPending}
+            className="flex flex-col items-center text-center"
+          >
+            {upload.isPending ? (
+              <Loader2 className="mb-5 h-6 w-6 animate-spin text-[#c76f42]" />
+            ) : (
+              <CloudUpload className="mb-5 h-6 w-6 stroke-[1.4] text-[#c76f42]" />
+            )}
+            <span className="text-sm font-semibold text-[#30363d]">
+              {upload.isPending ? "Uploading audio…" : "Upload audio"}
+            </span>
+            <span className="mt-2 text-xs text-[#747d87]">
+              MP3, M4A, WAV or OGG · Max 60 MB
+            </span>
+          </button>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="audio/*"
+          className="hidden"
+          onChange={pick}
+          disabled={upload.isPending}
+        />
+      </div>
     </Field>
   );
 }
@@ -360,7 +425,7 @@ function QuestionEditor({
   onRemove,
   onMove,
 }: {
-  number: number;
+  number: number | string;
   question: QuestionDraft;
   module: MockModule;
   onChange: (q: QuestionDraft) => void;
@@ -372,38 +437,40 @@ function QuestionEditor({
   const types = MODULE_QUESTION_TYPES[module];
   const fixed = FIXED_CHOICES[question.type];
   const autoMarked = AUTO_MARKED_TYPES.includes(question.type);
+  const selectionCount = CHOICE_SELECTION_COUNTS[question.type] ?? 0;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+    <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">
           Q{number}
         </span>
         {types.length > 1 ? (
-          <select
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
+          <AdminSelect
             value={question.type}
             onChange={e => {
               const type = e.target.value as MockQuestionType;
               set({
                 type,
                 answers: [],
-                options:
-                  type === "mcq"
-                    ? question.options.length
-                      ? question.options
-                      : ["", "", "", ""]
-                    : [],
+                points: Math.max(1, choiceSelectionCount(type)),
+                options: choiceSelectionCount(type)
+                  ? question.options.length
+                    ? question.options
+                    : ["", "", "", ""]
+                  : [],
               });
             }}
             aria-label="Question type"
+            size="sm"
+            className="w-auto min-w-[150px]"
           >
             {types.map(t => (
               <option key={t} value={t}>
                 {QUESTION_TYPE_LABELS[t]}
               </option>
             ))}
-          </select>
+          </AdminSelect>
         ) : (
           <span className="text-sm text-gray-600">
             {QUESTION_TYPE_LABELS[question.type]}
@@ -437,6 +504,21 @@ function QuestionEditor({
         </div>
       </div>
 
+      {module === "listening" && (
+        <Field
+          label="Instructions"
+          hint="Shown before this question. For a group, keep this on the first question only."
+          className="mb-3"
+        >
+          <textarea
+            className={inputClass}
+            rows={2}
+            value={question.instruction}
+            onChange={e => set({ instruction: e.target.value })}
+          />
+        </Field>
+      )}
+
       <Field
         label={
           question.type === "writing"
@@ -456,20 +538,32 @@ function QuestionEditor({
         />
       </Field>
 
-      {question.type === "mcq" && (
+      {selectionCount > 0 && (
         <div className="mt-3 space-y-2">
           <span className="block text-sm font-medium text-gray-700">
-            Options — select the correct one
+            Options — select{" "}
+            {selectionCount === 1
+              ? "the correct one"
+              : `${selectionCount} correct answers`}
           </span>
           {question.options.map((option, i) => {
             const letter = optionLetter(i);
             return (
               <div key={i} className="flex items-center gap-2">
                 <input
-                  type="radio"
+                  type={selectionCount === 1 ? "radio" : "checkbox"}
                   name={`correct-${question.key}`}
-                  checked={question.answers[0] === letter}
-                  onChange={() => set({ answers: [letter] })}
+                  checked={question.answers.includes(letter)}
+                  onChange={event => {
+                    if (selectionCount === 1) {
+                      set({ answers: [letter] });
+                      return;
+                    }
+                    const answers = event.target.checked
+                      ? [...question.answers, letter].slice(0, selectionCount)
+                      : question.answers.filter(answer => answer !== letter);
+                    set({ answers });
+                  }}
                   aria-label={`Mark option ${letter} correct`}
                 />
                 <span className="w-5 text-sm font-bold text-gray-500">
@@ -519,8 +613,7 @@ function QuestionEditor({
 
       {fixed && (
         <Field label="Correct answer" className="mt-3">
-          <select
-            className={inputClass}
+          <AdminSelect
             value={question.answers[0] ?? ""}
             onChange={e =>
               set({ answers: e.target.value ? [e.target.value] : [] })
@@ -532,11 +625,11 @@ function QuestionEditor({
                 {choice}
               </option>
             ))}
-          </select>
+          </AdminSelect>
         </Field>
       )}
 
-      {question.type === "short_answer" && (
+      {isCompletionType(question.type) && (
         <Field
           label="Accepted answers"
           hint="One per line. Matching ignores capitals and surrounding punctuation."
@@ -598,7 +691,7 @@ function QuestionEditor({
         </div>
       )}
 
-      {autoMarked && (
+      {autoMarked ? (
         <Field
           label="Explanation (shown after submitting in practice mode)"
           className="mt-3"
@@ -610,7 +703,130 @@ function QuestionEditor({
             onChange={e => set({ explanation: e.target.value })}
           />
         </Field>
+      ) : (
+        <Field
+          label={
+            question.type === "writing"
+              ? "Model answer / tips"
+              : "Sample answer / tips"
+          }
+          hint="Shown to students after they submit a practice test. Not shown in timed exams."
+          className="mt-3"
+        >
+          <textarea
+            className={inputClass}
+            rows={question.type === "writing" ? 8 : 5}
+            value={question.explanation}
+            placeholder={
+              question.type === "writing"
+                ? "Paste a band 8–9 model answer, or tips on structure and key language…"
+                : "Write a sample answer or tips on what a strong response includes…"
+            }
+            onChange={e => set({ explanation: e.target.value })}
+          />
+        </Field>
       )}
+    </div>
+  );
+}
+
+function AddQuestionControl({
+  module,
+  defaultType,
+  lastQuestion,
+  existingCount,
+  onAdd,
+}: {
+  module: MockModule;
+  defaultType: MockQuestionType;
+  lastQuestion?: QuestionDraft;
+  existingCount: number;
+  onAdd: (type: MockQuestionType, count: number) => void;
+}) {
+  const [type, setType] = useState<MockQuestionType>(
+    lastQuestion?.type ?? defaultType
+  );
+  const remaining = Math.max(0, 10 - existingCount);
+  const maxCount = Math.floor(
+    remaining / Math.max(1, choiceSelectionCount(type))
+  );
+  const [count, setCount] = useState(Math.max(1, maxCount));
+  const allowedCount = Math.min(count, maxCount);
+
+  if (module !== "listening") {
+    return (
+      <button
+        type="button"
+        className="admin-button admin-button-secondary"
+        onClick={() => onAdd(lastQuestion?.type ?? defaultType, 1)}
+      >
+        <Plus className="h-4 w-4" />
+        Add question
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--admin-border)] p-4">
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-[#30363d]">
+          Add answer entries in bulk (optional)
+        </p>
+        <p className="mt-0.5 text-xs text-[#747d87]">
+          Use this for simple choice questions or when you already know how many
+          answers the part needs. A standard part contains 10 questions.
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="min-w-0 flex-1">
+          <span className="mb-1.5 block text-xs font-medium text-gray-600">
+            Question type
+          </span>
+          <AdminSelect
+            value={type}
+            onChange={event => {
+              const nextType = event.target.value as MockQuestionType;
+              const span = Math.max(1, choiceSelectionCount(nextType));
+              setType(nextType);
+              setCount(Math.max(1, Math.floor(remaining / span)));
+            }}
+          >
+            {LISTENING_QUESTION_TYPES.map(questionType => (
+              <option key={questionType} value={questionType}>
+                {QUESTION_TYPE_LABELS[questionType]}
+              </option>
+            ))}
+          </AdminSelect>
+        </label>
+        <label className="sm:w-32">
+          <span className="mb-1.5 block text-xs font-medium text-gray-600">
+            {choiceSelectionCount(type) > 1 ? "How many groups" : "How many"}
+          </span>
+          <AdminSelect
+            value={String(allowedCount)}
+            onChange={event => setCount(Number(event.target.value))}
+            disabled={!maxCount}
+          >
+            {!maxCount && <option value="0">Part is full</option>}
+            {Array.from({ length: maxCount }, (_, index) => index + 1).map(
+              amount => (
+                <option key={amount} value={amount}>
+                  {amount}
+                </option>
+              )
+            )}
+          </AdminSelect>
+        </label>
+        <button
+          type="button"
+          className="admin-button admin-button-secondary shrink-0"
+          disabled={!allowedCount}
+          onClick={() => onAdd(type, allowedCount)}
+        >
+          <Plus className="h-4 w-4" />
+          Add {allowedCount === 1 ? "question" : `${allowedCount} questions`}
+        </button>
+      </div>
     </div>
   );
 }
@@ -630,8 +846,7 @@ function AnswerKeyRow({
   return (
     <div className="grid grid-cols-[48px_150px_1fr_32px] items-center gap-2">
       <span className="text-sm font-bold text-gray-700">{number}</span>
-      <select
-        className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm"
+      <AdminSelect
         value={question.type}
         aria-label={`Answer type for question ${number}`}
         onChange={e =>
@@ -641,14 +856,15 @@ function AnswerKeyRow({
             answers: [],
           })
         }
+        size="sm"
+        className="w-auto min-w-[150px]"
       >
         <option value="short_answer">Word / number / letter</option>
         <option value="tfng">True / False / NG</option>
         <option value="ynng">Yes / No / NG</option>
-      </select>
+      </AdminSelect>
       {FIXED_CHOICES[question.type] ? (
-        <select
-          className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm"
+        <AdminSelect
           value={question.answers[0] ?? ""}
           aria-label={`Answer for question ${number}`}
           onChange={e =>
@@ -657,6 +873,8 @@ function AnswerKeyRow({
               answers: e.target.value ? [e.target.value] : [],
             })
           }
+          size="sm"
+          className="w-auto min-w-[150px]"
         >
           <option value="">Select…</option>
           {FIXED_CHOICES[question.type]!.map(c => (
@@ -664,7 +882,7 @@ function AnswerKeyRow({
               {c}
             </option>
           ))}
-        </select>
+        </AdminSelect>
       ) : (
         <input
           className="rounded-md border border-gray-300 px-3 py-2 text-sm"
@@ -716,7 +934,7 @@ type ImportedSection = {
   questions?: Partial<QuestionDraft>[];
 };
 
-function ImportPanel({
+export function ImportPanel({
   module,
   format,
   onImport,
@@ -781,6 +999,7 @@ function ImportPanel({
               `Section ${sIndex + 1}, question ${qIndex + 1}: “${type}” isn't allowed in ${MODULE_LABELS[module]}`
             );
           return newQuestion(type, {
+            instruction: q.instruction ?? "",
             prompt: q.prompt ?? "",
             options: Array.isArray(q.options)
               ? q.options.map(String)
@@ -894,19 +1113,30 @@ function validate(settings: Settings, sections: SectionDraft[]) {
   if (!sections.length) return "Add at least one section.";
   let n = 0;
   for (const section of sections) {
-    if (!section.title.trim()) return "Every section needs a title.";
+    if (settings.module !== "listening" && !section.title.trim())
+      return "Every section needs a title.";
+    if (
+      settings.module === "listening" &&
+      section.questions.reduce(
+        (total, question) =>
+          total + Math.max(1, choiceSelectionCount(question.type)),
+        0
+      ) > 10
+    )
+      return `${section.title} cannot contain more than 10 questions.`;
     for (const q of section.questions) {
       n += 1;
       if (!q.prompt.trim()) return `Question ${n} has no prompt.`;
-      if (q.type === "mcq") {
+      const selectionCount = choiceSelectionCount(q.type);
+      if (selectionCount) {
         if (q.options.filter(o => o.trim()).length < 2)
           return `Question ${n} needs at least two options.`;
-        if (!q.answers[0])
-          return `Choose the correct option for question ${n}.`;
+        if (q.answers.length !== selectionCount)
+          return `Choose ${selectionCount} correct ${selectionCount === 1 ? "option" : "options"} for question ${n}.`;
       }
       if ((q.type === "tfng" || q.type === "ynng") && !q.answers[0])
         return `Choose the correct answer for question ${n}.`;
-      if (q.type === "short_answer" && !q.answers.some(a => a.trim()))
+      if (isCompletionType(q.type) && !q.answers.some(a => a.trim()))
         return `Add at least one accepted answer for question ${n}.`;
     }
   }
@@ -942,6 +1172,7 @@ export default function AdminMockTestEditor() {
       series: existing.series,
       bookNumber: existing.bookNumber,
       testNumber: existing.testNumber,
+      practiceType: existing.practiceType ?? null,
     });
     setSections(
       existing.sections.map(s => ({
@@ -950,12 +1181,14 @@ export default function AdminMockTestEditor() {
         title: s.title,
         instructions: s.instructions ?? "",
         content: s.content ?? "",
+        questionLayout: s.questionLayout ?? "",
         imageUrl: s.imageUrl ?? "",
         audioUrl: s.audioUrl ?? "",
         questions: s.questions.map(q => ({
           key: nanoid(),
           id: q.id,
           type: q.type,
+          instruction: q.instruction ?? "",
           prompt: q.prompt,
           options: q.options ?? [],
           answers: q.answers ?? [],
@@ -974,15 +1207,10 @@ export default function AdminMockTestEditor() {
       toast.success("Test saved");
       utils.mockTests.list.invalidate();
       utils.mockTests.get.invalidate({ id });
-      if (!testId) navigate(`/admin/mock-tests/${id}`);
+      if (!testId) navigate(`/admin/ielts/${id}`);
     },
     onError: err => toast.error(err.message),
   });
-
-  const questionCount = useMemo(
-    () => sections.reduce((n, s) => n + s.questions.length, 0),
-    [sections]
-  );
 
   const chooseModule = (
     module: MockModule,
@@ -1003,27 +1231,25 @@ export default function AdminMockTestEditor() {
       series: preset?.series ?? null,
       bookNumber: preset?.book ?? null,
       testNumber: preset?.test ?? null,
+      practiceType: null,
     });
     setSections(preset ? answerSheetTemplate(module) : templateFor(module));
-    setImporting(!!preset && isAutoMarkedModule(module));
   };
 
-  // Opened from the Cambridge library grid: /admin/mock-tests/new?series=cambridge&book=18&test=2&module=listening
+  // Opened from the Cambridge library grid (/admin/ielts/new?series=cambridge&book=18&test=2&module=listening)
+  // or a module page (?module=listening): skip the module picker.
   const search = new URLSearchParams(useSearch());
-  const [importing, setImporting] = useState(false);
   useEffect(() => {
     if (testId || settings) return;
     const module = search.get("module") as MockModule | null;
     const book = Number(search.get("book"));
     const test = Number(search.get("test"));
-    if (
-      module &&
-      module in MODULE_LABELS &&
-      search.get("series") === CAMBRIDGE.key &&
-      book &&
-      test
-    ) {
+    if (!module || !(module in MODULE_LABELS)) return;
+    if (search.get("series") === CAMBRIDGE.key && book && test) {
       chooseModule(module, { series: CAMBRIDGE.key, book, test });
+    } else {
+      // Opened from a module page: /admin/ielts/new?module=writing
+      chooseModule(module);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1043,8 +1269,21 @@ export default function AdminMockTestEditor() {
 
   const header = (
     <AdminPageHeader
-      title={testId ? "Edit Mock Test" : "New Mock Test"}
-      parent={{ label: "Mock Tests", href: "/admin/mock-tests" }}
+      title={
+        testId
+          ? "Edit test"
+          : settings
+            ? `New ${MODULE_LABELS[settings.module]} test`
+            : "New test"
+      }
+      parent={
+        settings
+          ? {
+              label: MODULE_LABELS[settings.module],
+              href: `/admin/ielts/${settings.module}`,
+            }
+          : undefined
+      }
       action={
         settings ? (
           <button
@@ -1065,20 +1304,26 @@ export default function AdminMockTestEditor() {
                     settings.mode === "exam" ? settings.durationMinutes : null,
                   description: settings.description || null,
                 },
-                sections: sections.map(s => ({
+                sections: sections.map((s, sectionIndex) => ({
                   id: s.id,
-                  title: s.title.trim(),
+                  title:
+                    settings.module === "listening"
+                      ? `Part ${sectionIndex + 1}`
+                      : s.title.trim(),
                   instructions: s.instructions || null,
                   content: s.content || null,
+                  questionLayout: s.questionLayout || null,
                   imageUrl: s.imageUrl || null,
                   audioUrl: s.audioUrl || null,
                   questions: s.questions.map(q => ({
                     id: q.id,
                     type: q.type,
+                    instruction: q.instruction || null,
                     // Answer-sheet questions are numbered like the book: 1…40 across all parts.
                     prompt: sheet ? `Question ${++seq}` : q.prompt.trim(),
-                    options:
-                      q.type === "mcq" ? q.options.map(o => o.trim()) : null,
+                    options: choiceSelectionCount(q.type)
+                      ? q.options.map(o => o.trim())
+                      : null,
                     answers: AUTO_MARKED_TYPES.includes(q.type)
                       ? q.answers.map(a => a.trim()).filter(Boolean)
                       : null,
@@ -1118,7 +1363,7 @@ export default function AdminMockTestEditor() {
                 key={module}
                 type="button"
                 onClick={() => chooseModule(module)}
-                className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-gray-400"
+                className="flex items-start gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-5 text-left transition-transform hover:-translate-y-0.5"
               >
                 <span className="flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-gray-100">
                   <Icon className="h-6 w-6 text-gray-700" />
@@ -1161,16 +1406,8 @@ export default function AdminMockTestEditor() {
 
       <div className="space-y-6">
         {/* Settings */}
-        <div className="space-y-4 border-b border-gray-200 pb-8">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">
-              {MODULE_LABELS[settings.module]} test settings
-            </h3>
-            <span className="text-sm text-gray-500">
-              {questionCount} question{questionCount === 1 ? "" : "s"}
-            </span>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-4 pb-8">
+          <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
             <Field label="Title" className="sm:col-span-2">
               <input
                 className={inputClass}
@@ -1190,54 +1427,49 @@ export default function AdminMockTestEditor() {
               />
             </Field>
             <Field
-              label="Content"
-              hint={
-                settings.format === "answer_sheet"
-                  ? "Students use their own book (and its audio). Only your answer key is stored here."
-                  : "Passages, audio and questions are shown on the site."
-              }
-            >
-              <select
-                className={inputClass}
-                value={settings.format}
-                onChange={e => {
-                  const format = e.target.value as MockFormat;
-                  if (
-                    format === "answer_sheet" &&
-                    !confirm(
-                      "Switch to an answer sheet? This replaces the current sections with a blank answer sheet."
-                    )
-                  )
-                    return;
-                  setS({ format });
-                  if (format === "answer_sheet")
-                    setSections(answerSheetTemplate(settings.module));
-                }}
-              >
-                <option value="full">Full test on the site</option>
-                <option value="answer_sheet">
-                  Answer sheet only (students use their book)
-                </option>
-              </select>
-            </Field>
-            <Field
               label="Book series"
               hint="Groups the test in the Cambridge library."
             >
-              <select
-                className={inputClass}
+              <AdminSelect
                 value={settings.series ?? ""}
                 onChange={e => setS({ series: e.target.value || null })}
               >
                 <option value="">None — our own test</option>
                 <option value={CAMBRIDGE.key}>{CAMBRIDGE.label}</option>
-              </select>
+              </AdminSelect>
+            </Field>
+            <Field
+              label="Mode"
+              hint={
+                settings.mode === "exam"
+                  ? "Timed, auto-submits, answers stay hidden."
+                  : "No timer, answers and explanations shown after submitting."
+              }
+            >
+              <AdminSelect
+                value={settings.mode}
+                onChange={e => {
+                  const mode = e.target.value as Settings["mode"];
+                  setS({
+                    mode,
+                    practiceType:
+                      mode === "practice" ? settings.practiceType : null,
+                    maxAttempts:
+                      mode === "practice" ? null : (settings.maxAttempts ?? 1),
+                    durationMinutes:
+                      settings.durationMinutes ??
+                      DEFAULT_DURATION_MINUTES[settings.module],
+                  });
+                }}
+              >
+                <option value="exam">Timed exam</option>
+                <option value="practice">Practice</option>
+              </AdminSelect>
             </Field>
             {settings.series === CAMBRIDGE.key && (
-              <div className="grid grid-cols-2 gap-4 sm:col-span-2">
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
                 <Field label="Book">
-                  <select
-                    className={inputClass}
+                  <AdminSelect
                     value={settings.bookNumber ?? ""}
                     onChange={e =>
                       setS({
@@ -1256,11 +1488,10 @@ export default function AdminMockTestEditor() {
                         {CAMBRIDGE.label} {n}
                       </option>
                     ))}
-                  </select>
+                  </AdminSelect>
                 </Field>
                 <Field label="Test">
-                  <select
-                    className={inputClass}
+                  <AdminSelect
                     value={settings.testNumber ?? ""}
                     onChange={e =>
                       setS({
@@ -1279,7 +1510,7 @@ export default function AdminMockTestEditor() {
                         Test {n}
                       </option>
                     ))}
-                  </select>
+                  </AdminSelect>
                 </Field>
               </div>
             )}
@@ -1287,9 +1518,9 @@ export default function AdminMockTestEditor() {
               <Field
                 label="Reading type"
                 hint="Decides which band conversion table is used."
+                className="sm:col-span-2"
               >
-                <select
-                  className={inputClass}
+                <AdminSelect
                   value={settings.variant}
                   onChange={e =>
                     setS({ variant: e.target.value as Settings["variant"] })
@@ -1297,175 +1528,207 @@ export default function AdminMockTestEditor() {
                 >
                   <option value="academic">Academic</option>
                   <option value="general">General Training</option>
-                </select>
+                </AdminSelect>
               </Field>
             )}
-            <Field
-              label="Mode"
-              hint={
-                settings.mode === "exam"
-                  ? "Timed, auto-submits, answers stay hidden."
-                  : "No timer, answers and explanations shown after submitting."
-              }
-            >
-              <select
-                className={inputClass}
-                value={settings.mode}
-                onChange={e => {
-                  const mode = e.target.value as Settings["mode"];
-                  setS({
-                    mode,
-                    maxAttempts:
-                      mode === "practice" ? null : (settings.maxAttempts ?? 1),
-                    durationMinutes:
-                      settings.durationMinutes ??
-                      DEFAULT_DURATION_MINUTES[settings.module],
-                  });
-                }}
+            {settings.mode === "practice" && (
+              <Field
+                label="Question type"
+                hint="Lists this set under Practice → by question type for students. Leave as a full test to show it with the other practice tests."
+                className="sm:col-span-2"
               >
-                <option value="exam">Timed exam</option>
-                <option value="practice">Practice</option>
-              </select>
-            </Field>
-            {settings.mode === "exam" && (
-              <Field label="Time limit (minutes)">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputClass}
-                  value={settings.durationMinutes ?? ""}
-                  onChange={e =>
-                    setS({
-                      durationMinutes: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
-                  }
-                />
+                <AdminSelect
+                  value={settings.practiceType ?? ""}
+                  onChange={e => setS({ practiceType: e.target.value || null })}
+                >
+                  <option value="">Full practice test (all types)</option>
+                  {PRACTICE_TYPES[settings.module].map(type => (
+                    <option key={type.key} value={type.key}>
+                      {type.label}
+                    </option>
+                  ))}
+                </AdminSelect>
               </Field>
             )}
-            <Field label="Attempts allowed" hint="Leave empty for unlimited.">
-              <input
-                type="number"
-                min={1}
-                className={inputClass}
-                value={settings.maxAttempts ?? ""}
-                onChange={e =>
-                  setS({
-                    maxAttempts: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-              />
-            </Field>
-            <label className="flex items-center gap-2 self-end pb-3 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={settings.isPublished}
-                onChange={e => setS({ isPublished: e.target.checked })}
-              />
+            <label
+              htmlFor="mock-test-published"
+              className="flex min-h-14 items-center justify-between gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] px-4 py-3 text-sm sm:col-span-2"
+            >
               <span>Published — visible to students</span>
+              <Switch
+                id="mock-test-published"
+                checked={settings.isPublished}
+                onCheckedChange={checked => setS({ isPublished: checked })}
+              />
             </label>
           </div>
         </div>
-
-        {importing ? (
-          <ImportPanel
-            module={settings.module}
-            format={settings.format}
-            onClose={() => setImporting(false)}
-            onImport={(imported, title) => {
-              if (
-                sections.some(s => s.questions.some(q => q.id)) &&
-                !confirm("Replace all existing sections and questions?")
-              )
-                return;
-              setSections(imported);
-              if (title?.trim()) setS({ title: title.trim() });
-              setImporting(false);
-              toast.success("Imported — review below, then Save test");
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className="admin-button admin-button-secondary"
-            onClick={() => setImporting(true)}
-          >
-            <FileInput className="h-4 w-4" />
-            {settings.format === "answer_sheet" &&
-            isAutoMarkedModule(settings.module)
-              ? "Paste answer key"
-              : "Import test"}
-          </button>
-        )}
 
         {/* Sections */}
         {sections.map((section, sIndex) => (
           <div
             key={section.key}
-            className="space-y-4 border-b border-gray-200 pb-8"
+            className={`space-y-4 pb-8 ${
+              settings.module === "listening" ? "" : "border-b border-gray-200"
+            }`}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <input
-                className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-lg font-bold text-gray-900 hover:border-gray-200 focus:border-red-500 focus:outline-none"
-                value={section.title}
-                onChange={e =>
-                  updateSection(section.key, { title: e.target.value })
-                }
-                aria-label="Section title"
-              />
-              <button
-                type="button"
-                onClick={() => setSections(prev => moveItem(prev, sIndex, -1))}
-                className="rounded p-1.5 hover:bg-gray-100"
-                aria-label="Move section up"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setSections(prev => moveItem(prev, sIndex, 1))}
-                className="rounded p-1.5 hover:bg-gray-100"
-                aria-label="Move section down"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  confirm(`Remove "${section.title}" and its questions?`) &&
-                  setSections(prev => prev.filter(s => s.key !== section.key))
-                }
-                className="rounded p-1.5 hover:bg-red-50"
-                aria-label="Remove section"
-              >
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </button>
+              {settings.module === "listening" ? (
+                <h3 className="min-w-0 flex-1 py-1 text-lg font-bold text-gray-900">
+                  Part {sIndex + 1}
+                </h3>
+              ) : (
+                <>
+                  <input
+                    className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-lg font-bold text-gray-900 hover:border-gray-200 focus:border-red-500 focus:outline-none"
+                    value={section.title}
+                    onChange={e =>
+                      updateSection(section.key, { title: e.target.value })
+                    }
+                    aria-label="Section title"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSections(prev => moveItem(prev, sIndex, -1))
+                    }
+                    className="rounded p-1.5 hover:bg-gray-100"
+                    aria-label="Move section up"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSections(prev => moveItem(prev, sIndex, 1))
+                    }
+                    className="rounded p-1.5 hover:bg-gray-100"
+                    aria-label="Move section down"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      confirm(`Remove "${section.title}" and its questions?`) &&
+                      setSections(prev =>
+                        prev.filter(s => s.key !== section.key)
+                      )
+                    }
+                    className="rounded p-1.5 hover:bg-red-50"
+                    aria-label="Remove section"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </button>
+                </>
+              )}
             </div>
 
-            <Field label="Instructions">
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={section.instructions}
-                onChange={e =>
-                  updateSection(section.key, { instructions: e.target.value })
-                }
-              />
-            </Field>
+            {(settings.module !== "listening" ||
+              settings.format === "answer_sheet") && (
+              <Field label="Instructions">
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={section.instructions}
+                  onChange={e =>
+                    updateSection(section.key, {
+                      instructions: e.target.value,
+                    })
+                  }
+                />
+              </Field>
+            )}
 
             {settings.module === "listening" && (
-              <MediaInput
-                label={
-                  settings.format === "answer_sheet"
-                    ? "Audio for this part (optional — students can use the book's audio)"
-                    : "Audio for this part"
-                }
-                accept="audio"
-                value={section.audioUrl}
-                onChange={url => updateSection(section.key, { audioUrl: url })}
-              />
+              <>
+                <MediaInput
+                  label={
+                    settings.format === "answer_sheet"
+                      ? "Audio for this part (optional — students can use the book's audio)"
+                      : "1. Upload audio"
+                  }
+                  accept="audio"
+                  value={section.audioUrl}
+                  onChange={url =>
+                    updateSection(section.key, { audioUrl: url })
+                  }
+                />
+                {settings.format === "full" && section.audioUrl && (
+                  <Field
+                    label="2. Build the questions"
+                    hint="Write the question content visually. Choosing “Create new answer box” automatically creates its answer-key entry below."
+                  >
+                    <ListeningLayoutBuilder
+                      value={section.questionLayout}
+                      onChange={questionLayout =>
+                        updateSection(section.key, {
+                          questionLayout,
+                        })
+                      }
+                      questions={section.questions.flatMap(
+                        (question, questionIndex) =>
+                          isCompletionType(question.type)
+                            ? [
+                                {
+                                  number: questionStartNumber(
+                                    sections,
+                                    sIndex,
+                                    questionIndex
+                                  ),
+                                  label:
+                                    question.prompt ||
+                                    QUESTION_TYPE_LABELS[question.type],
+                                },
+                              ]
+                            : []
+                      )}
+                      existingQuestionCount={section.questions.reduce(
+                        (total, question) =>
+                          total +
+                          Math.max(1, choiceSelectionCount(question.type)),
+                        0
+                      )}
+                      onCreateQuestions={(type, count, instruction) => {
+                        const firstNumber = questionStartNumber(
+                          sections,
+                          sIndex,
+                          section.questions.length
+                        );
+                        const numberSpan = Math.max(
+                          1,
+                          choiceSelectionCount(type)
+                        );
+                        updateSection(section.key, {
+                          questions: [
+                            ...section.questions,
+                            ...Array.from({ length: count }, (_, index) =>
+                              newQuestion(type, {
+                                instruction: index === 0 ? instruction : "",
+                                prompt: `${QUESTION_TYPE_LABELS[type]} question`,
+                              })
+                            ),
+                          ],
+                        });
+                        return Array.from(
+                          { length: count },
+                          (_, index) => firstNumber + index * numberSpan
+                        );
+                      }}
+                      labelingMedia={
+                        <MediaInput
+                          label="Map / plan / diagram image (optional)"
+                          accept="image"
+                          value={section.imageUrl}
+                          onChange={url =>
+                            updateSection(section.key, { imageUrl: url })
+                          }
+                        />
+                      }
+                    />
+                  </Field>
+                )}
+              </>
             )}
             {settings.format === "full" &&
               (settings.module === "reading" ||
@@ -1506,15 +1769,44 @@ export default function AdminMockTestEditor() {
                   }
                 />
               )}
-
-            <div className="space-y-3">
+            <div
+              className={`space-y-3 ${
+                settings.module === "listening" &&
+                settings.format === "full" &&
+                !section.audioUrl
+                  ? "hidden"
+                  : ""
+              }`}
+            >
+              {settings.module === "listening" &&
+                settings.format === "full" &&
+                section.questions.length > 0 && (
+                  <div className="pb-1 pt-2">
+                    <h4 className="text-sm font-semibold text-[#30363d]">
+                      3. Add answers and explanations
+                    </h4>
+                    <p className="mt-1 text-xs text-[#747d87]">
+                      Set each accepted answer and optionally add an explanation
+                      shown after submission in practice mode.
+                    </p>
+                  </div>
+                )}
               {section.questions.map((question, qIndex) => {
-                running += 1;
+                const firstNumber = running + 1;
+                const numberSpan = Math.max(
+                  1,
+                  choiceSelectionCount(question.type)
+                );
+                running += numberSpan;
+                const numberLabel =
+                  numberSpan > 1
+                    ? `${firstNumber}–${running}`
+                    : String(firstNumber);
                 if (
                   settings.format === "answer_sheet" &&
                   isAutoMarkedModule(settings.module)
                 ) {
-                  const number = running;
+                  const number = firstNumber;
                   return (
                     <AnswerKeyRow
                       key={question.key}
@@ -1542,7 +1834,7 @@ export default function AdminMockTestEditor() {
                 return (
                   <QuestionEditor
                     key={question.key}
-                    number={running}
+                    number={numberLabel}
                     question={question}
                     module={settings.module}
                     onChange={q =>
@@ -1567,51 +1859,68 @@ export default function AdminMockTestEditor() {
                   />
                 );
               })}
-              <button
-                type="button"
-                className="admin-button admin-button-secondary"
-                onClick={() => {
-                  const last = section.questions[section.questions.length - 1];
-                  const type = last?.type ?? defaultType;
-                  updateSection(section.key, {
-                    questions: [
-                      ...section.questions,
-                      newQuestion(type, {
-                        prompt:
-                          settings.format === "answer_sheet" &&
-                          isAutoMarkedModule(settings.module)
-                            ? `Question ${questionCount + 1}`
-                            : "",
-                        minWords: last?.minWords ?? null,
-                        prepSeconds: last?.prepSeconds ?? null,
-                        responseSeconds: last?.responseSeconds ?? null,
-                      }),
-                    ],
-                  });
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Add question
-              </button>
+              {(settings.module !== "listening" ||
+                settings.format === "answer_sheet") && (
+                <AddQuestionControl
+                  module={settings.module}
+                  defaultType={defaultType}
+                  lastQuestion={section.questions[section.questions.length - 1]}
+                  existingCount={section.questions.reduce(
+                    (total, question) =>
+                      total + Math.max(1, choiceSelectionCount(question.type)),
+                    0
+                  )}
+                  onAdd={(type, count) => {
+                    const last =
+                      section.questions[section.questions.length - 1];
+                    const firstQuestionNumber =
+                      sections
+                        .slice(0, sIndex)
+                        .reduce(
+                          (total, item) => total + item.questions.length,
+                          0
+                        ) + section.questions.length;
+                    updateSection(section.key, {
+                      questions: [
+                        ...section.questions,
+                        ...Array.from({ length: count }, (_, index) =>
+                          newQuestion(type, {
+                            prompt:
+                              settings.format === "answer_sheet" &&
+                              isAutoMarkedModule(settings.module)
+                                ? `Question ${firstQuestionNumber + index + 1}`
+                                : "",
+                            minWords: last?.minWords ?? null,
+                            prepSeconds: last?.prepSeconds ?? null,
+                            responseSeconds: last?.responseSeconds ?? null,
+                          })
+                        ),
+                      ],
+                    });
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
 
-        <button
-          type="button"
-          className="admin-button admin-button-secondary"
-          onClick={() =>
-            setSections(prev => [
-              ...prev,
-              newSection(`Section ${prev.length + 1}`, [
-                newQuestion(defaultType),
-              ]),
-            ])
-          }
-        >
-          <Plus className="h-4 w-4" />
-          Add section
-        </button>
+        {settings.module !== "listening" && (
+          <button
+            type="button"
+            className="admin-button admin-button-secondary"
+            onClick={() =>
+              setSections(prev => [
+                ...prev,
+                newSection(`Section ${prev.length + 1}`, [
+                  newQuestion(defaultType),
+                ]),
+              ])
+            }
+          >
+            <Plus className="h-4 w-4" />
+            Add section
+          </button>
+        )}
       </div>
     </div>
   );

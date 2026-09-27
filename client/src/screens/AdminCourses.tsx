@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, X, BookOpen, CheckCircle2, FileImage } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Plus, BookOpen, CheckCircle2, FileImage } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import { useLocation } from "@/lib/router";
 import AdminImageUploader from "@/components/AdminImageUploader";
@@ -26,10 +26,15 @@ import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
+import AdminInstructorPicker, {
+  toCourseInstructor,
+} from "@/components/AdminInstructorPicker";
+import { useInstructors } from "@/hooks/useInstructors";
 
 type CurriculumModule = { title: string; content: string };
 type FaqItem = { question: string; answer: string };
-type UploadField = "imageUrl" | "instructorPhoto";
+/** Instructor photos are uploaded by AdminInstructorPicker, so only the course image goes through here. */
+type UploadField = "imageUrl";
 type UploadState = {
   fileName: string;
   fileSize: number;
@@ -153,6 +158,70 @@ function readFileAsBase64(
   });
 }
 
+/** Sections of the Edit course page, in the order they appear in its left-hand menu. */
+const COURSE_SECTIONS = [
+  {
+    id: "basics",
+    title: "Basics",
+    description: "Name, image and how the course is described on cards.",
+  },
+  {
+    id: "pricing",
+    title: "Pricing & enrollment",
+    description: "Fees, timing and the seats shown on the course page.",
+  },
+  {
+    id: "description",
+    title: "Description",
+    description: "The main text and video on the course page.",
+  },
+  {
+    id: "included",
+    title: "What's included",
+    description: "Checklists shown on the course page and in the price box.",
+  },
+  {
+    id: "curriculum",
+    title: "Curriculum",
+    description: "Modules shown as a numbered list on the course page.",
+  },
+  {
+    id: "instructor",
+    title: "Instructor",
+    description: "The “Your mentor” card on the course page.",
+  },
+  {
+    id: "faq",
+    title: "FAQ",
+    description: "Questions and answers at the bottom of the course page.",
+  },
+  {
+    id: "visibility",
+    title: "Visibility",
+    description: "Whether the course is shown, its badge, order and link.",
+  },
+] as const;
+type CourseSectionId = (typeof COURSE_SECTIONS)[number]["id"];
+
+/** A labelled form field with an optional hint underneath the input. */
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="mt-2">{children}</div>
+      {hint && <p className="mt-1.5 text-xs text-[#747d87]">{hint}</p>}
+    </div>
+  );
+}
+
 export default function AdminCourses({
   createMode = false,
   editId,
@@ -170,26 +239,45 @@ export default function AdminCourses({
   const [featuresText, setFeaturesText] = useState("");
   const [outcomesText, setOutcomesText] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadingInstructor, setUploadingInstructor] = useState(false);
   const [uploadState, setUploadState] = useState<
     Record<UploadField, UploadState | null>
   >({
     imageUrl: null,
-    instructorPhoto: null,
   });
-  const [activeTab, setActiveTab] = useState<
-    "basic" | "detail" | "instructor" | "faq"
-  >("basic");
+  const [activeTab, setActiveTab] = useState<CourseSectionId>("basics");
   const [view, setView] = useState<AdminListView>("table");
+  const currentSection =
+    COURSE_SECTIONS.find(section => section.id === activeTab) ??
+    COURSE_SECTIONS[0];
+  const patchCourse = (patch: Partial<CourseFormData>) =>
+    setEditingCourse(current => (current ? { ...current, ...patch } : current));
+
+  // Pre-select the first saved instructor for a course that has none — once per opened course,
+  // so choosing "No instructor" afterwards sticks.
+  const { instructors, isLoading: instructorsLoading } = useInstructors();
+  const preselectedFor = useRef<string | null>(null);
+  const courseKey = editingCourse ? String(editingId ?? "new") : null;
+  useEffect(() => {
+    if (
+      !courseKey ||
+      !editingCourse ||
+      instructorsLoading ||
+      preselectedFor.current === courseKey
+    )
+      return;
+    preselectedFor.current = courseKey;
+    if (!editingCourse.instructorName && instructors.length)
+      patchCourse(toCourseInstructor(instructors[0]));
+  }, [courseKey, editingCourse, instructorsLoading, instructors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const utils = trpc.useUtils();
   const { data: courses, isLoading } = trpc.courses.adminList.useQuery();
   const createMutation = trpc.courses.create.useMutation({
-    onSuccess: () => {
-      utils.courses.adminList.invalidate();
-      toast.success("Course created successfully!");
-      setDialogOpen(false);
-      navigate("/admin/courses");
+    onSuccess: async ({ id }) => {
+      await utils.courses.adminList.invalidate();
+      toast.success("Course created. Add the remaining details below.");
+      // Continue on the full editor so curriculum, instructor and FAQ can be filled in.
+      navigate(`/admin/courses/${id}/edit`);
     },
     onError: err => toast.error(err.message),
   });
@@ -242,8 +330,7 @@ export default function AdminCourses({
       input.value = "";
       return;
     }
-    const setLoading =
-      field === "imageUrl" ? setUploading : setUploadingInstructor;
+    const setLoading = setUploading;
     setLoading(true);
     setUploadState(prev => ({
       ...prev,
@@ -323,8 +410,8 @@ export default function AdminCourses({
     setEditingId(course.id);
     setFeaturesText((course.features || []).join("\n"));
     setOutcomesText((course.learningOutcomes || []).join("\n"));
-    setUploadState({ imageUrl: null, instructorPhoto: null });
-    setActiveTab("basic");
+    setUploadState({ imageUrl: null });
+    setActiveTab("basics");
     setDialogOpen(true);
   };
 
@@ -772,7 +859,7 @@ export default function AdminCourses({
       {dialogOpen && (
         <>
           <AdminPageHeader
-            title={editingId ? "Edit Course" : "New Course"}
+            title={editingId ? "Edit Course" : "Add Course"}
             description=""
             parent={{ label: "Courses", href: "/admin/courses" }}
           />
@@ -780,37 +867,588 @@ export default function AdminCourses({
             <DialogContent page showCloseButton={false}>
               {editingCourse && (
                 <div>
-                  {/* Tab Navigation */}
-                  <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
-                    {[
-                      { key: "basic" as const, label: "Basic Information" },
-                      {
-                        key: "detail" as const,
-                        label: "Details and Curriculum",
-                      },
-                      { key: "instructor" as const, label: "Instructor" },
-                      { key: "faq" as const, label: "FAQ" },
-                    ].map(tab => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key)}
-                        className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                          activeTab === tab.key
-                            ? "bg-white text-gray-900 shadow-sm"
-                            : "text-gray-500 hover:text-gray-700"
-                        }`}
+                  {editingId ? (
+                    <div className="grid gap-10 md:grid-cols-[200px_minmax(0,1fr)] lg:gap-14">
+                      <nav
+                        className="space-y-1 md:sticky md:top-8 md:self-start"
+                        aria-label="Course sections"
                       >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
+                        {COURSE_SECTIONS.map(section => (
+                          <button
+                            key={section.id}
+                            type="button"
+                            onClick={() => setActiveTab(section.id)}
+                            aria-current={
+                              activeTab === section.id ? "page" : undefined
+                            }
+                            className={`flex h-9 w-full items-center text-left text-sm transition-colors ${activeTab === section.id ? "text-[#c76f42]" : "text-[#6c7580] hover:text-[#30363d]"}`}
+                          >
+                            {section.title}
+                          </button>
+                        ))}
+                      </nav>
+                      <section className="min-w-0">
+                        <h2 className="font-display text-xl font-bold text-[#30363d]">
+                          {currentSection.title}
+                        </h2>
+                        <p className="mb-8 mt-1 text-sm text-[#747d87]">
+                          {currentSection.description}
+                        </p>
 
-                  {/* ==================== BASIC TAB ==================== */}
-                  {activeTab === "basic" && (
-                    <div className="space-y-4">
-                      {/* Image Upload */}
+                        {activeTab === "basics" && (
+                          <div className="space-y-6">
+                            <Field
+                              label="Course image"
+                              hint="Landscape, 16:9. Shown on course cards and the course page."
+                            >
+                              <AdminImageUploader
+                                value={editingCourse.imageUrl}
+                                label="Course image"
+                                recommendation="Landscape, 16:9 ratio"
+                                uploading={uploading}
+                                onChange={e => handleImageUpload(e, "imageUrl")}
+                                onMediaSelect={url =>
+                                  patchCourse({ imageUrl: url })
+                                }
+                                onRemove={() => {
+                                  patchCourse({ imageUrl: "" });
+                                  clearUploadState("imageUrl");
+                                }}
+                              />
+                              {renderUploadStatus("imageUrl")}
+                            </Field>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field
+                                label="Course name *"
+                                hint="Used in the admin and the old website."
+                              >
+                                <Input
+                                  value={editingCourse.name}
+                                  onChange={e =>
+                                    patchCourse({ name: e.target.value })
+                                  }
+                                  placeholder="IELTS Complete Preparation"
+                                />
+                              </Field>
+                              <Field
+                                label="Name shown on website"
+                                hint="Optional. Leave blank to use the course name."
+                              >
+                                <Input
+                                  value={editingCourse.nameEn}
+                                  onChange={e =>
+                                    patchCourse({ nameEn: e.target.value })
+                                  }
+                                  placeholder={
+                                    editingCourse.name ||
+                                    "IELTS Complete Preparation"
+                                  }
+                                />
+                              </Field>
+                            </div>
+                            <Field
+                              label="Short description"
+                              hint="One line under the course name on cards and at the top of the course page."
+                            >
+                              <Input
+                                value={editingCourse.shortDescription}
+                                onChange={e =>
+                                  patchCourse({
+                                    shortDescription: e.target.value,
+                                  })
+                                }
+                                placeholder="Describe the course in one line"
+                              />
+                            </Field>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field label="Category">
+                                <Select
+                                  value={editingCourse.category}
+                                  onValueChange={v =>
+                                    patchCourse({
+                                      category: v as CourseFormData["category"],
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="ielts">IELTS</SelectItem>
+                                    <SelectItem value="spoken">
+                                      Spoken English
+                                    </SelectItem>
+                                    <SelectItem value="grammar">
+                                      Grammar
+                                    </SelectItem>
+                                    <SelectItem value="study-abroad">
+                                      Study Abroad
+                                    </SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                              <Field label="Level">
+                                <Select
+                                  value={editingCourse.level}
+                                  onValueChange={v =>
+                                    patchCourse({
+                                      level: v as CourseFormData["level"],
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="beginner">
+                                      Beginner
+                                    </SelectItem>
+                                    <SelectItem value="intermediate">
+                                      Intermediate
+                                    </SelectItem>
+                                    <SelectItem value="advanced">
+                                      Advanced
+                                    </SelectItem>
+                                    <SelectItem value="all">
+                                      All Levels
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeTab === "pricing" && (
+                          <div className="space-y-6">
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <Field label="Price">
+                                <Input
+                                  value={editingCourse.price}
+                                  onChange={e =>
+                                    patchCourse({ price: e.target.value })
+                                  }
+                                  placeholder="৳8,500"
+                                />
+                              </Field>
+                              <Field
+                                label="Original price"
+                                hint="Shown crossed out."
+                              >
+                                <Input
+                                  value={editingCourse.originalPrice}
+                                  onChange={e =>
+                                    patchCourse({
+                                      originalPrice: e.target.value,
+                                    })
+                                  }
+                                  placeholder="৳12,000"
+                                />
+                              </Field>
+                              <Field label="Duration">
+                                <Input
+                                  value={editingCourse.duration}
+                                  onChange={e =>
+                                    patchCourse({ duration: e.target.value })
+                                  }
+                                  placeholder="2 months"
+                                />
+                              </Field>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field label="Schedule">
+                                <Input
+                                  value={editingCourse.schedule}
+                                  onChange={e =>
+                                    patchCourse({ schedule: e.target.value })
+                                  }
+                                  placeholder="7–9 PM, Saturday–Thursday"
+                                />
+                              </Field>
+                              <Field
+                                label="Maximum students"
+                                hint="Used to show seats left."
+                              >
+                                <Input
+                                  type="number"
+                                  value={editingCourse.maxStudents || ""}
+                                  onChange={e =>
+                                    patchCourse({
+                                      maxStudents: e.target.value
+                                        ? parseInt(e.target.value)
+                                        : null,
+                                    })
+                                  }
+                                  placeholder="20"
+                                />
+                              </Field>
+                            </div>
+                            <Field
+                              label="WhatsApp enrollment message"
+                              hint="Pre-filled when a visitor taps “Ask on WhatsApp”."
+                            >
+                              <Input
+                                value={editingCourse.enrollMessage}
+                                onChange={e =>
+                                  patchCourse({ enrollMessage: e.target.value })
+                                }
+                                placeholder={`I would like to learn more about the "${editingCourse.nameEn || editingCourse.name || "course"}" course.`}
+                              />
+                            </Field>
+                          </div>
+                        )}
+
+                        {activeTab === "description" && (
+                          <div className="space-y-6">
+                            <Field
+                              label="Full description"
+                              hint="The “About this course” text on the course page."
+                            >
+                              <Textarea
+                                value={editingCourse.fullDescription}
+                                onChange={e =>
+                                  patchCourse({
+                                    fullDescription: e.target.value,
+                                  })
+                                }
+                                placeholder="Describe the course in detail…"
+                                rows={8}
+                              />
+                            </Field>
+                            <Field
+                              label="Summary"
+                              hint="Short version used by the old website, and on the course page when there is no full description."
+                            >
+                              <Textarea
+                                value={editingCourse.description}
+                                onChange={e =>
+                                  patchCourse({ description: e.target.value })
+                                }
+                                placeholder="Course summary…"
+                                rows={3}
+                              />
+                            </Field>
+                            <Field label="Who this course is for">
+                              <Textarea
+                                value={editingCourse.targetAudience}
+                                onChange={e =>
+                                  patchCourse({
+                                    targetAudience: e.target.value,
+                                  })
+                                }
+                                placeholder={
+                                  "Students preparing for IELTS\nStudents planning to study abroad"
+                                }
+                                rows={4}
+                              />
+                            </Field>
+                            <Field
+                              label="Intro video (YouTube URL)"
+                              hint="Shown at the top of the course page instead of the image."
+                            >
+                              <Input
+                                value={editingCourse.videoUrl}
+                                onChange={e =>
+                                  patchCourse({ videoUrl: e.target.value })
+                                }
+                                placeholder="https://www.youtube.com/watch?v=…"
+                              />
+                            </Field>
+                          </div>
+                        )}
+
+                        {activeTab === "included" && (
+                          <div className="space-y-6">
+                            <Field
+                              label="What students will learn"
+                              hint="One per line. Shown as a checklist on the course page."
+                            >
+                              <Textarea
+                                value={outcomesText}
+                                onChange={e => setOutcomesText(e.target.value)}
+                                placeholder={
+                                  "IELTS exam strategies\nWriting Task 1 & 2"
+                                }
+                                rows={6}
+                              />
+                            </Field>
+                            <Field
+                              label="Course features"
+                              hint="One per line. Shown with a tick in the price box."
+                            >
+                              <Textarea
+                                value={featuresText}
+                                onChange={e => setFeaturesText(e.target.value)}
+                                placeholder={
+                                  "1-on-1 mentoring\nMock tests\nStudy materials"
+                                }
+                                rows={6}
+                              />
+                            </Field>
+                          </div>
+                        )}
+
+                        {activeTab === "curriculum" && (
+                          <div className="space-y-3">
+                            {editingCourse.curriculum.length === 0 && (
+                              <p className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6 text-center text-sm text-[#747d87]">
+                                No modules yet.
+                              </p>
+                            )}
+                            {editingCourse.curriculum.map((module, index) => (
+                              <div
+                                key={index}
+                                className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4"
+                              >
+                                <div className="mb-3 flex items-center justify-between">
+                                  <span className="text-xs font-medium uppercase text-[#747d87]">
+                                    Module {index + 1}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeCurriculumModule(index)
+                                    }
+                                    className="text-sm text-red-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <div className="space-y-3">
+                                  <Input
+                                    value={module.title}
+                                    onChange={e =>
+                                      updateCurriculumModule(
+                                        index,
+                                        "title",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Module title"
+                                  />
+                                  <Textarea
+                                    value={module.content}
+                                    onChange={e =>
+                                      updateCurriculumModule(
+                                        index,
+                                        "content",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="What this module covers…"
+                                    rows={3}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={addCurriculumModule}
+                              className="flex h-11 w-full items-center justify-center gap-2 border border-dashed border-[#d9d9d9] text-sm text-[#6c7580] hover:border-[#c76f42] hover:text-[#c76f42]"
+                            >
+                              <Plus className="h-4 w-4" /> Add module
+                            </button>
+                          </div>
+                        )}
+
+                        {activeTab === "instructor" && (
+                          <AdminInstructorPicker
+                            value={{
+                              instructorName: editingCourse.instructorName,
+                              instructorPhoto: editingCourse.instructorPhoto,
+                              instructorBio: editingCourse.instructorBio,
+                            }}
+                            onChange={patchCourse}
+                          />
+                        )}
+
+                        {activeTab === "faq" && (
+                          <div className="space-y-3">
+                            {editingCourse.courseFaq.length === 0 && (
+                              <p className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6 text-center text-sm text-[#747d87]">
+                                No questions yet.
+                              </p>
+                            )}
+                            {editingCourse.courseFaq.map((faq, index) => (
+                              <div
+                                key={index}
+                                className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4"
+                              >
+                                <div className="mb-3 flex items-center justify-between">
+                                  <span className="text-xs font-medium uppercase text-[#747d87]">
+                                    Question {index + 1}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFaqItem(index)}
+                                    className="text-sm text-red-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <div className="space-y-3">
+                                  <Input
+                                    value={faq.question}
+                                    onChange={e =>
+                                      updateFaqItem(
+                                        index,
+                                        "question",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Question"
+                                  />
+                                  <Textarea
+                                    value={faq.answer}
+                                    onChange={e =>
+                                      updateFaqItem(
+                                        index,
+                                        "answer",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Answer"
+                                    rows={3}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={addFaqItem}
+                              className="flex h-11 w-full items-center justify-center gap-2 border border-dashed border-[#d9d9d9] text-sm text-[#6c7580] hover:border-[#c76f42] hover:text-[#c76f42]"
+                            >
+                              <Plus className="h-4 w-4" /> Add question
+                            </button>
+                          </div>
+                        )}
+
+                        {activeTab === "visibility" && (
+                          <div className="space-y-6">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] px-4 py-3">
+                                <span>
+                                  <span className="block text-sm font-medium text-[#30363d]">
+                                    Active
+                                  </span>
+                                  <span className="block text-xs text-[#747d87]">
+                                    Show this course on the website.
+                                  </span>
+                                </span>
+                                <Switch
+                                  checked={editingCourse.isActive}
+                                  onCheckedChange={v =>
+                                    patchCourse({ isActive: v })
+                                  }
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] px-4 py-3">
+                                <span>
+                                  <span className="block text-sm font-medium text-[#30363d]">
+                                    Featured
+                                  </span>
+                                  <span className="block text-xs text-[#747d87]">
+                                    Highlight this course on the old website's
+                                    home page.
+                                  </span>
+                                </span>
+                                <Switch
+                                  checked={editingCourse.isFeatured}
+                                  onCheckedChange={v =>
+                                    patchCourse({ isFeatured: v })
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field
+                                label="Badge"
+                                hint="Small label on the course page, e.g. “Most popular”."
+                              >
+                                <Input
+                                  value={editingCourse.badge}
+                                  onChange={e =>
+                                    patchCourse({ badge: e.target.value })
+                                  }
+                                  placeholder="Most Popular"
+                                />
+                              </Field>
+                              <Field
+                                label="Badge colour"
+                                hint="Used by the old website."
+                              >
+                                <Select
+                                  value={editingCourse.badgeColor}
+                                  onValueChange={v =>
+                                    patchCourse({ badgeColor: v })
+                                  }
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="bg-red-500">
+                                      Red
+                                    </SelectItem>
+                                    <SelectItem value="bg-green-500">
+                                      Green
+                                    </SelectItem>
+                                    <SelectItem value="bg-blue-500">
+                                      Blue
+                                    </SelectItem>
+                                    <SelectItem value="bg-yellow-500">
+                                      Yellow
+                                    </SelectItem>
+                                    <SelectItem value="bg-purple-500">
+                                      Purple
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field
+                                label="Display order"
+                                hint="Lower numbers appear first."
+                              >
+                                <Input
+                                  type="number"
+                                  value={editingCourse.sortOrder}
+                                  onChange={e =>
+                                    patchCourse({
+                                      sortOrder: parseInt(e.target.value) || 0,
+                                    })
+                                  }
+                                />
+                              </Field>
+                              <Field
+                                label="URL slug"
+                                hint="The end of the course page link. Created from the name if left blank."
+                              >
+                                <Input
+                                  value={editingCourse.slug}
+                                  onChange={e =>
+                                    patchCourse({ slug: e.target.value })
+                                  }
+                                  placeholder="ielts-complete-preparation"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        )}
+                      </section>
+                    </div>
+                  ) : (
+                    /* Quick add: just the essentials. Everything else is filled in on the full editor after creating. */
+                    <div className="space-y-5">
+                      <p className="text-sm text-gray-500">
+                        Start with the basics. After you create the course you
+                        can add the curriculum, instructor, FAQ and other
+                        details.
+                      </p>
                       <div>
-                        <Label>Course Image</Label>
+                        <Label>Course image</Label>
                         <div className="mt-2">
                           <AdminImageUploader
                             value={editingCourse.imageUrl}
@@ -835,69 +1473,22 @@ export default function AdminCourses({
                           {renderUploadStatus("imageUrl")}
                         </div>
                       </div>
-
-                      {/* Names */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Primary Course Name *</Label>
-                          <Input
-                            value={editingCourse.name}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                name: e.target.value,
-                              })
-                            }
-                            placeholder="IELTS Complete Preparation"
-                          />
-                        </div>
-                        <div>
-                          <Label>Secondary Course Name</Label>
-                          <Input
-                            value={editingCourse.nameEn}
-                            onChange={e => {
-                              const nameEn = e.target.value;
-                              const slug = editingCourse.slug
-                                ? editingCourse.slug
-                                : generateSlug(nameEn);
-                              setEditingCourse({
-                                ...editingCourse,
-                                nameEn,
-                                slug,
-                              });
-                            }}
-                            placeholder="IELTS Complete Preparation"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Slug */}
                       <div>
-                        <Label>URL Slug</Label>
-                        <p className="text-xs text-gray-400 mb-1">
-                          The course page link is generated automatically from
-                          the English name
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400 whitespace-nowrap">
-                            /courses/
-                          </span>
-                          <Input
-                            value={editingCourse.slug}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                slug: e.target.value,
-                              })
-                            }
-                            placeholder="ielts-complete-preparation"
-                            className="flex-1"
-                          />
-                        </div>
+                        <Label>Course name *</Label>
+                        <Input
+                          autoFocus
+                          value={editingCourse.name}
+                          onChange={e =>
+                            setEditingCourse({
+                              ...editingCourse,
+                              name: e.target.value,
+                            })
+                          }
+                          placeholder="IELTS Complete Preparation"
+                        />
                       </div>
-
                       <div>
-                        <Label>Short Description</Label>
+                        <Label>Short description</Label>
                         <Input
                           value={editingCourse.shortDescription}
                           onChange={e =>
@@ -909,67 +1500,7 @@ export default function AdminCourses({
                           placeholder="Describe the course in one line"
                         />
                       </div>
-
-                      <div>
-                        <Label>Description</Label>
-                        <Textarea
-                          value={editingCourse.description}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              description: e.target.value,
-                            })
-                          }
-                          placeholder="Course summary..."
-                          rows={3}
-                        />
-                      </div>
-
-                      {/* Pricing & Duration */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Price</Label>
-                          <Input
-                            value={editingCourse.price}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                price: e.target.value,
-                              })
-                            }
-                            placeholder="৳8,500"
-                          />
-                        </div>
-                        <div>
-                          <Label>Original Price</Label>
-                          <Input
-                            value={editingCourse.originalPrice}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                originalPrice: e.target.value,
-                              })
-                            }
-                            placeholder="৳12,000"
-                          />
-                        </div>
-                        <div>
-                          <Label>Duration</Label>
-                          <Input
-                            value={editingCourse.duration}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                duration: e.target.value,
-                              })
-                            }
-                            placeholder="2 months"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Category & Level */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                           <Label>Category</Label>
                           <Select
@@ -981,7 +1512,7 @@ export default function AdminCourses({
                               })
                             }
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1008,7 +1539,7 @@ export default function AdminCourses({
                               })
                             }
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1022,466 +1553,39 @@ export default function AdminCourses({
                           </Select>
                         </div>
                       </div>
-
-                      {/* Badge */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <Label>Badge Text</Label>
+                          <Label>Price</Label>
                           <Input
-                            value={editingCourse.badge}
+                            value={editingCourse.price}
                             onChange={e =>
                               setEditingCourse({
                                 ...editingCourse,
-                                badge: e.target.value,
+                                price: e.target.value,
                               })
                             }
-                            placeholder="Most Popular"
+                            placeholder="৳8,500"
                           />
                         </div>
                         <div>
-                          <Label>Badge Color</Label>
-                          <Select
-                            value={editingCourse.badgeColor}
-                            onValueChange={v =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                badgeColor: v,
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="bg-red-500">Red</SelectItem>
-                              <SelectItem value="bg-green-500">
-                                Green
-                              </SelectItem>
-                              <SelectItem value="bg-blue-500">Blue</SelectItem>
-                              <SelectItem value="bg-yellow-500">
-                                Yellow
-                              </SelectItem>
-                              <SelectItem value="bg-purple-500">
-                                Purple
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Features */}
-                      <div>
-                        <Label>Course Features (one per line)</Label>
-                        <Textarea
-                          value={featuresText}
-                          onChange={e => setFeaturesText(e.target.value)}
-                          placeholder={
-                            "1-on-1 Mentoring\nMock Tests\nStudy Materials"
-                          }
-                          rows={4}
-                        />
-                      </div>
-
-                      <div>
-                        <Label>What Students Will Learn (one per line)</Label>
-                        <Textarea
-                          value={outcomesText}
-                          onChange={e => setOutcomesText(e.target.value)}
-                          placeholder={
-                            "IELTS Exam strategies\nWriting Task 1 & 2"
-                          }
-                          rows={4}
-                        />
-                      </div>
-
-                      {/* Schedule & Enrollment */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Schedule</Label>
+                          <Label>Duration</Label>
                           <Input
-                            value={editingCourse.schedule}
+                            value={editingCourse.duration}
                             onChange={e =>
                               setEditingCourse({
                                 ...editingCourse,
-                                schedule: e.target.value,
+                                duration: e.target.value,
                               })
                             }
-                            placeholder="7–9 PM, Saturday–Thursday"
-                          />
-                        </div>
-                        <div>
-                          <Label>Maximum Students</Label>
-                          <Input
-                            type="number"
-                            value={editingCourse.maxStudents || ""}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                maxStudents: e.target.value
-                                  ? parseInt(e.target.value)
-                                  : null,
-                              })
-                            }
-                            placeholder="20"
+                            placeholder="2 months"
                           />
                         </div>
                       </div>
-
-                      <div>
-                        <Label>WhatsApp Enrollment Message</Label>
-                        <Input
-                          value={editingCourse.enrollMessage}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              enrollMessage: e.target.value,
-                            })
-                          }
-                          placeholder="I would like to enroll in [Course Name]"
-                        />
-                      </div>
-
-                      {/* Sort & Toggles */}
-                      <div className="grid grid-cols-3 gap-4 items-end">
-                        <div>
-                          <Label>Display Order</Label>
-                          <Input
-                            type="number"
-                            value={editingCourse.sortOrder}
-                            onChange={e =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                sortOrder: parseInt(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={editingCourse.isActive}
-                            onCheckedChange={v =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                isActive: v,
-                              })
-                            }
-                          />
-                          <Label>Active</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={editingCourse.isFeatured}
-                            onCheckedChange={v =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                isFeatured: v,
-                              })
-                            }
-                          />
-                          <Label>Featured</Label>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ==================== DETAIL TAB ==================== */}
-                  {activeTab === "detail" && (
-                    <div className="space-y-6">
-                      {/* Video URL */}
-                      <div>
-                        <Label>video URL (YouTube)</Label>
-                        <p className="text-xs text-gray-400 mb-1">
-                          YouTube video URL — will be embedded on the course
-                          detail page
-                        </p>
-                        <Input
-                          value={editingCourse.videoUrl}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              videoUrl: e.target.value,
-                            })
-                          }
-                          placeholder="https://www.youtube.com/watch?v=..."
-                        />
-                        {editingCourse.videoUrl && (
-                          <p className="text-xs text-green-600 mt-1">
-                            video added
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label>Full Course Description</Label>
-                        <p className="text-xs text-gray-400 mb-1">
-                          Shown on the course detail page
-                        </p>
-                        <Textarea
-                          value={editingCourse.fullDescription}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              fullDescription: e.target.value,
-                            })
-                          }
-                          placeholder="Enter the full course description..."
-                          rows={6}
-                        />
-                      </div>
-
-                      <div>
-                        <Label>Target Audience</Label>
-                        <Textarea
-                          value={editingCourse.targetAudience}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              targetAudience: e.target.value,
-                            })
-                          }
-                          placeholder="Students preparing for IELTS&#10;Students planning to study abroad"
-                          rows={4}
-                        />
-                      </div>
-
-                      {/* Curriculum Builder */}
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <Label>Course Curriculum / Syllabus</Label>
-                            <p className="text-xs text-gray-400">Add modules</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={addCurriculumModule}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> Add Module
-                          </Button>
-                        </div>
-                        {editingCourse.curriculum.length === 0 ? (
-                          <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">
-                            <BookOpen className="h-8 w-8 mx-auto mb-2" />
-                            <p className="text-sm">No modules added</p>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="mt-2"
-                              onClick={addCurriculumModule}
-                            >
-                              <Plus className="h-3 w-3 mr-1" /> Add the First
-                              Module
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {editingCourse.curriculum.map((module, index) => (
-                              <div
-                                key={index}
-                                className="border rounded-lg p-4 bg-gray-50"
-                              >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="w-6 h-6 rounded bg-brand-red/10 text-brand-red text-xs font-bold flex items-center justify-center shrink-0">
-                                    {index + 1}
-                                  </span>
-                                  <Input
-                                    value={module.title}
-                                    onChange={e =>
-                                      updateCurriculumModule(
-                                        index,
-                                        "title",
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder={`Module ${index + 1} Title`}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-600 shrink-0"
-                                    onClick={() =>
-                                      removeCurriculumModule(index)
-                                    }
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                <Textarea
-                                  value={module.content}
-                                  onChange={e =>
-                                    updateCurriculumModule(
-                                      index,
-                                      "content",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Describe what this module covers..."
-                                  rows={3}
-                                  className="ml-8"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ==================== INSTRUCTOR TAB ==================== */}
-                  {activeTab === "instructor" && (
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700 mb-4">
-                        Instructor information appears on the course detail
-                        page.
-                      </div>
-                      <div>
-                        <Label>Instructor Name</Label>
-                        <Input
-                          value={editingCourse.instructorName}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              instructorName: e.target.value,
-                            })
-                          }
-                          placeholder="MD Aditow Zahid"
-                        />
-                      </div>
-                      <div>
-                        <Label>Instructor Description (Bio)</Label>
-                        <Textarea
-                          value={editingCourse.instructorBio}
-                          onChange={e =>
-                            setEditingCourse({
-                              ...editingCourse,
-                              instructorBio: e.target.value,
-                            })
-                          }
-                          placeholder="Experience, qualifications, achievements, etc...."
-                          rows={4}
-                        />
-                      </div>
-                      <div>
-                        <Label>Instructor Image</Label>
-                        <div className="mt-2">
-                          <AdminImageUploader
-                            value={editingCourse.instructorPhoto}
-                            label="Instructor image"
-                            recommendation="Square image, at least 512 × 512px"
-                            uploading={uploadingInstructor}
-                            onChange={e =>
-                              handleImageUpload(e, "instructorPhoto")
-                            }
-                            onMediaSelect={url =>
-                              setEditingCourse({
-                                ...editingCourse,
-                                instructorPhoto: url,
-                              })
-                            }
-                            onRemove={() => {
-                              setEditingCourse({
-                                ...editingCourse,
-                                instructorPhoto: "",
-                              });
-                              clearUploadState("instructorPhoto");
-                            }}
-                          />
-                          {renderUploadStatus("instructorPhoto")}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ==================== FAQ TAB ==================== */}
-                  {activeTab === "faq" && (
-                    <div className="space-y-4">
-                      <div className="bg-yellow-50 rounded-lg p-4 text-sm text-yellow-700 mb-4">
-                        Add frequently asked questions about the course.
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={addFaqItem}
-                        >
-                          <Plus className="h-3 w-3 mr-1" /> Add questions
-                        </Button>
-                      </div>
-                      {editingCourse.courseFaq.length === 0 ? (
-                        <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">
-                          <p className="text-sm">No FAQs added</p>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-2"
-                            onClick={addFaqItem}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> Add the First
-                            Question
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {editingCourse.courseFaq.map((faq, index) => (
-                            <div
-                              key={index}
-                              className="border rounded-lg p-4 bg-gray-50"
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-sm font-bold text-gray-500">
-                                  Q{index + 1}.
-                                </span>
-                                <Input
-                                  value={faq.question}
-                                  onChange={e =>
-                                    updateFaqItem(
-                                      index,
-                                      "question",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Enter a question..."
-                                  className="flex-1"
-                                />
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="text-red-400 hover:text-red-600 shrink-0"
-                                  onClick={() => removeFaqItem(index)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <Textarea
-                                value={faq.answer}
-                                onChange={e =>
-                                  updateFaqItem(index, "answer", e.target.value)
-                                }
-                                placeholder="Enter an answer..."
-                                rows={3}
-                                className="ml-6"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
 
                   {/* Save Button */}
-                  <div className="mt-0 flex justify-end gap-2 pt-6">
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        createMode || editId
-                          ? navigate("/admin/courses")
-                          : setDialogOpen(false)
-                      }
-                      className="admin-button admin-button-secondary"
-                    >
-                      Cancel
-                    </Button>
+                  <div className="mt-0 flex gap-2 pt-8">
                     <Button
                       onClick={handleSave}
                       disabled={
@@ -1493,7 +1597,20 @@ export default function AdminCourses({
                     >
                       {createMutation.isPending || updateMutation.isPending
                         ? "Saving..."
-                        : "Save"}
+                        : editingId
+                          ? "Save"
+                          : "Create course"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        createMode || editId
+                          ? navigate("/admin/courses")
+                          : setDialogOpen(false)
+                      }
+                      className="admin-button admin-button-secondary"
+                    >
+                      Cancel
                     </Button>
                   </div>
                 </div>

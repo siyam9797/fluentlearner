@@ -1,9 +1,17 @@
 import { trpc } from "@/lib/trpc";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
-import { CATEGORY_LABELS, FALLBACK_COURSES, FALLBACK_STORIES, type CourseCard, type StoryCard } from "./data";
+import { useV2Content } from "./useV2Content";
+import {
+  CATEGORY_LABELS,
+  FALLBACK_COURSES,
+  FALLBACK_STORIES,
+  type CourseCard,
+  type StoryCard,
+} from "./data";
 
 export function useCourseCards(): CourseCard[] {
-  const { data } = trpc.courses.list.useQuery(undefined, { staleTime: 5 * 60 * 1000 });
+  const { data } = trpc.courses.list.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
   if (!data?.length) return FALLBACK_COURSES;
   return data.map(course => ({
     id: course.id,
@@ -19,7 +27,9 @@ export function useCourseCards(): CourseCard[] {
 }
 
 export function useStoryCards(): StoryCard[] {
-  const { data } = trpc.successStories.featured.useQuery(undefined, { staleTime: 5 * 60 * 1000 });
+  const { data } = trpc.successStories.featured.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
   if (!data?.length) return FALLBACK_STORIES;
   return data.map(story => ({
     id: story.id,
@@ -33,8 +43,14 @@ export function useStoryCards(): StoryCard[] {
 
 /** Every active story (not just featured), for the success stories page. */
 export function useAllStoryCards(): StoryCard[] {
-  const { data } = trpc.successStories.list.useQuery(undefined, { staleTime: 5 * 60 * 1000 });
-  if (!data?.length) return FALLBACK_STORIES.map(story => ({ ...story, category: "ielts-score" }));
+  const { data } = trpc.successStories.list.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!data?.length)
+    return FALLBACK_STORIES.map(story => ({
+      ...story,
+      category: "ielts-score",
+    }));
   return data.map(story => ({
     id: story.id,
     name: story.studentName,
@@ -52,7 +68,7 @@ export function useAllStoryCards(): StoryCard[] {
  * Always returns at least four entries.
  */
 export function usePillImages(): string[] {
-  const ss = useSiteSettings();
+  const ss = useV2Content();
   const courses = useCourseCards();
   const stories = useStoryCards();
   const pool = [

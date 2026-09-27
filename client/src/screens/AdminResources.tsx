@@ -4,17 +4,22 @@ import {
   Download,
   File,
   FileUp,
+  ListFilter,
   Loader2,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminActionsMenu from "@/components/AdminActionsMenu";
+import AdminFilterDrawer from "@/components/AdminFilterDrawer";
 import { fileToBase64 } from "@/lib/fileToBase64";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
+import AdminSelect from "@/components/AdminSelect";
 
 type Row = RouterOutputs["learningResources"]["list"][number];
 type Form = {
@@ -68,7 +73,111 @@ const emptyWord: WordForm = {
   sortOrder: 0,
 };
 
-function AdminVocabulary() {
+type VocabularyWordRow =
+  RouterOutputs["learningResources"]["vocabularyList"][number];
+type VocabularyFilters = {
+  topics: string[];
+  statuses: ("visible" | "hidden")[];
+  types: string[];
+};
+const NO_FILTERS: VocabularyFilters = { topics: [], statuses: [], types: [] };
+
+const filterCount = (filters: VocabularyFilters) =>
+  filters.topics.length + filters.statuses.length + filters.types.length;
+
+function filterWords(
+  words: VocabularyWordRow[],
+  query: string,
+  filters: VocabularyFilters
+) {
+  const q = query.trim().toLowerCase();
+  return words.filter(word => {
+    if (
+      q &&
+      ![word.word, word.meaning, word.example, word.topic].some(text =>
+        text.toLowerCase().includes(q)
+      )
+    )
+      return false;
+    if (filters.topics.length && !filters.topics.includes(word.topic))
+      return false;
+    if (filters.types.length && !filters.types.includes(word.partOfSpeech))
+      return false;
+    if (
+      filters.statuses.length &&
+      !filters.statuses.includes(word.isActive ? "visible" : "hidden")
+    )
+      return false;
+    return true;
+  });
+}
+
+/** Right-hand filter drawer, matching the one on Enrollments. */
+function VocabularyFilterDrawer({
+  words,
+  filters,
+  onChange,
+  onClose,
+}: {
+  words: VocabularyWordRow[];
+  filters: VocabularyFilters;
+  onChange: (filters: VocabularyFilters) => void;
+  onClose: () => void;
+}) {
+  const countBy = (pick: (word: VocabularyWordRow) => string) => {
+    const counts = new Map<string, number>();
+    for (const word of words)
+      counts.set(pick(word), (counts.get(pick(word)) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  };
+  const groups: {
+    key: keyof VocabularyFilters;
+    title: string;
+    options: [string, number, string?][];
+  }[] = [
+    {
+      key: "statuses",
+      title: "Status",
+      options: [
+        ["visible", words.filter(word => word.isActive).length, "Visible"],
+        ["hidden", words.filter(word => !word.isActive).length, "Hidden"],
+      ],
+    },
+    { key: "topics", title: "Topic", options: countBy(word => word.topic) },
+    {
+      key: "types",
+      title: "Part of speech",
+      options: countBy(word => word.partOfSpeech),
+    },
+  ];
+  return (
+    <AdminFilterDrawer
+      title="Filter vocabulary"
+      groups={groups.map(group => ({
+        key: group.key,
+        title: group.title,
+        options: group.options.map(([value, count, label]) => ({
+          value,
+          count,
+          label: label ?? value,
+        })),
+      }))}
+      selection={filters}
+      onChange={next =>
+        onChange({ ...NO_FILTERS, ...next } as VocabularyFilters)
+      }
+      onClose={onClose}
+    />
+  );
+}
+
+function AdminVocabulary({
+  query,
+  filters,
+}: {
+  query: string;
+  filters: VocabularyFilters;
+}) {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { data: words = [], isLoading } =
@@ -114,20 +223,18 @@ function AdminVocabulary() {
     else create.mutate(form);
   };
   const pending = create.isPending || update.isPending;
+  const visibleWords = filterWords(words, query, filters);
+  const filtering = query.trim() !== "" || filterCount(filters) > 0;
 
   return (
     <div>
-      <div className="mb-5 flex justify-end">
-        {!open && (
-          <button
-            onClick={() => navigate("/admin/resources/vocabulary/new")}
-            className="admin-primary-button"
-          >
-            <Plus className="h-4 w-4" />
-            Add word
-          </button>
-        )}
-      </div>
+      {!isLoading && words.length > 0 && (
+        <p className="mb-4 text-sm text-gray-500">
+          {filtering
+            ? `Showing ${visibleWords.length} of ${words.length} words`
+            : `${words.length} words`}
+        </p>
+      )}
       {open && (
         <div className="mb-8 border-b border-[var(--admin-border)] pb-8">
           <div className="mb-5 flex items-center justify-between">
@@ -142,7 +249,7 @@ function AdminVocabulary() {
             <label className="text-sm font-medium">
               Word
               <input
-                className={`${field} mt-1`}
+                className={`${field} mt-2`}
                 value={form.word}
                 onChange={e => setForm(v => ({ ...v, word: e.target.value }))}
               />
@@ -150,7 +257,7 @@ function AdminVocabulary() {
             <label className="text-sm font-medium">
               Part of speech
               <input
-                className={`${field} mt-1`}
+                className={`${field} mt-2`}
                 placeholder="noun, verb, adjective…"
                 value={form.partOfSpeech}
                 onChange={e =>
@@ -161,7 +268,7 @@ function AdminVocabulary() {
             <label className="text-sm font-medium">
               Topic
               <input
-                className={`${field} mt-1`}
+                className={`${field} mt-2`}
                 placeholder="Academic, Environment…"
                 value={form.topic}
                 onChange={e => setForm(v => ({ ...v, topic: e.target.value }))}
@@ -171,7 +278,7 @@ function AdminVocabulary() {
               Order
               <input
                 type="number"
-                className={`${field} mt-1`}
+                className={`${field} mt-2`}
                 value={form.sortOrder}
                 onChange={e =>
                   setForm(v => ({ ...v, sortOrder: Number(e.target.value) }))
@@ -181,7 +288,7 @@ function AdminVocabulary() {
             <label className="text-sm font-medium sm:col-span-2">
               Meaning
               <textarea
-                className={`${field} mt-1 min-h-20`}
+                className={`${field} mt-2 min-h-20`}
                 value={form.meaning}
                 onChange={e =>
                   setForm(v => ({ ...v, meaning: e.target.value }))
@@ -191,7 +298,7 @@ function AdminVocabulary() {
             <label className="text-sm font-medium sm:col-span-2">
               Example sentence
               <textarea
-                className={`${field} mt-1 min-h-20`}
+                className={`${field} mt-2 min-h-20`}
                 value={form.example}
                 onChange={e =>
                   setForm(v => ({ ...v, example: e.target.value }))
@@ -209,7 +316,7 @@ function AdminVocabulary() {
               Visible to students
             </label>
           </div>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-0 flex gap-3 pt-8">
             <button
               onClick={save}
               disabled={pending}
@@ -231,52 +338,75 @@ function AdminVocabulary() {
         <div className="grid place-items-center py-20">
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
+      ) : words.length > 0 && visibleWords.length === 0 ? (
+        <div className="py-12 text-center text-gray-500">
+          No words match your search or filters.
+        </div>
       ) : words.length === 0 ? (
-        <div className="rounded-xl bg-white p-14 text-center text-gray-500">
+        <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-14 text-center text-gray-500">
           <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           No vocabulary words yet.
         </div>
       ) : (
-        <div className="space-y-3">
-          {words.map(word => (
-            <div
-              key={word.id}
-              className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-5"
-            >
-              <div className="grid h-11 w-11 place-items-center rounded-lg bg-[var(--admin-card)] font-serif text-lg font-bold">
-                Aa
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold">
-                  {word.word}{" "}
-                  <span className="ml-1 text-xs font-normal italic text-gray-400">
-                    {word.partOfSpeech}
-                  </span>
-                </h3>
-                <p className="mt-1 truncate text-sm text-gray-500">
-                  {word.meaning}
-                </p>
-                <p className="mt-1 text-xs text-gray-400">
-                  {word.topic} · {word.isActive ? "Visible" : "Hidden"}
-                </p>
-              </div>
-              <button
-                onClick={() => edit(word)}
-                className="p-2 text-gray-500 hover:text-black"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() =>
-                  confirm(`Delete “${word.word}”?`) &&
-                  remove.mutate({ id: word.id })
-                }
-                className="p-2 text-gray-500 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+        <div className="overflow-x-auto bg-white">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="border-b border-gray-200 text-gray-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">Word</th>
+                <th className="px-4 py-3 font-medium">Meaning</th>
+                <th className="px-4 py-3 font-medium">Topic</th>
+                <th className="px-4 py-3 font-medium">Order</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleWords.map(word => (
+                <tr
+                  key={word.id}
+                  className="border-b border-gray-100 last:border-0"
+                >
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {word.word}
+                    <span className="ml-2 text-xs font-normal italic text-gray-400">
+                      {word.partOfSpeech}
+                    </span>
+                  </td>
+                  <td className="max-w-[320px] px-4 py-3 text-gray-600">
+                    <span className="line-clamp-2">{word.meaning}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{word.topic}</td>
+                  <td className="px-4 py-3 text-gray-600">{word.sortOrder}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`admin-status-label ${word.isActive ? "" : "inactive"}`}
+                    >
+                      {word.isActive ? "Visible" : "Hidden"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <AdminActionsMenu label={`Actions for ${word.word}`}>
+                      <button type="button" onClick={() => edit(word)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() =>
+                          confirm(`Delete “${word.word}”?`) &&
+                          remove.mutate({ id: word.id })
+                        }
+                      >
+                        Delete
+                      </button>
+                    </AdminActionsMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -295,8 +425,33 @@ export default function AdminResources({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState<Form>(empty);
-  const [section, setSection] = useState<"files" | "vocabulary">(
-    initialSection
+  // Driven by the URL: the sidebar sub-menu links to /admin/resources and /admin/resources/vocabulary.
+  const section = initialSection;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<VocabularyFilters>(NO_FILTERS);
+  const { data: vocabularyWords = [] } =
+    trpc.learningResources.vocabularyList.useQuery(undefined, {
+      enabled: section === "vocabulary",
+    });
+  const activeFilters = filterCount(filters);
+  const iconButton = "admin-icon-button";
+  const filterButton = (
+    <button
+      type="button"
+      onClick={() => setFilterOpen(true)}
+      aria-label="Filter vocabulary"
+      aria-expanded={filterOpen}
+      className={iconButton}
+    >
+      <ListFilter className="h-4 w-4" />
+      {activeFilters > 0 && (
+        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">
+          {activeFilters}
+        </span>
+      )}
+    </button>
   );
   const upload = trpc.learningResources.upload.useMutation();
   const create = trpc.learningResources.create.useMutation({
@@ -366,12 +521,33 @@ export default function AdminResources({
   };
 
   return (
-    <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
+    <div className="admin-dual-view-page admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
       <AdminPageHeader
-        title="Resources"
-        description="Manage student files, links, and IELTS vocabulary."
+        title={section === "vocabulary" ? "Vocabulary" : "Resource files"}
+        parent={{ label: "Resources", href: "/admin/resources" }}
         action={
-          section === "files" && !open ? (
+          section === "vocabulary" ? (
+            searchOpen ? undefined : (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search vocabulary"
+                  className={iconButton}
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+                {filterButton}
+                <button
+                  onClick={() => navigate("/admin/resources/vocabulary/new")}
+                  className="admin-primary-button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add word
+                </button>
+              </div>
+            )
+          ) : !open ? (
             <button
               onClick={() => navigate("/admin/resources/new")}
               className="admin-primary-button"
@@ -382,29 +558,51 @@ export default function AdminResources({
           ) : undefined
         }
       />
-      <div className="mb-7 inline-flex rounded-md bg-white p-1">
-        <button
-          onClick={() => {
-            setSection("files");
-            navigate("/admin/resources");
-          }}
-          className={`rounded px-5 py-2.5 text-sm font-medium ${section === "files" ? "bg-[var(--admin-heading)] text-white" : "text-gray-500"}`}
-        >
-          Resource files
-        </button>
-        <button
-          onClick={() => {
-            setSection("vocabulary");
-            navigate("/admin/resources/vocabulary");
-          }}
-          className={`rounded px-5 py-2.5 text-sm font-medium ${section === "vocabulary" ? "bg-[var(--admin-heading)] text-white" : "text-gray-500"}`}
-        >
-          Vocabulary
-        </button>
-      </div>
+
+      {section === "vocabulary" && searchOpen && (
+        <div className="-mt-4 mb-8 flex items-center gap-3">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Escape") {
+                  setSearchQuery("");
+                  setSearchOpen(false);
+                }
+              }}
+              placeholder="Search by word, meaning, example or topic"
+              className="h-11 w-full rounded-lg border border-gray-300 pl-11 pr-4 outline-none focus:border-red-500"
+            />
+          </div>
+          {filterButton}
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setSearchOpen(false);
+            }}
+            aria-label="Close search"
+            className={iconButton}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {filterOpen && (
+        <VocabularyFilterDrawer
+          words={vocabularyWords}
+          filters={filters}
+          onChange={setFilters}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
 
       {section === "vocabulary" ? (
-        <AdminVocabulary />
+        <AdminVocabulary query={searchQuery} filters={filters} />
       ) : (
         <>
           {open && (
@@ -421,7 +619,7 @@ export default function AdminResources({
                 <label className="text-sm font-medium">
                   Title
                   <input
-                    className={`${field} mt-1`}
+                    className={`${field} mt-2`}
                     value={form.title}
                     onChange={e =>
                       setForm(v => ({ ...v, title: e.target.value }))
@@ -430,8 +628,7 @@ export default function AdminResources({
                 </label>
                 <label className="text-sm font-medium">
                   Available to
-                  <select
-                    className={`${field} mt-1`}
+                  <AdminSelect
                     value={form.batchId ?? ""}
                     onChange={e =>
                       setForm(v => ({
@@ -439,6 +636,7 @@ export default function AdminResources({
                         batchId: e.target.value ? Number(e.target.value) : null,
                       }))
                     }
+                    className="mt-2"
                   >
                     <option value="">All students</option>
                     {batches.map(batch => (
@@ -446,19 +644,19 @@ export default function AdminResources({
                         {batch.name}
                       </option>
                     ))}
-                  </select>
+                  </AdminSelect>
                 </label>
                 <label className="text-sm font-medium sm:col-span-2">
                   Description
                   <textarea
-                    className={`${field} mt-1 min-h-24`}
+                    className={`${field} mt-2 min-h-24`}
                     value={form.description}
                     onChange={e =>
                       setForm(v => ({ ...v, description: e.target.value }))
                     }
                   />
                 </label>
-                <div className="sm:col-span-2 rounded-lg border border-dashed border-gray-300 p-5">
+                <div className="sm:col-span-2 rounded-[var(--radius-card)] border border-dashed border-gray-300 p-5">
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="admin-button admin-button-secondary">
                       <FileUp className="h-4 w-4" />
@@ -486,7 +684,7 @@ export default function AdminResources({
                   Or external URL
                   <input
                     type="url"
-                    className={`${field} mt-1`}
+                    className={`${field} mt-2`}
                     placeholder="https://…"
                     value={form.fileUrl}
                     onChange={e =>
@@ -525,7 +723,7 @@ export default function AdminResources({
                   />
                 </label>
               </div>
-              <div className="mt-6 flex gap-3">
+              <div className="mt-0 flex gap-3 pt-8">
                 <button
                   onClick={save}
                   disabled={
@@ -553,7 +751,7 @@ export default function AdminResources({
               <Loader2 className="h-7 w-7 animate-spin" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="rounded-xl bg-white p-14 text-center text-gray-500">
+            <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-14 text-center text-gray-500">
               <File className="mx-auto mb-3 h-10 w-10 text-gray-300" />
               No resources published yet.
             </div>
@@ -562,7 +760,7 @@ export default function AdminResources({
               {rows.map(row => (
                 <div
                   key={row.resource.id}
-                  className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-5"
+                  className="flex flex-wrap items-center gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-5"
                 >
                   <div className="grid h-11 w-11 place-items-center rounded-lg bg-[var(--admin-card)]">
                     <File className="h-5 w-5" />

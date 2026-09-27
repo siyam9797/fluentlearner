@@ -16,16 +16,18 @@ import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import StudentShell from "@/components/student/StudentShell";
 import Recorder from "@/components/student/Recorder";
-import { DecorSquare } from "@/components/home-v2/primitives";
+import { DecorSquare, HvActionButton } from "@/components/home-v2/primitives";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import {
   CAMBRIDGE,
+  CHOICE_SELECTION_COUNTS,
   FIXED_CHOICES,
   MODULE_LABELS,
   countWords,
   formatBand,
+  isCompletionType,
   isAutoMarkedModule,
   optionLetter,
 } from "@shared/mock";
@@ -73,7 +75,7 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
   };
 
   return (
-    <div className="mt-5 overflow-hidden rounded-[8px] bg-ink text-white">
+    <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] bg-ink text-white">
       <div className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
         <button
           type="button"
@@ -101,23 +103,26 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
                 : "Audio playback is not supported in this browser"}
           </p>
         </div>
-        <button
-          type="button"
+        <HvActionButton
           onClick={play}
           disabled={!supported}
-          className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/50 disabled:opacity-50"
+          variant="ghost"
+          size="xs"
+          className="rounded-full"
+          icon={<RotateCcw className="h-4 w-4" />}
         >
-          <RotateCcw className="h-4 w-4" /> Replay
-        </button>
+          Replay
+        </HvActionButton>
         {!exam && (
-          <button
-            type="button"
+          <HvActionButton
             onClick={() => setShowTranscript(value => !value)}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/50"
+            variant="ghost"
+            size="xs"
+            className="rounded-full"
+            icon={<FileText className="h-4 w-4" />}
           >
-            <FileText className="h-4 w-4" /> {showTranscript ? "Hide" : "Show"}{" "}
-            transcript
-          </button>
+            {showTranscript ? "Hide transcript" : "Show transcript"}
+          </HvActionButton>
         )}
       </div>
       {showTranscript && !exam && (
@@ -141,8 +146,16 @@ function numbered(view: View) {
   const map = new Map<number, number>();
   let n = 0;
   for (const s of view.test.sections)
-    for (const q of s.questions) map.set(q.id, ++n);
+    for (const q of s.questions) {
+      map.set(q.id, n + 1);
+      n += Math.max(1, CHOICE_SELECTION_COUNTS[q.type] ?? 1);
+    }
   return map;
+}
+
+function questionNumberLabel(question: Question, start: number) {
+  const count = Math.max(1, CHOICE_SELECTION_COUNTS[question.type] ?? 1);
+  return count > 1 ? `${start}–${start + count - 1}` : String(start);
 }
 
 function QuestionInput({
@@ -154,40 +167,65 @@ function QuestionInput({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const choices =
-    question.type === "mcq"
-      ? (question.options ?? []).map((o, i) => ({
-          value: optionLetter(i),
-          label: o,
-        }))
-      : FIXED_CHOICES[question.type]?.map(c => ({ value: c, label: c }));
+  const selectionCount = CHOICE_SELECTION_COUNTS[question.type] ?? 0;
+  const choices = selectionCount
+    ? (question.options ?? []).map((o, i) => ({
+        value: optionLetter(i),
+        label: o,
+      }))
+    : FIXED_CHOICES[question.type]?.map(c => ({ value: c, label: c }));
 
   if (choices) {
+    const selected = value ? value.split(",").filter(Boolean) : [];
+    const multiple = selectionCount > 1;
     return (
-      <div className="mt-3 flex flex-col gap-2" role="radiogroup">
-        {choices.map(choice => (
-          <label
-            key={choice.value}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-[5px] border px-4 py-3 transition-colors",
-              value === choice.value
-                ? "border-ink bg-ink text-white"
-                : "border-ink/15 bg-white hover:border-ink/40"
-            )}
-          >
-            <input
-              type="radio"
-              className="sr-only"
-              name={`q-${question.id}`}
-              checked={value === choice.value}
-              onChange={() => onChange(choice.value)}
-            />
-            {question.type === "mcq" && (
-              <span className="font-semibold">{choice.value}</span>
-            )}
-            <span>{choice.label}</span>
-          </label>
-        ))}
+      <div className="mt-3">
+        {multiple && (
+          <p className="mb-2 text-sm text-ink/60">
+            Choose {selectionCount} answers · {selected.length} selected
+          </p>
+        )}
+        <div
+          className="flex flex-col gap-2"
+          role={multiple ? "group" : "radiogroup"}
+        >
+          {choices.map(choice => {
+            const checked = selected.includes(choice.value);
+            return (
+              <label
+                key={choice.value}
+                className={cn(
+                  "flex cursor-pointer items-start gap-3 rounded-[var(--radius-control)] border px-4 py-3 transition-colors",
+                  checked
+                    ? "border-ink bg-ink text-white"
+                    : "border-ink/15 bg-white hover:border-ink/40",
+                  multiple && !checked && selected.length >= selectionCount
+                    ? "cursor-not-allowed opacity-55"
+                    : ""
+                )}
+              >
+                <input
+                  type={multiple ? "checkbox" : "radio"}
+                  className="sr-only"
+                  name={`q-${question.id}`}
+                  checked={checked}
+                  disabled={
+                    multiple && !checked && selected.length >= selectionCount
+                  }
+                  onChange={() => {
+                    if (!multiple) return onChange(choice.value);
+                    const next = checked
+                      ? selected.filter(item => item !== choice.value)
+                      : [...selected, choice.value];
+                    onChange(next.sort().join(","));
+                  }}
+                />
+                <span className="font-semibold">{choice.value}</span>
+                <span>{choice.label}</span>
+              </label>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -197,7 +235,7 @@ function QuestionInput({
     return (
       <div className="mt-3">
         <textarea
-          className="min-h-[380px] w-full rounded-[5px] border border-ink/20 bg-white p-4 text-base leading-relaxed outline-none focus:border-ink"
+          className="min-h-[380px] w-full rounded-[var(--radius-control)] border border-ink/20 bg-white p-4 text-base leading-relaxed outline-none focus:border-ink"
           value={value}
           onChange={e => onChange(e.target.value)}
           spellCheck={false}
@@ -220,13 +258,132 @@ function QuestionInput({
 
   return (
     <input
-      className="mt-3 w-full max-w-[420px] rounded-[5px] border border-ink/20 bg-white px-4 py-3 outline-none focus:border-ink"
+      className="mt-3 w-full max-w-[420px] rounded-[var(--radius-control)] border border-ink/20 bg-white px-4 py-3 outline-none focus:border-ink"
       value={value}
       onChange={e => onChange(e.target.value)}
       autoComplete="off"
       spellCheck={false}
       aria-label="Your answer"
     />
+  );
+}
+
+function ListeningQuestionLayout({
+  layout,
+  questions,
+  numbers,
+  answers,
+  onChange,
+}: {
+  layout: string;
+  questions: Question[];
+  numbers: Map<number, number>;
+  answers: AnswerState;
+  onChange: (questionId: number, value: string) => void;
+}) {
+  const byNumber = new Map(
+    questions.map(question => [numbers.get(question.id), question])
+  );
+  const layoutInstructions = questions.filter(question => {
+    const number = numbers.get(question.id);
+    return (
+      question.instruction &&
+      number !== undefined &&
+      layout.includes(`[[${number}]]`)
+    );
+  });
+
+  const inline = (text: string) =>
+    text
+      .split(/(\[\[\d+\]\]|\*\*[^*]+\*\*|<br\s*\/?\s*>)/gi)
+      .map((part, index) => {
+        if (/^<br\s*\/?\s*>$/i.test(part)) return <br key={index} />;
+        const bold = /^\*\*([^*]+)\*\*$/.exec(part);
+        if (bold) return <strong key={index}>{bold[1]}</strong>;
+        const match = /^\[\[(\d+)\]\]$/.exec(part);
+        if (!match) return <span key={index}>{part}</span>;
+        const number = Number(match[1]);
+        const question = byNumber.get(number);
+        if (!question || !isCompletionType(question.type)) {
+          return <span key={index}>{part}</span>;
+        }
+        return (
+          <span
+            key={index}
+            id={`question-${question.id}`}
+            className="mx-1 inline-flex scroll-mt-40 items-center gap-1.5 align-middle"
+          >
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-[3px] border border-ink/50 bg-white px-1 text-xs font-bold">
+              {number}
+            </span>
+            <input
+              value={answers[question.id]?.response ?? ""}
+              onChange={event => onChange(question.id, event.target.value)}
+              className="h-9 w-36 rounded-[3px] border border-ink/35 bg-white px-2 outline-none focus:border-ink focus:ring-2 focus:ring-ink/10"
+              aria-label={`Answer for question ${number}`}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </span>
+        );
+      });
+
+  return (
+    <div className="mb-8 overflow-hidden rounded-[var(--radius-card)] bg-[var(--student-card)] text-[17px] leading-8">
+      {layoutInstructions.map(question => (
+        <p
+          key={`instruction-${question.id}`}
+          className="border-b border-ink/10 px-5 py-4 whitespace-pre-line"
+        >
+          {question.instruction}
+        </p>
+      ))}
+      {layout.split(/\r?\n/).map((line, index) => {
+        if (!line.trim()) return <div key={index} className="h-4" />;
+        if (line.startsWith("## ")) {
+          return (
+            <h3 key={index} className="px-5 pb-2 pt-5 text-lg font-bold">
+              {inline(line.slice(3))}
+            </h3>
+          );
+        }
+        if (line.includes("|")) {
+          const cells = line
+            .split("|")
+            .map(cell => cell.trim())
+            .filter(
+              (cell, cellIndex, all) =>
+                cell || (cellIndex > 0 && cellIndex < all.length - 1)
+            );
+          return (
+            <div
+              key={index}
+              className="grid overflow-x-auto border-t border-ink/10"
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(cells.length, 1)}, minmax(180px, 1fr))`,
+              }}
+            >
+              {cells.map((cell, cellIndex) => (
+                <div
+                  key={cellIndex}
+                  className={cn(
+                    "min-w-0 px-5 py-3",
+                    cellIndex < cells.length - 1 && "border-r border-ink/10"
+                  )}
+                >
+                  {inline(cell)}
+                </div>
+              ))}
+            </div>
+          );
+        }
+        return (
+          <p key={index} className="px-5 py-1">
+            {inline(line)}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
@@ -246,7 +403,7 @@ function BookBanner({ test }: { test: View["test"] }) {
           ? "Write your answers to the book's tasks below."
           : "Record your answers to the book's speaking questions below.";
   return (
-    <div className="mt-6 flex items-start gap-3 rounded-[5px] border-l-4 border-brand-red bg-white p-4">
+    <div className="mt-6 flex items-start gap-3 rounded-[var(--radius-control)] border-l-4 border-brand-red bg-white p-4">
       <p>
         <strong>
           Open {book} — {MODULE_LABELS[test.module]}.
@@ -296,7 +453,7 @@ function SheetRow({
               aria-checked={value === choice}
               onClick={() => onChange(choice)}
               className={cn(
-                "rounded-[4px] border px-3 py-1.5 text-sm",
+                "rounded-[7px] border px-3 py-1.5 text-sm",
                 value === choice
                   ? "border-ink bg-ink text-white"
                   : "border-ink/20 bg-white hover:border-ink/50"
@@ -454,6 +611,16 @@ function ExamRunner({ view }: { view: View }) {
   const unanswered = allQuestions.filter(q => !isAnswered(q)).length;
   const section = test.sections[sectionIndex];
   const lowTime = remaining !== null && remaining < 5 * 60_000;
+  const layoutQuestionNumbers = new Set(
+    Array.from(section.questionLayout?.matchAll(/\[\[(\d+)\]\]/g) ?? []).map(
+      match => Number(match[1])
+    )
+  );
+  const displayedQuestions = section.questions.filter(
+    question =>
+      !isCompletionType(question.type) ||
+      !layoutQuestionNumbers.has(numbers.get(question.id) ?? -1)
+  );
 
   const confirmSubmit = () => {
     const msg = unanswered
@@ -478,7 +645,7 @@ function ExamRunner({ view }: { view: View }) {
     test.format === "answer_sheet" && isAutoMarkedModule(test.module);
   const questionsBlock = sheet ? (
     <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
-      {section.questions.map(q => (
+      {displayedQuestions.map(q => (
         <SheetRow
           key={q.id}
           number={numbers.get(q.id)!}
@@ -490,11 +657,16 @@ function ExamRunner({ view }: { view: View }) {
     </div>
   ) : (
     <div className="flex flex-col gap-8">
-      {section.questions.map(q => (
+      {displayedQuestions.map(q => (
         <div key={q.id} id={`question-${q.id}`} className="scroll-mt-40">
+          {q.instruction && (
+            <p className="mb-3 whitespace-pre-line font-medium text-ink/75">
+              {q.instruction}
+            </p>
+          )}
           <div className="flex items-start gap-3">
             <span className="flex h-8 min-w-8 flex-none items-center justify-center rounded-[4px] bg-ink px-2 text-sm font-semibold text-white">
-              {numbers.get(q.id)}
+              {questionNumberLabel(q, numbers.get(q.id)!)}
             </span>
             <p className="whitespace-pre-line pt-1 text-lg">{q.prompt}</p>
           </div>
@@ -506,10 +678,15 @@ function ExamRunner({ view }: { view: View }) {
                 prepSeconds={q.prepSeconds}
                 responseSeconds={q.responseSeconds}
                 audioUrl={answers[q.id]?.audioUrl ?? null}
-                onUploaded={url =>
+                onUploaded={(url, transcript) =>
                   setAnswers(prev => ({
                     ...prev,
-                    [q.id]: { ...prev[q.id], audioUrl: url },
+                    // Keep the transcript in state too, or the next autosave would clear it.
+                    [q.id]: {
+                      ...prev[q.id],
+                      audioUrl: url,
+                      response: transcript ?? prev[q.id]?.response ?? "",
+                    },
                   }))
                 }
               />
@@ -540,7 +717,7 @@ function ExamRunner({ view }: { view: View }) {
           <div className="min-w-0 flex-1">
             <p className="text-xs uppercase tracking-[0.14em] text-ink/60">
               {MODULE_LABELS[test.module]} ·{" "}
-              {test.mode === "exam" ? "Exam" : "Practice"}
+              {attempt.mode === "exam" ? "Exam" : "Practice"}
             </p>
             <h1 className="truncate text-lg">{test.title}</h1>
           </div>
@@ -619,7 +796,7 @@ function ExamRunner({ view }: { view: View }) {
           </p>
         )}
         {section.audioUrl && (
-          <div className="mt-5 rounded-[5px] bg-sand p-4">
+          <div className="mt-5 rounded-[var(--radius-control)] bg-sand p-4">
             <audio
               controls
               preload="auto"
@@ -627,7 +804,7 @@ function ExamRunner({ view }: { view: View }) {
               className="w-full"
               controlsList="nodownload noplaybackrate"
             />
-            {test.mode === "exam" && (
+            {attempt.mode === "exam" && (
               <p className="mt-2 text-sm text-ink/60">
                 In the real test you hear the recording once — try not to replay
                 it.
@@ -638,13 +815,24 @@ function ExamRunner({ view }: { view: View }) {
         {scriptedListening && (
           <ScriptedAudioPlayer
             text={section.content!}
-            exam={test.mode === "exam"}
+            exam={attempt.mode === "exam"}
           />
+        )}
+        {test.module === "listening" && section.questionLayout && (
+          <div className="mt-6 max-w-[1100px]">
+            <ListeningQuestionLayout
+              layout={section.questionLayout}
+              questions={section.questions}
+              numbers={numbers}
+              answers={answers}
+              onChange={setResponse}
+            />
+          </div>
         )}
 
         {sideBySide ? (
           <div className="mt-6 grid gap-8 lg:grid-cols-2">
-            <div className="lg:sticky lg:top-40 lg:max-h-[calc(100vh-200px)] lg:self-start lg:overflow-y-auto rounded-[5px] bg-white p-6 lg:p-8">
+            <div className="lg:sticky lg:top-40 lg:max-h-[calc(100vh-200px)] lg:self-start lg:overflow-y-auto rounded-[var(--radius-card)] bg-[var(--student-card)] p-6 lg:p-8">
               {section.imageUrl && (
                 <img
                   src={section.imageUrl}
@@ -663,7 +851,7 @@ function ExamRunner({ view }: { view: View }) {
         ) : (
           <div className="mt-6 max-w-[860px]">
             {section.content && test.module !== "listening" && (
-              <div className="mb-8 whitespace-pre-line rounded-[5px] bg-white p-6 text-[17px] leading-[1.75]">
+              <div className="mb-8 whitespace-pre-line rounded-[var(--radius-card)] bg-[var(--student-card)] p-6 text-[17px] leading-[1.75]">
                 {section.content}
               </div>
             )}
@@ -702,13 +890,14 @@ function ExamRunner({ view }: { view: View }) {
               Next →
             </button>
           ) : (
-            <button
-              type="button"
+            <HvActionButton
               onClick={confirmSubmit}
-              className="rounded-full bg-brand-red px-5 py-2.5 text-white"
+              variant="red"
+              size="sm"
+              className="rounded-full"
             >
               Finish & submit
-            </button>
+            </HvActionButton>
           )}
         </div>
       </div>
@@ -727,15 +916,15 @@ function ExamRunner({ view }: { view: View }) {
               key={q.id}
               type="button"
               onClick={() => jumpTo(q)}
-              aria-label={`Question ${numbers.get(q.id)}${isAnswered(q) ? ", answered" : ""}`}
+              aria-label={`Question ${questionNumberLabel(q, numbers.get(q.id)!)}${isAnswered(q) ? ", answered" : ""}`}
               className={cn(
-                "h-8 min-w-8 flex-none rounded-[4px] px-2 text-sm font-medium",
+                "h-8 min-w-8 flex-none rounded-[7px] px-2 text-sm font-medium",
                 isAnswered(q)
                   ? "bg-ink text-white"
                   : "border border-ink/25 bg-white"
               )}
             >
-              {numbers.get(q.id)}
+              {questionNumberLabel(q, numbers.get(q.id)!)}
             </button>
           ))}
         </div>
@@ -749,7 +938,11 @@ function AttemptResult({ view }: { view: View }) {
   const numbers = numbered(view);
   const answerFor = (id: number) => view.answers.find(a => a.questionId === id);
   const awaiting = attempt.status === "submitted";
-  const revealed = test.mode === "practice";
+  const revealed = attempt.mode === "practice";
+  const ai = attempt.aiEvaluation;
+  const aiMarking =
+    awaiting && ai?.status === "pending" && attempt.mode === "practice";
+  const aiGraded = !awaiting && ai?.applied === true;
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-12 lg:py-16">
@@ -763,7 +956,7 @@ function AttemptResult({ view }: { view: View }) {
       <h1 className="mt-2 text-[36px] sm:text-[44px]">{test.title}</h1>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-[240px_1fr]">
-        <div className="flex flex-col justify-between rounded-[5px] bg-brand-red p-6 text-white">
+        <div className="flex flex-col justify-between rounded-[var(--radius-card)] bg-brand-red p-6 text-white">
           <p className="text-sm text-white/80">
             {awaiting
               ? "Status"
@@ -780,8 +973,22 @@ function AttemptResult({ view }: { view: View }) {
             </p>
           ) : null}
         </div>
-        <div className="rounded-[5px] bg-sand p-6">
-          {awaiting ? (
+        <div className="rounded-[var(--radius-card)] bg-sand p-6">
+          {aiMarking ? (
+            <div role="status">
+              <h2 className="flex items-center gap-3 text-2xl">
+                <span
+                  className="h-5 w-5 flex-none animate-spin rounded-full border-2 border-ink border-t-transparent"
+                  aria-hidden="true"
+                />
+                AI is marking your answers…
+              </h2>
+              <p className="mt-2 text-ink/70">
+                This usually takes under a minute. Your band, criterion scores
+                and feedback will appear here automatically.
+              </p>
+            </div>
+          ) : awaiting ? (
             <>
               <h2 className="text-2xl">Submitted — awaiting marking</h2>
               <p className="mt-2 text-ink/70">
@@ -795,22 +1002,31 @@ function AttemptResult({ view }: { view: View }) {
               {attempt.criteria && Object.keys(attempt.criteria).length > 0 && (
                 <dl className="grid gap-3 sm:grid-cols-2">
                   {Object.entries(attempt.criteria).map(([name, band]) => (
-                    <div
-                      key={name}
-                      className="flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2"
-                    >
-                      <dt className="text-ink/70">{name}</dt>
-                      <dd className="text-xl font-semibold">
-                        {formatBand(band)}
-                      </dd>
+                    <div key={name} className="border-b border-ink/10 pb-2">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <dt className="text-ink/70">{name}</dt>
+                        <dd className="text-xl font-semibold">
+                          {formatBand(band)}
+                        </dd>
+                      </div>
+                      {aiGraded && ai?.comments?.[name] && (
+                        <p className="mt-1 text-sm text-ink/60">
+                          {ai.comments[name]}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </dl>
               )}
               {attempt.feedback ? (
                 <div className={attempt.criteria ? "mt-5" : ""}>
-                  <p className="text-sm font-medium text-ink/60">
-                    Mentor feedback
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink/60">
+                    {aiGraded ? "AI feedback" : "Mentor feedback"}
+                    {aiGraded && (
+                      <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-medium text-white">
+                        Marked by AI · your mentor may review it
+                      </span>
+                    )}
                   </p>
                   <p className="mt-1 whitespace-pre-line text-lg">
                     {attempt.feedback}
@@ -840,7 +1056,7 @@ function AttemptResult({ view }: { view: View }) {
         {test.sections.map(section => (
           <section
             key={section.id}
-            className="rounded-[5px] border border-ink/15 p-5 lg:p-6"
+            className="rounded-[var(--radius-card)] bg-[var(--student-card)] p-5 ring-1 ring-ink/8 lg:p-6"
           >
             <h3 className="mb-4 text-xl">{section.title}</h3>
             <div className="flex flex-col gap-5">
@@ -854,7 +1070,7 @@ function AttemptResult({ view }: { view: View }) {
                   >
                     <div className="flex items-start gap-3">
                       <span className="flex h-7 min-w-7 flex-none items-center justify-center rounded-[4px] bg-ink px-2 text-xs font-semibold text-white">
-                        {numbers.get(q.id)}
+                        {questionNumberLabel(q, numbers.get(q.id)!)}
                       </span>
                       <div className="min-w-0 flex-1">
                         {!(test.format === "answer_sheet" && objective) && (
@@ -876,8 +1092,14 @@ function AttemptResult({ view }: { view: View }) {
                                 <X className="h-4 w-4" aria-hidden="true" />
                               )}
                               {a?.response
-                                ? q.type === "mcq"
-                                  ? `${a.response}. ${q.options?.[a.response.charCodeAt(0) - 65] ?? ""}`
+                                ? CHOICE_SELECTION_COUNTS[q.type]
+                                  ? a.response
+                                      .split(",")
+                                      .map(
+                                        value =>
+                                          `${value}. ${q.options?.[value.charCodeAt(0) - 65] ?? ""}`
+                                      )
+                                      .join("; ")
                                   : a.response
                                 : "No answer"}
                             </span>
@@ -906,7 +1128,7 @@ function AttemptResult({ view }: { view: View }) {
                             <p className="mt-3 text-sm text-ink/60">
                               {countWords(a?.response)} words
                             </p>
-                            <div className="mt-1 whitespace-pre-wrap rounded-[5px] bg-white p-4">
+                            <div className="mt-1 whitespace-pre-wrap rounded-[var(--radius-control)] bg-white p-4">
                               {a?.response || (
                                 <em className="text-ink/40">No answer</em>
                               )}
@@ -925,6 +1147,18 @@ function AttemptResult({ view }: { view: View }) {
                               No recording
                             </p>
                           ))}
+                        {!objective && q.explanation && (
+                          <div className="mt-3 rounded-[var(--radius-control)] bg-sand px-4 py-3">
+                            <p className="text-sm font-medium text-ink/60">
+                              {q.type === "writing"
+                                ? "Model answer & tips"
+                                : "Sample answer & tips"}
+                            </p>
+                            <p className="mt-1 whitespace-pre-line">
+                              {q.explanation}
+                            </p>
+                          </div>
+                        )}
                         {a?.feedback && (
                           <div className="mt-3 border-l-2 border-brand-red pl-4">
                             <p className="text-sm font-medium text-ink/60">
@@ -949,7 +1183,18 @@ function AttemptResult({ view }: { view: View }) {
 function AttemptPage({ id }: { id: number }) {
   const { data, isLoading, error } = trpc.student.attempt.useQuery(
     { id },
-    { refetchOnWindowFocus: false, retry: false }
+    {
+      refetchOnWindowFocus: false,
+      retry: false,
+      // Poll while AI marking is running, then stop.
+      refetchInterval: query => {
+        const attempt = query.state.data?.attempt;
+        return attempt?.status === "submitted" &&
+          attempt.aiEvaluation?.status === "pending"
+          ? 4000
+          : false;
+      },
+    }
   );
   if (isLoading) {
     return (

@@ -7,17 +7,24 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
-import { MOCK_MODULES, MOCK_QUESTION_TYPES } from "./database/schema";
+import {
+  MOCK_MODULES,
+  MOCK_QUESTION_TYPES,
+  type AiEvaluation,
+} from "./database/schema";
 import { adminProcedure, router, studentProcedure } from "./_core/trpc";
 import { hashPassword, verifyPassword } from "./_core/password";
 import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
 import { storagePut } from "./storage";
 import * as mock from "./mockDb";
 import { APP_ROLES, canManageUsers } from "@shared/roles";
+import { choiceSelectionCount, practiceTypeInfo } from "@shared/mock";
+import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
 const questionInput = z.object({
   id: z.number().int().positive().optional(),
   type: z.enum(MOCK_QUESTION_TYPES),
+  instruction: z.string().nullish(),
   prompt: z.string().trim().min(1, "Every question needs a prompt"),
   options: z.array(z.string()).nullish(),
   answers: z.array(z.string()).nullish(),
@@ -33,26 +40,39 @@ const sectionInput = z.object({
   title: z.string().trim().min(1, "Every section needs a title"),
   instructions: z.string().nullish(),
   content: z.string().nullish(),
+  questionLayout: z.string().nullish(),
   imageUrl: z.string().nullish(),
   audioUrl: z.string().nullish(),
   questions: z.array(questionInput),
 });
 
-const testInput = z.object({
-  title: z.string().trim().min(1, "Title is required"),
-  description: z.string().nullish(),
-  module: z.enum(MOCK_MODULES),
-  variant: z.enum(["academic", "general"]).default("academic"),
-  mode: z.enum(["exam", "practice"]).default("exam"),
-  durationMinutes: z.number().int().min(1).max(300).nullish(),
-  maxAttempts: z.number().int().min(1).max(100).nullish(),
-  isPublished: z.boolean().default(false),
-  sortOrder: z.number().int().default(0),
-  format: z.enum(["full", "answer_sheet"]).default("full"),
-  series: z.string().trim().max(50).nullish(),
-  bookNumber: z.number().int().min(1).max(99).nullish(),
-  testNumber: z.number().int().min(1).max(20).nullish(),
-});
+const testInput = z
+  .object({
+    title: z.string().trim().min(1, "Title is required"),
+    description: z.string().nullish(),
+    module: z.enum(MOCK_MODULES),
+    variant: z.enum(["academic", "general"]).default("academic"),
+    mode: z.enum(["exam", "practice"]).default("exam"),
+    durationMinutes: z.number().int().min(1).max(300).nullish(),
+    maxAttempts: z.number().int().min(1).max(100).nullish(),
+    isPublished: z.boolean().default(false),
+    sortOrder: z.number().int().default(0),
+    format: z.enum(["full", "answer_sheet"]).default("full"),
+    series: z.string().trim().max(50).nullish(),
+    bookNumber: z.number().int().min(1).max(99).nullish(),
+    testNumber: z.number().int().min(1).max(20).nullish(),
+    /** PRACTICE_TYPES key; must belong to the same module */
+    practiceType: z.string().max(60).nullish(),
+  })
+  .refine(
+    test =>
+      !test.practiceType ||
+      practiceTypeInfo(test.practiceType)?.module === test.module,
+    {
+      message: "Choose a question type that belongs to this module",
+      path: ["practiceType"],
+    }
+  );
 
 const answerInput = z.object({
   questionId: z.number().int().positive(),
@@ -98,11 +118,28 @@ export const mockTestsRouter = router({
 
   save: adminProcedure
     .input(
-      z.object({
-        id: z.number().int().positive().nullable(),
-        test: testInput,
-        sections: z.array(sectionInput),
-      })
+      z
+        .object({
+          id: z.number().int().positive().nullable(),
+          test: testInput,
+          sections: z.array(sectionInput),
+        })
+        .superRefine(({ test, sections }, ctx) => {
+          if (test.module !== "listening") return;
+          sections.forEach((section, index) => {
+            const count = section.questions.reduce(
+              (total, question) =>
+                total + Math.max(1, choiceSelectionCount(question.type)),
+              0
+            );
+            if (count > 10)
+              ctx.addIssue({
+                code: "custom",
+                path: ["sections", index, "questions"],
+                message: `${section.title} cannot contain more than 10 questions`,
+              });
+          });
+        })
     )
     .mutation(async ({ input }) => {
       const id = await mock.saveTestTree(input.id, input.test, input.sections);
@@ -153,6 +190,31 @@ export const mockTestsRouter = router({
       })
     )
     .mutation(({ input }) => mock.gradeAttempt(input)),
+
+  /** Whether AI marking of Writing/Speaking is switched on (ANTHROPIC_API_KEY set). */
+  aiAvailable: adminProcedure.query(() => ({
+    available: isAiGradingConfigured(),
+  })),
+
+  /** Admin: (re-)run AI marking for a submitted Writing/Speaking attempt; returns the suggestion. */
+  aiEvaluate: adminProcedure
+    .input(z.object({ attemptId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      if (!isAiGradingConfigured())
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "AI marking isn't set up. Add ANTHROPIC_API_KEY to the server environment.",
+        });
+      const evaluation = await runAiEvaluation(input.attemptId);
+      if (!evaluation)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "AI marking failed or this attempt can't be marked by AI. Check the attempt's AI status.",
+        });
+      return evaluation;
+    }),
 
   /** Admin: upload listening audio or a writing task image. */
   uploadMedia: adminProcedure
@@ -433,6 +495,19 @@ export const learningResourcesRouter = router({
     .mutation(({ input }) => mock.deleteVocabularyWord(input.id)),
 });
 
+/**
+ * What students may see of an AI evaluation: the full result only once it has become their grade
+ * (practice); for exams, just whether AI marking is running — the suggestion is for the mentor.
+ */
+function studentAiView(evaluation: AiEvaluation | null | undefined) {
+  if (!evaluation) return null;
+  if (evaluation.applied) return evaluation;
+  return {
+    status: evaluation.status,
+    createdAt: evaluation.createdAt,
+  } satisfies AiEvaluation;
+}
+
 export const studentRouter = router({
   profile: studentProcedure.query(async ({ ctx }) => {
     const user = await getAppUserById(ctx.user.id);
@@ -441,6 +516,7 @@ export const studentRouter = router({
         code: "NOT_FOUND",
         message: "Student account not found",
       });
+    const [latest] = await mock.getStudentEnrollments(user.email);
     return {
       id: user.id,
       name: user.name,
@@ -449,7 +525,14 @@ export const studentRouter = router({
       targetBand: user.targetBand,
       createdAt: user.createdAt,
       lastSignedIn: user.lastSignedIn,
+      /** From the student's latest enrollment; null until they enroll. */
+      mobile: latest?.studentMobile ?? null,
     };
+  }),
+
+  enrollments: studentProcedure.query(async ({ ctx }) => {
+    const user = await getAppUserById(ctx.user.id);
+    return user ? mock.getStudentEnrollments(user.email) : [];
   }),
 
   updateProfile: studentProcedure
@@ -460,10 +543,29 @@ export const studentRouter = router({
           .enum(["5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "9.0"])
           .nullable()
           .optional(),
+        mobile: z
+          .string()
+          .transform(value => value.replace(/[\s-]/g, ""))
+          .pipe(
+            z
+              .string()
+              .regex(/^01[3-9]\d{8}$/, "Enter a valid 11-digit mobile number")
+          )
+          .optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await mock.updateStudent(ctx.user.id, input);
+      const { mobile, ...details } = input;
+      if (Object.keys(details).length)
+        await mock.updateStudent(ctx.user.id, details);
+      if (mobile) {
+        const user = await getAppUserById(ctx.user.id);
+        if (!user || (await mock.updateStudentMobile(user.email, mobile)) === 0)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your mobile number is saved once you enroll in a course.",
+          });
+      }
       return { success: true } as const;
     }),
 
@@ -529,14 +631,29 @@ export const studentRouter = router({
 
   vocabulary: studentProcedure.query(() => mock.listVocabulary(true)),
 
-  attempts: studentProcedure.query(({ ctx }) =>
-    mock.listAttempts({ userId: ctx.user.id })
+  attempts: studentProcedure.query(async ({ ctx }) =>
+    (await mock.listAttempts({ userId: ctx.user.id })).map(row => ({
+      ...row,
+      attempt: {
+        ...row.attempt,
+        aiEvaluation: studentAiView(row.attempt.aiEvaluation),
+      },
+    }))
   ),
 
   start: studentProcedure
-    .input(z.object({ testId: z.number().int() }))
+    .input(
+      z.object({
+        testId: z.number().int(),
+        mode: z.enum(["exam", "practice"]).default("exam"),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const attempt = await mock.startAttempt(input.testId, ctx.user.id);
+      const attempt = await mock.startAttempt(
+        input.testId,
+        ctx.user.id,
+        input.mode
+      );
       return { attemptId: attempt.id };
     }),
 
@@ -545,10 +662,18 @@ export const studentRouter = router({
     .query(async ({ ctx, input }) => {
       const attempt = await mock.getOwnedAttempt(input.id, ctx.user.id);
       const view = await mock.getAttemptView(attempt, { revealAnswers: false });
-      // Practice tests reveal model answers and explanations once submitted.
-      return view.test.mode === "practice"
-        ? mock.getAttemptView(attempt, { revealAnswers: true })
-        : view;
+      // Practice attempts reveal model answers and explanations once submitted.
+      const result =
+        attempt.mode === "practice"
+          ? await mock.getAttemptView(attempt, { revealAnswers: true })
+          : view;
+      return {
+        ...result,
+        attempt: {
+          ...result.attempt,
+          aiEvaluation: studentAiView(result.attempt.aiEvaluation),
+        },
+      };
     }),
 
   save: studentProcedure
@@ -592,6 +717,8 @@ export const studentRouter = router({
         questionId: z.number().int(),
         base64: z.string(),
         contentType: z.string(),
+        /** Browser speech-to-text of the recording, used for AI marking */
+        transcript: z.string().max(20_000).nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -613,7 +740,13 @@ export const studentRouter = router({
         input.contentType
       );
       await mock.saveAnswers(attempt, [
-        { questionId: input.questionId, audioUrl: url },
+        {
+          questionId: input.questionId,
+          audioUrl: url,
+          ...(input.transcript !== undefined
+            ? { response: input.transcript || null }
+            : {}),
+        },
       ]);
       return { url };
     }),

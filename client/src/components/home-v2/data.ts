@@ -21,7 +21,8 @@ export const FALLBACK_COURSES: CourseCard[] = [
   {
     id: -1,
     title: "IELTS VIP Course — Plan A",
-    description: "One month of intensive one-to-one IELTS mentoring across all four modules",
+    description:
+      "One month of intensive one-to-one IELTS mentoring across all four modules",
     label: "IELTS",
     category: "ielts",
     price: PRICING.VIP_1M,
@@ -31,7 +32,8 @@ export const FALLBACK_COURSES: CourseCard[] = [
   {
     id: -2,
     title: "IELTS VIP Course — Plan B",
-    description: "Two months of structured preparation with mock tests and detailed writing feedback",
+    description:
+      "Two months of structured preparation with mock tests and detailed writing feedback",
     label: "IELTS",
     category: "ielts",
     price: PRICING.VIP_2M,
@@ -41,7 +43,8 @@ export const FALLBACK_COURSES: CourseCard[] = [
   {
     id: -3,
     title: "Basic Grammar & Spoken English",
-    description: "Build a solid grammar foundation and speak English with everyday confidence",
+    description:
+      "Build a solid grammar foundation and speak English with everyday confidence",
     label: "Spoken English",
     category: "spoken",
     price: PRICING.GRAMMAR,
@@ -51,7 +54,8 @@ export const FALLBACK_COURSES: CourseCard[] = [
   {
     id: -4,
     title: "IELTS Speaking Premium",
-    description: "Focused speaking practice with a mentor to lift fluency, pronunciation and band score",
+    description:
+      "Focused speaking practice with a mentor to lift fluency, pronunciation and band score",
     label: "Speaking",
     category: "ielts",
     price: PRICING.SPEAKING,
@@ -94,7 +98,8 @@ export const FALLBACK_STORIES: StoryCard[] = [
     band: "8.0",
     detail: "IELTS VIP · RUET",
     imageUrl: "/success-1.jpg",
-    quote: "FluentLearner's structured approach and dedicated mentoring helped me achieve Band 8.0. The mock tests were incredibly helpful.",
+    quote:
+      "FluentLearner's structured approach and dedicated mentoring helped me achieve Band 8.0. The mock tests were incredibly helpful.",
   },
   {
     id: -2,
@@ -102,7 +107,8 @@ export const FALLBACK_STORIES: StoryCard[] = [
     band: "7.5",
     detail: "IELTS VIP",
     imageUrl: "/success-2.jpg",
-    quote: "Really indebted to Zahid Bhai. His dedication and enthusiasm towards teaching is remarkable. FluentLearner is definitely the best choice.",
+    quote:
+      "Really indebted to Zahid Bhai. His dedication and enthusiasm towards teaching is remarkable. FluentLearner is definitely the best choice.",
   },
   {
     id: -3,
@@ -110,43 +116,39 @@ export const FALLBACK_STORIES: StoryCard[] = [
     band: "7.5",
     detail: "IELTS VIP",
     imageUrl: "/success-4.jpg",
-    quote: "Thanks bhaiya and apu for your constant support. The guidance made all the difference in my IELTS preparation journey.",
+    quote:
+      "Thanks bhaiya and apu for your constant support. The guidance made all the difference in my IELTS preparation journey.",
   },
-  { id: -4, name: "Orko Rahman", band: "7.0", detail: "Online VIP Batch", imageUrl: "/success-3.jpg", quote: null },
-  { id: -5, name: "Golam Imran", band: "7.0", detail: "VIP Batch", imageUrl: "/success-5.jpg", quote: null },
-  { id: -6, name: "Suprova Das Keya", band: "7.0", detail: "VIP Course · Online", imageUrl: "/success-6.jpg", quote: null },
-  { id: -7, name: "Raihan Rahmatullah", band: "7.5", detail: "Speaking · Online Batch", imageUrl: "/success-7.jpg", quote: null },
+  {
+    id: -4,
+    name: "Orko Rahman",
+    band: "7.0",
+    detail: "Online VIP Batch",
+    imageUrl: "/success-3.jpg",
+    quote: null,
+  },
+  {
+    id: -5,
+    name: "Golam Imran",
+    band: "7.0",
+    detail: "VIP Batch",
+    imageUrl: "/success-5.jpg",
+    quote: null,
+  },
+  {
+    id: -6,
+    name: "Suprova Das Keya",
+    band: "7.0",
+    detail: "VIP Course · Online",
+    imageUrl: "/success-6.jpg",
+    quote: null,
+  },
+  {
+    id: -7,
+    name: "Raihan Rahmatullah",
+    band: "7.5",
+    detail: "Speaking · Online Batch",
+    imageUrl: "/success-7.jpg",
+    quote: null,
+  },
 ];
-
-export function getGeneralFaqs(scorers: string, successRate: string) {
-  return [
-    {
-      question: "Can I really get good results from an online course?",
-      answer: `Absolutely. Most of our ${scorers}+ successful students joined online batches. One-to-one mentoring gives you focused attention, structured feedback and direct support from your mentor.`,
-    },
-    {
-      question: "How long is the course? Can I prepare in one month?",
-      answer: "Our IELTS VIP Course offers Plan A for one month and Plan B for two months. If your English foundation is already solid, an intensive one-month plan can help you make significant progress.",
-    },
-    {
-      question: "I score low in Writing. How can you help?",
-      answer: "Every writing task is reviewed individually. You receive detailed feedback, proven structures, vocabulary guidance and practical exercises based on the IELTS band descriptors.",
-    },
-    {
-      question: "Will I get recordings if I miss a class?",
-      answer: "Yes. Class recordings, study materials, mock tests and WhatsApp support are included, so you can review lessons at a convenient time.",
-    },
-    {
-      question: "Why should I choose FluentLearner over other platforms?",
-      answer: `You get one-to-one mentoring, a proven track record of ${scorers}+ successful students and a ${successRate}% success rate, plus practical course plans at accessible prices.`,
-    },
-    {
-      question: "Do you provide a certificate after course completion?",
-      answer: "Yes. Students who complete a course receive a FluentLearner Certificate of Completion. Our main goal, however, is helping you reach your target IELTS band score.",
-    },
-    {
-      question: "How do I pay? Can I pay in installments?",
-      answer: "You can pay by bKash, Nagad, Rocket or bank transfer. Installment options may be available — contact us on WhatsApp to discuss a suitable payment plan.",
-    },
-  ];
-}

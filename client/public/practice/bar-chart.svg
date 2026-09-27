@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" font-family="Arial, sans-serif" font-size="13">
+  <rect width="640" height="420" fill="#fff"/>
+  <text x="320" y="28" text-anchor="middle" font-size="16" font-weight="bold">Average hours per week spent on leisure activities, by age group</text>
+  <g stroke="#e3e3e3"><line x1="70" y1="290" x2="610" y2="290"/><line x1="70" y1="240" x2="610" y2="240"/><line x1="70" y1="190" x2="610" y2="190"/><line x1="70" y1="140" x2="610" y2="140"/><line x1="70" y1="90" x2="610" y2="90"/></g>
+  <line x1="70" y1="340" x2="610" y2="340" stroke="#333"/><line x1="70" y1="60" x2="70" y2="340" stroke="#333"/>
+  <g text-anchor="end" fill="#444"><text x="62" y="344">0</text><text x="62" y="294">4</text><text x="62" y="244">8</text><text x="62" y="194">12</text><text x="62" y="144">16</text><text x="62" y="94">20</text></g>
+  <!-- groups: 16-24, 25-44, 45-64, 65+ ; series: TV, Sport, Reading ; scale 12.5px per hour -->
+  <g>
+    <rect x="95" y="190" width="30" height="150" fill="#1f1f1f"/><rect x="127" y="215" width="30" height="125" fill="#b3261e"/><rect x="159" y="290" width="30" height="50" fill="#bdbdbd"/>
+    <rect x="230" y="215" width="30" height="125" fill="#1f1f1f"/><rect x="262" y="265" width="30" height="75" fill="#b3261e"/><rect x="294" y="277" width="30" height="63" fill="#bdbdbd"/>
+    <rect x="365" y="165" width="30" height="175" fill="#1f1f1f"/><rect x="397" y="290" width="30" height="50" fill="#b3261e"/><rect x="429" y="252" width="30" height="88" fill="#bdbdbd"/>
+    <rect x="500" y="115" width="30" height="225" fill="#1f1f1f"/><rect x="532" y="315" width="30" height="25" fill="#b3261e"/><rect x="564" y="215" width="30" height="125" fill="#bdbdbd"/>
+  </g>
+  <g text-anchor="middle" fill="#444"><text x="142" y="360">16–24</text><text x="277" y="360">25–44</text><text x="412" y="360">45–64</text><text x="547" y="360">65+</text></g>
+  <g><rect x="170" y="378" width="14" height="14" fill="#1f1f1f"/><text x="190" y="390">Watching TV</text><rect x="300" y="378" width="14" height="14" fill="#b3261e"/><text x="320" y="390">Sport</text><rect x="400" y="378" width="14" height="14" fill="#bdbdbd"/><text x="420" y="390">Reading</text></g>
+</svg>

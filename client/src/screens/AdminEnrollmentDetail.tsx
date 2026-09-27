@@ -20,12 +20,13 @@ import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
+import AdminSelect from "@/components/AdminSelect";
 
 const statusConfig: Record<
   string,
   { label: string; className: string; icon: typeof Clock }
 > = {
-  pending: { label: "Pending Verification", className: "warning", icon: Clock },
+  pending: { label: "Pending", className: "warning", icon: Clock },
   verified: { label: "Verified", className: "", icon: CheckCircle2 },
   rejected: { label: "Rejected", className: "failed", icon: XCircle },
   refunded: { label: "Refunded", className: "info", icon: CreditCard },
@@ -40,7 +41,7 @@ function Detail({
 }) {
   return (
     <div>
-      <dt className="text-xs text-[var(--admin-placeholder)]">{label}</dt>
+      <dt className="text-xs text-[var(--admin-body)]">{label}</dt>
       <dd className="mt-1.5 text-sm font-medium text-[var(--admin-heading)]">
         {children || "—"}
       </dd>
@@ -124,7 +125,7 @@ export default function AdminEnrollmentDetail() {
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
         <div className="space-y-6">
-          <section className="bg-[var(--admin-card)] p-6">
+          <section className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6">
             <div className="mb-6 flex items-center gap-3">
               <UserRound className="h-5 w-5 text-[var(--admin-primary)]" />
               <h2 className="font-display text-xl font-semibold">
@@ -171,7 +172,7 @@ export default function AdminEnrollmentDetail() {
             </dl>
           </section>
 
-          <section className="bg-[var(--admin-card)] p-6">
+          <section className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6">
             <div className="mb-6 flex items-center gap-3">
               <ReceiptText className="h-5 w-5 text-[var(--admin-primary)]" />
               <h2 className="font-display text-xl font-semibold">
@@ -207,20 +208,20 @@ export default function AdminEnrollmentDetail() {
 
         <aside className="space-y-6">
           {enrollment.status === "pending" && (
-            <section className="bg-[var(--admin-card)] p-6">
+            <section className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6">
               <h2 className="font-display text-xl font-semibold">
                 Review application
               </h2>
               <label className="mt-6 block text-sm font-medium">
                 Assign batch
-                <select
+                <AdminSelect
                   value={batchId || ""}
                   onChange={event =>
                     setBatchId(
                       event.target.value ? Number(event.target.value) : null
                     )
                   }
-                  className="mt-2 h-11 w-full border px-3"
+                  className="mt-2 w-full"
                 >
                   <option value="">No batch selected</option>
                   {batches
@@ -230,7 +231,7 @@ export default function AdminEnrollmentDetail() {
                         {item.name} ({item.currentCount}/{item.maxCapacity})
                       </option>
                     ))}
-                </select>
+                </AdminSelect>
               </label>
               <label className="mt-5 block text-sm font-medium">
                 Admin notes
@@ -280,19 +281,17 @@ export default function AdminEnrollmentDetail() {
           )}
 
           {(enrollment.adminNotes || enrollment.rejectionReason) && (
-            <section className="bg-[var(--admin-card)] p-6">
+            <section className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6">
               <h2 className="font-display text-xl font-semibold">Notes</h2>
               {enrollment.adminNotes && (
                 <div className="mt-5">
-                  <p className="text-xs text-[var(--admin-placeholder)]">
-                    Admin note
-                  </p>
+                  <p className="text-xs text-[var(--admin-body)]">Admin note</p>
                   <p className="mt-1 text-sm">{enrollment.adminNotes}</p>
                 </div>
               )}
               {enrollment.rejectionReason && (
                 <div className="mt-5">
-                  <p className="text-xs text-[var(--admin-placeholder)]">
+                  <p className="text-xs text-[var(--admin-body)]">
                     Rejection reason
                   </p>
                   <p className="mt-1 text-sm text-[var(--admin-failed)]">

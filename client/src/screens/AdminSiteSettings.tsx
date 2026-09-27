@@ -523,7 +523,7 @@ export default function AdminSiteSettings() {
                 </div>
               ))}
             </div>
-            <div className="mt-0 flex flex-wrap gap-3 pt-6">
+            <div className="mt-0 flex flex-wrap gap-3 pt-8">
               <button
                 onClick={handleSave}
                 disabled={isSaving}

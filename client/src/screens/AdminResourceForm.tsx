@@ -5,6 +5,7 @@ import AdminPageHeader from "@/components/AdminPageHeader";
 import { fileToBase64 } from "@/lib/fileToBase64";
 import { useLocation } from "@/lib/router";
 import { trpc } from "@/lib/trpc";
+import AdminSelect from "@/components/AdminSelect";
 
 type ResourceForm = {
   title: string;
@@ -209,7 +210,7 @@ export default function AdminResourceForm({
       <AdminPageHeader
         title={`${editing ? "Edit" : "New"} ${isVocabulary ? "Vocabulary" : "Resource"}`}
         parent={{
-          label: isVocabulary ? "Vocabulary" : "Resources",
+          label: isVocabulary ? "Vocabulary" : "Resource files",
           href: backPath,
         }}
       />
@@ -341,8 +342,7 @@ export default function AdminResourceForm({
             </label>
             <label className="text-sm font-medium">
               Available to
-              <select
-                className={field}
+              <AdminSelect
                 value={resource.batchId ?? ""}
                 onChange={event =>
                   setResource(current => ({
@@ -359,7 +359,7 @@ export default function AdminResourceForm({
                     {batch.name}
                   </option>
                 ))}
-              </select>
+              </AdminSelect>
             </label>
             <label className="text-sm font-medium sm:col-span-2">
               Description
@@ -386,7 +386,7 @@ export default function AdminResourceForm({
                     onChange={uploadFile}
                   />
                 </label>
-                <span className="text-sm text-[var(--admin-placeholder)]">
+                <span className="text-sm text-[var(--admin-body)]">
                   Maximum file size: 25MB
                 </span>
               </div>
