@@ -103,6 +103,25 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Scrollbars sit on the page background (the admin sets --background from Appearance);
+     scrollbar-color is inherited, so inner scroll areas follow too. */
+  html {
+    scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent)
+      var(--background);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid var(--background);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 22%, transparent);
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Source Sans 3", "Segoe UI", sans-serif;
@@ -244,8 +263,19 @@
     box-shadow: none !important;
     color: var(--admin-heading);
   }
-  .admin-theme [data-slot="select-trigger"]:is(:hover, [data-state="open"]) {
+  .admin-theme [data-slot="select-trigger"]:hover {
+    border-color: var(--admin-body) !important;
+  }
+  .admin-theme
+    [data-slot="select-trigger"]:is(:focus-visible, [data-state="open"]) {
     border-color: var(--admin-primary) !important;
+  }
+  /* Shared text inputs match the dropdowns' 44px height, with no shadow. */
+  .admin-theme [data-slot="input"].h-9 {
+    height: 2.75rem !important;
+  }
+  .admin-theme :is([data-slot="input"], [data-slot="textarea"]) {
+    box-shadow: none !important;
   }
   .admin-select-menu,
   .admin-theme [data-slot="select-content"],
@@ -401,6 +431,38 @@
     ) {
     background-color: transparent !important;
     border-radius: var(--radius-control) !important;
+  }
+  /* Text fields react like AdminSelect: darker border on hover, primary border (no ring) on focus. */
+  .admin-theme
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+          [type="range"]
+        ),
+      textarea
+    ) {
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .admin-theme
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+          [type="range"]
+        ),
+      textarea
+    ):hover:not(:disabled) {
+    border-color: var(--admin-body) !important;
+  }
+  .admin-theme
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+          [type="range"]
+        ),
+      textarea
+    ):focus {
+    border-color: var(--admin-primary) !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
   .admin-theme
     :is(
@@ -575,6 +637,108 @@
     ) {
     background: transparent !important;
     background-color: transparent !important;
+  }
+
+  /* Listening question layouts: the admin rich-text editor and the student view share this look. */
+  .rich-layout > * + * {
+    margin-top: 0.5rem;
+  }
+  /* A heading starts a new block of notes; what follows it sits close under it. */
+  .rich-layout > * + :is(h2, h3) {
+    margin-top: 1rem;
+  }
+  .rich-layout > :is(h2, h3) + * {
+    margin-top: 0.25rem;
+  }
+  .rich-layout h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .rich-layout h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+  }
+  .rich-layout ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+  }
+  .rich-layout ol {
+    list-style: decimal;
+    padding-left: 1.5rem;
+  }
+  /* Top-level lists sit well in from the heading, as in the IELTS sentence layout. */
+  .rich-layout > :is(ul, ol) {
+    padding-left: 2.75rem;
+  }
+  .rich-layout li + li,
+  .rich-layout li > :is(ul, ol) {
+    margin-top: 0.5rem;
+  }
+  /* Indented points under a bullet use a dash, as in the IELTS notes layout. */
+  .rich-layout :is(ul, ol) ul {
+    list-style: "–  ";
+  }
+  .rich-layout li > p + p {
+    margin-top: 0.25rem;
+  }
+  .rich-layout table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .rich-layout :is(th, td) {
+    border: 1px solid rgba(20, 25, 30, 0.18);
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+    text-align: left;
+  }
+  .rich-layout th {
+    background: rgba(20, 25, 30, 0.04);
+    font-weight: 700;
+  }
+  .rich-layout :is(th, td) > p + p {
+    margin-top: 0.25rem;
+  }
+  .rich-layout img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-inline: auto;
+    border-radius: 4px;
+  }
+  .rich-layout img.ProseMirror-selectednode {
+    outline: 2px solid var(--admin-primary, #c76f42);
+    outline-offset: 2px;
+  }
+  .rich-layout .selectedCell {
+    background: color-mix(
+      in srgb,
+      var(--admin-primary, #c76f42) 12%,
+      transparent
+    );
+  }
+  .rich-answer-box {
+    display: inline-flex;
+    min-width: 2.75rem;
+    height: 1.625rem;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0.25rem;
+    padding: 0 0.5rem;
+    border: 1px dashed var(--admin-primary, #c76f42);
+    border-radius: 4px;
+    color: var(--admin-primary, #c76f42);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    vertical-align: middle;
+    user-select: none;
+  }
+  .rich-answer-box.ProseMirror-selectednode {
+    background: color-mix(
+      in srgb,
+      var(--admin-primary, #c76f42) 14%,
+      transparent
+    );
   }
 
   /* ============================================
@@ -874,11 +1038,12 @@
     padding-right: 0;
     text-align: right;
   }
-  /* Every admin table sits flush with the page edges; !important beats px-* utilities on cells. */
-  .admin-content table :is(th, td):first-child {
+  /* Every admin table sits flush with the page edges; !important beats px-* utilities on cells.
+     Tables the admin writes inside the rich-text editor keep their own cell padding. */
+  .admin-content table:not(.rich-layout table) :is(th, td):first-child {
     padding-left: 0 !important;
   }
-  .admin-content table :is(th, td):last-child {
+  .admin-content table:not(.rich-layout table) :is(th, td):last-child {
     padding-right: 0 !important;
   }
   .admin-dual-view-page .overflow-x-auto:has(> table) {

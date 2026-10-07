@@ -23,8 +23,10 @@ import {
   LogOut,
   Settings,
   UserRound,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { canAccessStudentDashboard } from "@shared/roles";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,7 @@ import { interTight } from "@/components/home-v2/font";
 import { DecorSquare, HV_FIELD } from "@/components/home-v2/primitives";
 import { V2 } from "@/components/home-v2/routes";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import SiteLogo from "@/components/SiteLogo";
 
 const fieldClass = HV_FIELD;
 
@@ -122,7 +125,7 @@ export default function StudentShell({
   const [pathname, navigate] = useLocation();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
-  const isStudent = user?.role === "student";
+  const isStudent = canAccessStudentDashboard(user?.role);
   const { data: studentProfile } = trpc.student.profile.useQuery(undefined, {
     enabled: isStudent && !loading,
   });
@@ -145,6 +148,10 @@ export default function StudentShell({
     { label: "Resources", href: "/student/resources", icon: FolderOpen },
     { label: "Typing practice", href: "/student/typing", icon: Keyboard },
     { label: "My profile", href: "/student/profile", icon: UserRound },
+    // The Super Admin can switch back to the admin dashboard.
+    ...(user?.role === "super_admin"
+      ? [{ label: "Admin dashboard", href: "/admin", icon: ShieldCheck }]
+      : []),
   ];
 
   const signOut = async () => {
@@ -217,7 +224,7 @@ export default function StudentShell({
         <header className="border-b border-ink/10 bg-cream">
           <div className="mx-auto flex h-[72px] max-w-[1230px] items-center px-4">
             <Link href="/student" aria-label="Student dashboard">
-              <img src="/logo.svg" alt="FluentLearner" className="h-9 w-auto" />
+              <SiteLogo className="h-9 w-auto" />
             </Link>
           </div>
         </header>
@@ -237,11 +244,7 @@ export default function StudentShell({
           aria-label="Student dashboard"
           className="border-b border-white/10 px-7 py-7"
         >
-          <img
-            src="/logo-white.svg"
-            alt="FluentLearner"
-            className="h-9 w-auto"
-          />
+          <SiteLogo on="dark" className="h-9 w-auto" />
         </Link>
         <div className="px-5 pt-7">
           <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
@@ -389,7 +392,7 @@ export default function StudentShell({
         <header className="sticky top-0 z-40 border-b border-ink/10 bg-cream/95 backdrop-blur lg:hidden">
           <div className="flex h-16 items-center justify-between px-4">
             <Link href="/student" aria-label="Student dashboard">
-              <img src="/logo.svg" alt="FluentLearner" className="h-8 w-auto" />
+              <SiteLogo className="h-8 w-auto" />
             </Link>
             <Link
               href="/student/profile"

@@ -6,7 +6,8 @@
  * - Speaking is marked from the transcript captured by the browser while the student spoke (mock_answers.response);
  *   Claude cannot hear the audio, so Pronunciation is a provisional estimate.
  *
- * Needs ANTHROPIC_API_KEY. Without it, attempts simply wait for a mentor as before.
+ * Needs an Anthropic API key: set by the Super Admin in Admin → Settings → AI marking, or
+ * ANTHROPIC_API_KEY in the environment. Without one, attempts simply wait for a mentor as before.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -14,7 +15,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
-import { getDb } from "./db";
+import { getDb, getSiteSettingByKey } from "./db";
 import { ENV } from "./_core/env";
 import {
   mockAnswers,
@@ -28,14 +29,40 @@ import { GRADING_CRITERIA, overallFromCriteria } from "@shared/mock";
 
 const MODEL = "claude-opus-5";
 
-export function isAiGradingConfigured() {
-  return Boolean(
-    process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN
-  );
+/** site_settings key holding the API key; never returned by the settings endpoints. */
+export const AI_API_KEY_SETTING = "anthropic_api_key";
+
+/** The key saved in Settings, if any. */
+export async function savedAiApiKey() {
+  const row = await getSiteSettingByKey(AI_API_KEY_SETTING);
+  return row?.settingValue?.trim() || null;
 }
 
-let client: Anthropic | null = null;
-const anthropic = () => (client ??= new Anthropic());
+/** The key AI marking uses: the one saved in Settings, else the environment's. */
+async function aiApiKey() {
+  return (await savedAiApiKey()) || process.env.ANTHROPIC_API_KEY || null;
+}
+
+export async function isAiGradingConfigured() {
+  return Boolean((await aiApiKey()) || process.env.ANTHROPIC_AUTH_TOKEN);
+}
+
+/** Throws Anthropic.AuthenticationError when the key is rejected. */
+export async function checkAiApiKey(apiKey: string) {
+  await new Anthropic({ apiKey }).models.list({ limit: 1 });
+}
+
+// Rebuilt when the key changes in Settings.
+let client: { key: string | null; instance: Anthropic } | null = null;
+async function anthropic() {
+  const key = await aiApiKey();
+  if (client?.key !== key)
+    client = {
+      key,
+      instance: key ? new Anthropic({ apiKey: key }) : new Anthropic(),
+    };
+  return client.instance;
+}
 
 async function db() {
   const database = await getDb();
@@ -173,6 +200,29 @@ async function loadAttemptForAi(attemptId: number) {
   return { attempt, test, sections, questions, answers };
 }
 
+/** Rich task text from the editor as plain text, plus the images placed in it. */
+function richTaskParts(content: string | null) {
+  if (!content || !/^\s*</.test(content))
+    return { text: content ?? "", images: [] as string[] };
+  const images = Array.from(
+    content.matchAll(/<img[^>]*\ssrc="([^"]+)"/gi),
+    match => match[1]
+  );
+  const text = content
+    .replace(/<\/(p|h[1-6]|li|tr)>|<br\s*\/?>/gi, "\n")
+    .replace(/<\/t[dh]>/gi, " | ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text, images };
+}
+
 async function buildContent(
   data: NonNullable<Awaited<ReturnType<typeof loadAttemptForAi>>>
 ) {
@@ -184,16 +234,17 @@ async function buildContent(
     },
   ];
   for (const section of sections) {
+    const task = richTaskParts(section.content);
     content.push({
       type: "text",
-      text: [`\n## ${section.title}`, section.instructions, section.content]
+      text: [`\n## ${section.title}`, section.instructions, task.text]
         .filter(Boolean)
         .join("\n"),
     });
-    if (section.imageUrl)
-      content.push(
-        ...(await imageBlocks(section.imageUrl, `${section.title} visual`))
-      );
+    for (const url of [section.imageUrl, ...task.images].filter(
+      (url): url is string => !!url
+    ))
+      content.push(...(await imageBlocks(url, `${section.title} visual`)));
     for (const question of questions.filter(q => q.sectionId === section.id)) {
       const answer =
         answers.find(a => a.questionId === question.id)?.response?.trim() ?? "";
@@ -202,8 +253,8 @@ async function buildContent(
         type: "text",
         text:
           test.module === "writing"
-            ? `\n### question_id ${question.id}\nTask: ${question.prompt}\nMinimum words: ${question.minWords ?? "none"} · Student wrote: ${words} words\n<student_answer>\n${answer || "(no answer)"}\n</student_answer>`
-            : `\n### question_id ${question.id}\nQuestion: ${question.prompt}\nSpeaking time allowed: ${question.responseSeconds ?? "?"}s\n<transcript>\n${answer || "(no transcript)"}\n</transcript>`,
+            ? `\n### question_id ${question.id}\nTask: ${question.prompt?.trim() || `see ${section.title} above`}\nMinimum words: ${question.minWords ?? "none"} · Student wrote: ${words} words\n<student_answer>\n${answer || "(no answer)"}\n</student_answer>`
+            : `\n### question_id ${question.id}\nQuestion: ${question.prompt?.trim() || `the ${section.title} cue card above`}\nSpeaking time allowed: ${question.responseSeconds ?? "?"}s\n<transcript>\n${answer || "(no transcript)"}\n</transcript>`,
       });
     }
   }
@@ -215,7 +266,9 @@ async function callClaude(
   content: Anthropic.Beta.BetaContentBlockParam[]
 ) {
   const criteria = GRADING_CRITERIA[module];
-  const response = await anthropic().beta.messages.parse({
+  const response = await (
+    await anthropic()
+  ).beta.messages.parse({
     model: MODEL,
     max_tokens: 16000,
     thinking: { type: "adaptive" },
@@ -350,8 +403,7 @@ export async function runAiEvaluation(attemptId: number) {
 
 /** Start marking in the background so submitting stays fast; the result page polls for it. */
 export function queueAiEvaluation(attemptId: number) {
-  if (!isAiGradingConfigured()) return;
-  void runAiEvaluation(attemptId).catch(error =>
-    console.error("[AI grading] Unexpected error:", error)
-  );
+  void (async () => {
+    if (await isAiGradingConfigured()) await runAiEvaluation(attemptId);
+  })().catch(error => console.error("[AI grading] Unexpected error:", error));
 }

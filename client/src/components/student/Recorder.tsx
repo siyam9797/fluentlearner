@@ -81,6 +81,7 @@ export default function Recorder({
   responseSeconds,
   audioUrl,
   onUploaded,
+  autoStart = false,
 }: {
   attemptId: number;
   questionId: number;
@@ -88,6 +89,8 @@ export default function Recorder({
   responseSeconds: number | null;
   audioUrl: string | null;
   onUploaded: (url: string, transcript: string | null) => void;
+  /** Start straight away (preparation first, if any), as when the examiner asks the next question. */
+  autoStart?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>(audioUrl ? "done" : "idle");
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -169,6 +172,15 @@ export default function Recorder({
     },
     []
   );
+
+  // Once per mount; the ref keeps React's dev double-run from asking for the mic twice.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || phase !== "idle") return;
+    autoStarted.current = true;
+    void begin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   const stop = () => {
     clearTimer();

@@ -381,6 +381,10 @@ export const MOCK_QUESTION_TYPES = [
   "four_choices",
   "five_choices",
   "matching",
+  "matching_features",
+  "matching_information",
+  "matching_sentence_endings",
+  "matching_headings",
   "map_labeling",
   "plan_labeling",
   "visual_labeling",
@@ -480,6 +484,8 @@ export const mockQuestions = mysqlTable(
     /** Speaking prompts */
     prepSeconds: int("prepSeconds"),
     responseSeconds: int("responseSeconds"),
+    /** Speaking: the examiner asking the question, played before the student answers. */
+    audioUrl: text("audioUrl"),
     sortOrder: int("sortOrder").default(0).notNull(),
   },
   table => [index("mock_questions_test_idx").on(table.testId)]

@@ -17,6 +17,10 @@ export type MockQuestionType =
   | "four_choices"
   | "five_choices"
   | "matching"
+  | "matching_features"
+  | "matching_information"
+  | "matching_sentence_endings"
+  | "matching_headings"
   | "map_labeling"
   | "plan_labeling"
   | "visual_labeling"
@@ -57,6 +61,10 @@ export const QUESTION_TYPE_LABELS: Record<MockQuestionType, string> = {
   four_choices: "Four Choices",
   five_choices: "Five Choices",
   matching: "Matching",
+  matching_features: "Matching Features",
+  matching_information: "Matching Information",
+  matching_sentence_endings: "Matching Sentence Endings",
+  matching_headings: "Matching Headings",
   map_labeling: "Map Labeling",
   plan_labeling: "Plan Labeling",
   visual_labeling: "Visual Labeling",
@@ -89,6 +97,67 @@ export const LISTENING_QUESTION_TYPES = [
   "sentence_completion",
   "short_answers",
 ] as const satisfies readonly MockQuestionType[];
+
+export const READING_QUESTION_TYPES = [
+  "one_choice",
+  "two_choices",
+  "three_choices",
+  "four_choices",
+  "five_choices",
+  "ynng",
+  "tfng",
+  "matching_features",
+  "matching_information",
+  "matching_sentence_endings",
+  "matching_headings",
+  "diagram_labeling",
+  "note_completion",
+  "table_completion",
+  "flow_chart_completion",
+  "summary_completion",
+  "sentence_completion",
+  "short_answers",
+] as const satisfies readonly MockQuestionType[];
+
+/** Question types a full test offers when building a part or passage. */
+export const BUILDER_QUESTION_TYPES = {
+  listening: LISTENING_QUESTION_TYPES,
+  reading: READING_QUESTION_TYPES,
+} as const;
+
+export const READING_TYPE_INSTRUCTIONS: Partial<
+  Record<MockQuestionType, string>
+> = {
+  one_choice: "Choose the correct letter, A, B, C or D.",
+  two_choices: "Choose TWO letters, A–E.",
+  three_choices: "Choose THREE letters, A–G.",
+  four_choices: "Choose FOUR letters, A–H.",
+  five_choices: "Choose FIVE letters, A–I.",
+  ynng: "Do the following statements agree with the claims of the writer in the reading passage?\n\nYES if the statement agrees with the claims of the writer\nNO if the statement contradicts the claims of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+  tfng: "Do the following statements agree with the information given in the reading passage?\n\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+  matching_features:
+    "Look at the following statements and the list of people below.\n\nMatch each statement with the correct person, A, B, C or D.\n\nNB You may use any letter more than once.",
+  matching_information:
+    "Reading Passage 1 has seven paragraphs, A–G.\n\nWhich paragraph contains the following information?",
+  matching_sentence_endings:
+    "Complete each sentence with the correct ending, A–F, below.",
+  matching_headings:
+    "Choose the correct heading for each section from the list of headings below.",
+  diagram_labeling:
+    "Label the diagram below.\n\nChoose **ONE WORD ONLY** from the passage for each answer.",
+  note_completion:
+    "Complete the notes below. Choose ONE WORD ONLY from the passage for each answer.",
+  table_completion:
+    "Complete the table below. Choose ONE WORD ONLY from the passage for each answer.",
+  flow_chart_completion:
+    "Complete the flow-chart below. Choose ONE WORD ONLY from the passage for each answer.",
+  summary_completion:
+    "Complete the summary below. Choose ONE WORD ONLY from the passage for each answer.",
+  sentence_completion:
+    "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+  short_answers:
+    "Answer the questions below. Choose NO MORE THAN THREE WORDS from the passage for each answer.",
+};
 
 export const LISTENING_TYPE_INSTRUCTIONS: Partial<
   Record<MockQuestionType, string>
@@ -130,6 +199,10 @@ export const CHOICE_SELECTION_COUNTS: Partial<
   four_choices: 4,
   five_choices: 5,
   matching: 1,
+  matching_features: 1,
+  matching_information: 1,
+  matching_sentence_endings: 1,
+  matching_headings: 1,
   map_labeling: 1,
   plan_labeling: 1,
   visual_labeling: 1,
@@ -162,7 +235,7 @@ export const FIXED_CHOICES: Partial<Record<MockQuestionType, string[]>> = {
 
 /** Which question types each module may contain. */
 export const MODULE_QUESTION_TYPES: Record<MockModule, MockQuestionType[]> = {
-  reading: ["mcq", "tfng", "ynng", "short_answer"],
+  reading: [...READING_QUESTION_TYPES, "mcq", "short_answer"],
   listening: [...LISTENING_QUESTION_TYPES, "mcq", "short_answer"],
   writing: ["writing"],
   speaking: ["speaking"],
@@ -174,6 +247,7 @@ export const AUTO_MARKED_TYPES: MockQuestionType[] = [
   "ynng",
   "short_answer",
   ...LISTENING_QUESTION_TYPES,
+  ...READING_QUESTION_TYPES,
 ];
 
 export function isAutoMarkedModule(module: MockModule) {
@@ -201,6 +275,36 @@ export const BAND_OPTIONS = Array.from({ length: 19 }, (_, i) => i * 0.5); // 0 
 /** Option letters for multiple choice: A, B, C … */
 export function optionLetter(index: number) {
   return String.fromCharCode(65 + index);
+}
+
+const ROMAN = [
+  "i",
+  "ii",
+  "iii",
+  "iv",
+  "v",
+  "vi",
+  "vii",
+  "viii",
+  "ix",
+  "x",
+  "xi",
+  "xii",
+];
+
+/** Matching Headings lists its headings as i, ii, iii… as in the paper; every other list uses A, B, C… */
+export function optionKey(type: MockQuestionType, index: number) {
+  return type === "matching_headings"
+    ? (ROMAN[index] ?? String(index + 1))
+    : optionLetter(index);
+}
+
+/** Position of an option key ("B", "iv") in the option list, or -1. */
+export function optionIndex(type: MockQuestionType, key: string) {
+  if (type === "matching_headings")
+    return ROMAN.indexOf(key.trim().toLowerCase());
+  const code = key.trim().toUpperCase().charCodeAt(0) - 65;
+  return key.trim().length === 1 && code >= 0 ? code : -1;
 }
 
 /** Lower-case, trim, collapse spaces and strip surrounding punctuation. */

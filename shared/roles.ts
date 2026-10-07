@@ -79,6 +79,11 @@ export function canAccessAdminDashboard(role: string | null | undefined) {
   return DASHBOARD_ROLES.includes(role as AppRole);
 }
 
+/** Students, plus the Super Admin, who can open both dashboards. */
+export function canAccessStudentDashboard(role: string | null | undefined) {
+  return role === "student" || role === "super_admin";
+}
+
 export function canManageUsers(role: string | null | undefined) {
   return role === "super_admin" || role === "admin";
 }

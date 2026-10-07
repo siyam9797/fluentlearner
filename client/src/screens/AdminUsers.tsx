@@ -3,6 +3,12 @@ import { Copy, Loader2, Plus, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
 import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminFilterDrawer, {
+  AdminFilterButton,
+  passesFilter,
+  type FilterGroup,
+  type FilterSelection,
+} from "@/components/AdminFilterDrawer";
 import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
@@ -35,10 +41,46 @@ export default function AdminUsers() {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const mayManageUsers = canManageUsers(currentUser?.role);
-  const { data: users = [], isLoading } = trpc.users.list.useQuery(undefined, {
-    enabled: mayManageUsers,
-  });
+  const { data: allUsers = [], isLoading } = trpc.users.list.useQuery(
+    undefined,
+    { enabled: mayManageUsers }
+  );
   const [view, setView] = useState<AdminListView>("table");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterSelection>({
+    role: [],
+    status: [],
+  });
+  const statusOf = (account: (typeof allUsers)[number]) =>
+    account.isActive ? "active" : "disabled";
+  const users = allUsers.filter(
+    account =>
+      passesFilter(filters, "role", account.role) &&
+      passesFilter(filters, "status", statusOf(account))
+  );
+  const filterGroups: FilterGroup[] = [
+    {
+      key: "role",
+      title: "Role",
+      options: APP_ROLES.map(role => ({
+        value: role,
+        label: ROLE_DEFINITIONS[role].label,
+        count: allUsers.filter(account => account.role === role).length,
+      })),
+    },
+    {
+      key: "status",
+      title: "Status",
+      options: [
+        ["active", "Active"],
+        ["disabled", "Disabled"],
+      ].map(([value, label]) => ({
+        value,
+        label,
+        count: allUsers.filter(account => statusOf(account) === value).length,
+      })),
+    },
+  ];
   const [shared, setShared] = useState<{
     email: string;
     password: string;
@@ -96,6 +138,11 @@ export default function AdminUsers() {
         title="Users"
         action={
           <div className="flex items-center gap-2">
+            <AdminFilterButton
+              label="Filter users"
+              selection={filters}
+              onClick={() => setFilterOpen(true)}
+            />
             <AdminViewToggle view={view} onChange={setView} label="Users" />
             <Link href="/admin/users/new" className="admin-primary-button">
               <Plus className="h-4 w-4" /> New user
@@ -104,15 +151,16 @@ export default function AdminUsers() {
         }
       />
 
-      <div className="-mt-5 mb-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--admin-body)]">
-        <span>{users.length} total users</span>
-        {APP_ROLES.map(role => (
-          <span key={role}>
-            {ROLE_DEFINITIONS[role].label}:{" "}
-            {users.filter(user => user.role === role).length}
-          </span>
-        ))}
-      </div>
+      {filterOpen && (
+        <AdminFilterDrawer
+          title="Filter users"
+          groups={filterGroups}
+          selection={filters}
+          onChange={setFilters}
+          onClose={() => setFilterOpen(false)}
+          resultCount={users.length}
+        />
+      )}
 
       {shared && (
         <div className="rounded-[var(--radius-card)] mb-6 flex flex-col gap-3 bg-[color-mix(in_srgb,var(--admin-success)_12%,var(--admin-card))] p-5 sm:flex-row sm:items-center">
@@ -145,10 +193,14 @@ export default function AdminUsers() {
         <div className="grid min-h-64 place-items-center">
           <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-primary)]" />
         </div>
-      ) : users.length === 0 ? (
+      ) : allUsers.length === 0 ? (
         <div className="py-16 text-center text-[var(--admin-body)]">
           <UserRound className="mx-auto mb-3 h-10 w-10" />
           No user accounts yet.
+        </div>
+      ) : users.length === 0 ? (
+        <div className="py-16 text-center text-[var(--admin-body)]">
+          No users match these filters.
         </div>
       ) : view === "table" ? (
         <div className="admin-list-table-wrap">
@@ -240,7 +292,7 @@ export default function AdminUsers() {
               className="admin-list-card min-h-[255px] p-6"
             >
               <div className="flex items-start gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center bg-[var(--admin-background)] font-semibold">
+                <span className="rounded-[var(--radius-control)] grid h-11 w-11 shrink-0 place-items-center bg-[var(--admin-background)] font-semibold">
                   {(account.name || account.email).charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">

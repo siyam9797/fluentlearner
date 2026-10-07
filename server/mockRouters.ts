@@ -15,25 +15,37 @@ import {
 import { adminProcedure, router, studentProcedure } from "./_core/trpc";
 import { hashPassword, verifyPassword } from "./_core/password";
 import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
-import { storagePut } from "./storage";
+import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
 import { APP_ROLES, canManageUsers } from "@shared/roles";
 import { choiceSelectionCount, practiceTypeInfo } from "@shared/mock";
 import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
-const questionInput = z.object({
-  id: z.number().int().positive().optional(),
-  type: z.enum(MOCK_QUESTION_TYPES),
-  instruction: z.string().nullish(),
-  prompt: z.string().trim().min(1, "Every question needs a prompt"),
-  options: z.array(z.string()).nullish(),
-  answers: z.array(z.string()).nullish(),
-  explanation: z.string().nullish(),
-  points: z.number().int().min(0).max(10).default(1),
-  minWords: z.number().int().min(0).nullish(),
-  prepSeconds: z.number().int().min(0).nullish(),
-  responseSeconds: z.number().int().min(0).nullish(),
-});
+const questionInput = z
+  .object({
+    id: z.number().int().positive().optional(),
+    type: z.enum(MOCK_QUESTION_TYPES),
+    instruction: z.string().nullish(),
+    prompt: z.string().trim(),
+    options: z.array(z.string()).nullish(),
+    answers: z.array(z.string()).nullish(),
+    explanation: z.string().nullish(),
+    points: z.number().int().min(0).max(10).default(1),
+    minWords: z.number().int().min(0).nullish(),
+    prepSeconds: z.number().int().min(0).nullish(),
+    responseSeconds: z.number().int().min(0).nullish(),
+    audioUrl: z.string().trim().max(2048).nullish(),
+  })
+  // A diagram part can be just its number, which is printed on the diagram;
+  // a Writing task's text, or a Speaking cue card, lives in its section.
+  .refine(
+    question =>
+      question.prompt.length > 0 ||
+      question.type === "diagram_labeling" ||
+      question.type === "writing" ||
+      question.type === "speaking",
+    { message: "Every question needs a prompt", path: ["prompt"] }
+  );
 
 const sectionInput = z.object({
   id: z.number().int().positive().optional(),
@@ -191,20 +203,20 @@ export const mockTestsRouter = router({
     )
     .mutation(({ input }) => mock.gradeAttempt(input)),
 
-  /** Whether AI marking of Writing/Speaking is switched on (ANTHROPIC_API_KEY set). */
-  aiAvailable: adminProcedure.query(() => ({
-    available: isAiGradingConfigured(),
+  /** Whether AI marking of Writing/Speaking is switched on (an API key is set). */
+  aiAvailable: adminProcedure.query(async () => ({
+    available: await isAiGradingConfigured(),
   })),
 
   /** Admin: (re-)run AI marking for a submitted Writing/Speaking attempt; returns the suggestion. */
   aiEvaluate: adminProcedure
     .input(z.object({ attemptId: z.number().int() }))
     .mutation(async ({ input }) => {
-      if (!isAiGradingConfigured())
+      if (!(await isAiGradingConfigured()))
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "AI marking isn't set up. Add ANTHROPIC_API_KEY to the server environment.",
+            "AI marking isn't set up. The Super Admin can add an API key in Settings → AI marking.",
         });
       const evaluation = await runAiEvaluation(input.attemptId);
       if (!evaluation)
@@ -235,10 +247,11 @@ export const mockTestsRouter = router({
       }
       const buffer = decodeUpload(input.base64, isAudio ? 60 * MB : 10 * MB);
       const folder = isAudio ? "mock-audio" : "images";
-      return storagePut(
-        `uploads/${folder}/${nanoid()}.${extension(input.filename, isAudio ? "mp3" : "jpg")}`,
+      return storagePutNamed(
+        folder,
+        input.filename,
         buffer,
-        input.contentType
+        isAudio ? "mp3" : "jpg"
       );
     }),
 });
@@ -362,10 +375,11 @@ export const usersRouter = router({
       if (!target) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }
-      if (
-        target.id === ctx.user.id &&
-        (input.isActive === false || input.role)
-      ) {
+      // The local developer login (id 0) is linked to the account with its email.
+      const isSelf =
+        target.id === ctx.user.id ||
+        target.email.toLowerCase() === ctx.user.email?.toLowerCase();
+      if (isSelf && (input.isActive === false || input.role)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "You cannot disable or change your own role",
@@ -466,11 +480,7 @@ export const learningResourcesRouter = router({
     )
     .mutation(async ({ input }) => {
       const buffer = decodeUpload(input.base64, 25 * MB);
-      const result = await storagePut(
-        `uploads/resources/${nanoid()}-${input.filename.replace(/[^a-zA-Z0-9._-]/g, "-")}`,
-        buffer,
-        input.contentType
-      );
+      const result = await storagePutNamed("resources", input.filename, buffer);
       return {
         ...result,
         fileName: input.filename,

@@ -1164,6 +1164,11 @@ export const V2_SECTIONS: V2Section[] = [
         "Payment note",
         "You'll be taken to bKash to pay securely with your bKash number, OTP and PIN. After paying you'll come straight back here and your seat is confirmed."
       ),
+      text(
+        "v2_enroll_payment_note_more",
+        "Payment note (bKash, Nagad, Rocket, card)",
+        "Pay securely with bKash, or with Nagad, Rocket or a card on the next page. After paying you'll come straight back here and your seat is confirmed."
+      ),
       text("v2_enroll_pay_button", "Pay button", "Pay with bKash"),
       text(
         "v2_enroll_cancelled",

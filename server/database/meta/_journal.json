@@ -127,6 +127,20 @@
       "when": 1790631000000,
       "tag": "0017_question_instructions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1790632000000,
+      "tag": "0018_reading_question_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1790633000000,
+      "tag": "0019_question_audio",
+      "breakpoints": true
     }
   ]
 }

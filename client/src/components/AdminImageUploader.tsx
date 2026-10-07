@@ -13,6 +13,10 @@ type Props = {
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemove: () => void;
   onMediaSelect?: (url: string) => void;
+  /** Preview on a dark background, for a white logo. */
+  dark?: boolean;
+  /** "contain" shows the whole image (logos); "cover" fills the box. */
+  fit?: "cover" | "contain";
 };
 
 export default function AdminImageUploader({
@@ -24,6 +28,8 @@ export default function AdminImageUploader({
   onChange,
   onRemove,
   onMediaSelect,
+  dark = false,
+  fit = "cover",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -31,41 +37,37 @@ export default function AdminImageUploader({
   return (
     <div className="relative flex min-h-[184px] items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[#d8d8d8] bg-transparent px-5 py-7">
       {value ? (
-        <div className="flex w-full flex-col items-center gap-4">
-          <img
-            src={value}
-            alt={`${label} preview`}
-            className="max-h-32 max-w-[80%] object-contain"
-          />
+        <>
+          {/* Click the image to replace it (media library, which can also upload). */}
+          <button
+            type="button"
+            onClick={() =>
+              onMediaSelect ? setPickerOpen(true) : inputRef.current?.click()
+            }
+            disabled={uploading}
+            title={`Replace ${label}`}
+            aria-label={`Replace ${label}`}
+            className={`absolute inset-0 flex items-center justify-center overflow-hidden rounded-[var(--radius-card)] transition-opacity hover:opacity-80 disabled:opacity-50 ${dark ? "bg-[#1f1f1f]" : ""} ${fit === "contain" ? "p-6" : ""}`}
+          >
+            {uploading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-[#c76f42]" />
+            ) : (
+              <img
+                src={value}
+                alt={`${label} preview`}
+                className={`h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
+              />
+            )}
+          </button>
           <button
             type="button"
             onClick={onRemove}
-            className="absolute right-3 top-3 grid h-8 w-8 place-items-center bg-white text-red-600 shadow-sm hover:bg-red-50"
+            className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center bg-white text-red-600 shadow-sm hover:bg-red-50"
             aria-label={`Remove ${label}`}
           >
             <Trash2 className="h-4 w-4" />
           </button>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                onMediaSelect ? setPickerOpen(true) : inputRef.current?.click()
-              }
-              disabled={uploading}
-              className="text-xs font-semibold text-[#c76f42] hover:underline"
-            >
-              Replace image
-            </button>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              className="text-xs font-semibold text-gray-500 hover:underline"
-            >
-              Upload new
-            </button>
-          </div>
-        </div>
+        </>
       ) : (
         <button
           type="button"

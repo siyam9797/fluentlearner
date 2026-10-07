@@ -358,8 +358,8 @@ function GradeAttempt({ attemptId }: { attemptId: number }) {
                 </div>
                 {!aiConfig?.available ? (
                   <p className="text-sm text-gray-600">
-                    AI marking is off. Add <code>ANTHROPIC_API_KEY</code> to the
-                    server environment to turn it on.
+                    AI marking is off. The Super Admin can turn it on by adding
+                    an API key in Settings → AI marking.
                   </p>
                 ) : running ? (
                   <p className="flex items-center gap-2 text-sm text-gray-600">

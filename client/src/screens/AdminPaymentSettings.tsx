@@ -8,8 +8,8 @@ import { canAccessAdminDashboard } from "@shared/roles";
 import { trpc } from "@/lib/trpc";
 import { Plus, Check, X, AlertCircle, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import AdminPageHeader from "@/components/AdminPageHeader";
 import { useLocation } from "@/lib/router";
+import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminImageUploader from "@/components/AdminImageUploader";
 import AdminViewToggle, {
   type AdminListView,
@@ -482,7 +482,7 @@ export default function AdminPaymentSettings({
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="grid h-10 w-10 place-items-center bg-red-50 font-semibold text-red-600">
+                          <span className="rounded-[var(--radius-control)] grid h-10 w-10 place-items-center bg-red-50 font-semibold text-red-600">
                             {method.methodName.charAt(0)}
                           </span>
                           <strong className="text-gray-900">

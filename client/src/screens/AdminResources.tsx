@@ -1,25 +1,30 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import {
   BookOpen,
-  Download,
   File,
   FileUp,
   ListFilter,
   Loader2,
-  Pencil,
   Plus,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
-import AdminFilterDrawer from "@/components/AdminFilterDrawer";
+import AdminFilterDrawer, {
+  AdminFilterButton,
+  passesFilter,
+  type FilterGroup,
+  type FilterSelection,
+} from "@/components/AdminFilterDrawer";
 import { fileToBase64 } from "@/lib/fileToBase64";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
 import AdminSelect from "@/components/AdminSelect";
+import AdminPagination, {
+  useAdminPagination,
+} from "@/components/AdminPagination";
 
 type Row = RouterOutputs["learningResources"]["list"][number];
 type Form = {
@@ -224,17 +229,14 @@ function AdminVocabulary({
   };
   const pending = create.isPending || update.isPending;
   const visibleWords = filterWords(words, query, filters);
-  const filtering = query.trim() !== "" || filterCount(filters) > 0;
+  const { pageRows: pageWords, pagination } = useAdminPagination(
+    visibleWords,
+    "admin-vocabulary-page-size",
+    [query, filters]
+  );
 
   return (
     <div>
-      {!isLoading && words.length > 0 && (
-        <p className="mb-4 text-sm text-gray-500">
-          {filtering
-            ? `Showing ${visibleWords.length} of ${words.length} words`
-            : `${words.length} words`}
-        </p>
-      )}
       {open && (
         <div className="mb-8 border-b border-[var(--admin-border)] pb-8">
           <div className="mb-5 flex items-center justify-between">
@@ -363,7 +365,7 @@ function AdminVocabulary({
               </tr>
             </thead>
             <tbody>
-              {visibleWords.map(word => (
+              {pageWords.map(word => (
                 <tr
                   key={word.id}
                   className="border-b border-gray-100 last:border-0"
@@ -409,6 +411,143 @@ function AdminVocabulary({
           </table>
         </div>
       )}
+      <AdminPagination {...pagination} noun="words" />
+    </div>
+  );
+}
+
+/** Resource files as a table, with search, filters and pagination like the vocabulary list. */
+function AdminResourceFiles({
+  rows,
+  isLoading,
+  query,
+  filters,
+  onEdit,
+  onDelete,
+}: {
+  rows: Row[];
+  isLoading: boolean;
+  query: string;
+  filters: FilterSelection;
+  onEdit: (row: Row) => void;
+  onDelete: (row: Row) => void;
+}) {
+  const needle = query.trim().toLowerCase();
+  const visibleRows = rows.filter(
+    row =>
+      (!needle ||
+        [row.resource.title, row.resource.description, row.resource.fileName]
+          .filter(Boolean)
+          .some(text => text!.toLowerCase().includes(needle))) &&
+      passesFilter(filters, "batch", String(row.batch?.id ?? "all")) &&
+      passesFilter(
+        filters,
+        "status",
+        row.resource.isActive ? "visible" : "hidden"
+      )
+  );
+  const { pageRows, pagination } = useAdminPagination(
+    visibleRows,
+    "admin-resource-files-page-size",
+    [query, filters]
+  );
+
+  if (isLoading)
+    return (
+      <div className="grid place-items-center py-20">
+        <Loader2 className="h-7 w-7 animate-spin" />
+      </div>
+    );
+  if (rows.length === 0)
+    return (
+      <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-14 text-center text-gray-500">
+        <File className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+        No resources published yet.
+      </div>
+    );
+  if (visibleRows.length === 0)
+    return (
+      <div className="py-12 text-center text-gray-500">
+        No resources match your search or filters.
+      </div>
+    );
+
+  return (
+    <div>
+      <div className="overflow-x-auto bg-white">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="border-b border-gray-200 text-gray-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Title</th>
+              <th className="px-4 py-3 font-medium">Available to</th>
+              <th className="px-4 py-3 font-medium">Size</th>
+              <th className="px-4 py-3 font-medium">Order</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map(row => (
+              <tr
+                key={row.resource.id}
+                className="border-b border-gray-100 last:border-0"
+              >
+                <td className="max-w-[360px] px-4 py-3">
+                  <p className="truncate font-medium text-gray-900">
+                    {row.resource.title}
+                  </p>
+                  {row.resource.description && (
+                    <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                      {row.resource.description}
+                    </p>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {row.batch?.name || "All students"}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {sizeLabel(row.resource.fileSize)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {row.resource.sortOrder}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`admin-status-label ${row.resource.isActive ? "" : "inactive"}`}
+                  >
+                    {row.resource.isActive ? "Visible" : "Hidden"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <AdminActionsMenu label={`Actions for ${row.resource.title}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(row.resource.fileUrl, "_blank", "noopener")
+                      }
+                    >
+                      Open file
+                    </button>
+                    <button type="button" onClick={() => onEdit(row)}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => onDelete(row)}
+                    >
+                      Delete
+                    </button>
+                  </AdminActionsMenu>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <AdminPagination {...pagination} noun="resources" />
     </div>
   );
 }
@@ -431,28 +570,75 @@ export default function AdminResources({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<VocabularyFilters>(NO_FILTERS);
+  const [fileFilters, setFileFilters] = useState<FilterSelection>({
+    batch: [],
+    status: [],
+  });
+  // The two sections are separate pages that share this component; start each one clean.
+  useEffect(() => {
+    setSearchQuery("");
+    setSearchOpen(false);
+    setFilterOpen(false);
+  }, [section]);
+  const fileFilterGroups: FilterGroup[] = [
+    {
+      key: "batch",
+      title: "Available to",
+      options: [
+        { id: "all", name: "All students" },
+        ...batches.map(batch => ({ id: String(batch.id), name: batch.name })),
+      ].map(option => ({
+        value: String(option.id),
+        label: option.name,
+        count: rows.filter(
+          row => String(row.batch?.id ?? "all") === String(option.id)
+        ).length,
+      })),
+    },
+    {
+      key: "status",
+      title: "Status",
+      options: [
+        ["visible", "Visible"],
+        ["hidden", "Hidden"],
+      ].map(([value, label]) => ({
+        value,
+        label,
+        count: rows.filter(
+          row => (row.resource.isActive ? "visible" : "hidden") === value
+        ).length,
+      })),
+    },
+  ];
   const { data: vocabularyWords = [] } =
     trpc.learningResources.vocabularyList.useQuery(undefined, {
       enabled: section === "vocabulary",
     });
   const activeFilters = filterCount(filters);
   const iconButton = "admin-icon-button";
-  const filterButton = (
-    <button
-      type="button"
-      onClick={() => setFilterOpen(true)}
-      aria-label="Filter vocabulary"
-      aria-expanded={filterOpen}
-      className={iconButton}
-    >
-      <ListFilter className="h-4 w-4" />
-      {activeFilters > 0 && (
-        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">
-          {activeFilters}
-        </span>
-      )}
-    </button>
-  );
+  const filterButton =
+    section === "files" ? (
+      <AdminFilterButton
+        label="Filter resources"
+        selection={fileFilters}
+        onClick={() => setFilterOpen(true)}
+      />
+    ) : (
+      <button
+        type="button"
+        onClick={() => setFilterOpen(true)}
+        aria-label="Filter vocabulary"
+        aria-expanded={filterOpen}
+        className={iconButton}
+      >
+        <ListFilter className="h-4 w-4" />
+        {activeFilters > 0 && (
+          <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">
+            {activeFilters}
+          </span>
+        )}
+      </button>
+    );
   const upload = trpc.learningResources.upload.useMutation();
   const create = trpc.learningResources.create.useMutation({
     onSuccess: done,
@@ -547,19 +733,30 @@ export default function AdminResources({
                 </button>
               </div>
             )
-          ) : !open ? (
-            <button
-              onClick={() => navigate("/admin/resources/new")}
-              className="admin-primary-button"
-            >
-              <Plus className="h-4 w-4" />
-              Add resource
-            </button>
+          ) : !open && !searchOpen ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                aria-label="Search resources"
+                className={iconButton}
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              {filterButton}
+              <button
+                onClick={() => navigate("/admin/resources/new")}
+                className="admin-primary-button"
+              >
+                <Plus className="h-4 w-4" />
+                Add resource
+              </button>
+            </div>
           ) : undefined
         }
       />
 
-      {section === "vocabulary" && searchOpen && (
+      {searchOpen && (
         <div className="-mt-4 mb-8 flex items-center gap-3">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -574,7 +771,11 @@ export default function AdminResources({
                   setSearchOpen(false);
                 }
               }}
-              placeholder="Search by word, meaning, example or topic"
+              placeholder={
+                section === "vocabulary"
+                  ? "Search by word, meaning, example or topic"
+                  : "Search by title, description or file name"
+              }
               className="h-11 w-full rounded-lg border border-gray-300 pl-11 pr-4 outline-none focus:border-red-500"
             />
           </div>
@@ -592,7 +793,16 @@ export default function AdminResources({
           </button>
         </div>
       )}
-      {filterOpen && (
+      {filterOpen && section === "files" && (
+        <AdminFilterDrawer
+          title="Filter resources"
+          groups={fileFilterGroups}
+          selection={fileFilters}
+          onChange={setFileFilters}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
+      {filterOpen && section === "vocabulary" && (
         <VocabularyFilterDrawer
           words={vocabularyWords}
           filters={filters}
@@ -746,63 +956,17 @@ export default function AdminResources({
             </div>
           )}
 
-          {isLoading ? (
-            <div className="grid place-items-center py-20">
-              <Loader2 className="h-7 w-7 animate-spin" />
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-14 text-center text-gray-500">
-              <File className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              No resources published yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {rows.map(row => (
-                <div
-                  key={row.resource.id}
-                  className="flex flex-wrap items-center gap-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-5"
-                >
-                  <div className="grid h-11 w-11 place-items-center rounded-lg bg-[var(--admin-card)]">
-                    <File className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-semibold">
-                      {row.resource.title}
-                    </h3>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {row.batch?.name || "All students"} ·{" "}
-                      {sizeLabel(row.resource.fileSize)} ·{" "}
-                      {row.resource.isActive ? "Visible" : "Hidden"}
-                    </p>
-                  </div>
-                  <a
-                    href={row.resource.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="admin-button admin-button-secondary"
-                  >
-                    <Download className="h-4 w-4" />
-                    Open
-                  </a>
-                  <button
-                    onClick={() => edit(row)}
-                    className="p-2 text-gray-500 hover:text-black"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() =>
-                      confirm(`Delete “${row.resource.title}”?`) &&
-                      remove.mutate({ id: row.resource.id })
-                    }
-                    className="p-2 text-gray-500 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <AdminResourceFiles
+            rows={rows}
+            isLoading={isLoading}
+            query={searchQuery}
+            filters={fileFilters}
+            onEdit={edit}
+            onDelete={row =>
+              confirm(`Delete “${row.resource.title}”?`) &&
+              remove.mutate({ id: row.resource.id })
+            }
+          />
         </>
       )}
     </div>

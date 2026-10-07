@@ -5,6 +5,7 @@ import { useCourseCards } from "./hooks";
 import { V2 } from "./routes";
 import { MenuLink } from "./HvNavbar";
 import { useV2Content } from "./useV2Content";
+import SiteLogo from "@/components/SiteLogo";
 
 const socialClass =
   "flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-ash transition-colors hover:border-brand-red hover:bg-brand-red hover:text-white";
@@ -20,11 +21,7 @@ export default function HvFooter() {
       <div className="mx-auto max-w-[1262px] px-5 sm:px-8">
         <div className="mb-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:mb-16 lg:grid-cols-[1.4fr_0.6fr_0.9fr_1fr] lg:gap-8">
           <div className="flex flex-col gap-6">
-            <img
-              src="/logo-white.svg"
-              alt="FluentLearner"
-              className="h-10 w-auto self-start"
-            />
+            <SiteLogo on="dark" className="h-10 w-auto self-start" />
             <p className="max-w-[320px] text-lg text-ash">
               {ss.t("v2_footer_tagline")}
             </p>

@@ -98,3 +98,30 @@ export function appearanceFromSettings(
 
   return appearance;
 }
+
+/** Each admin's own light/dark choice (the sun/moon switcher), kept in this browser. */
+export type AdminMode = "light" | "dark";
+const adminModeStorageKey = "fluentlearner:admin-mode";
+export const adminModeChangeEvent = "fluentlearner:admin-mode-change";
+
+export function loadAdminMode(): AdminMode | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(adminModeStorageKey);
+    return value === "light" || value === "dark" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** null clears the choice, so the dashboard follows Settings → Appearance again. */
+export function saveAdminMode(mode: AdminMode | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (mode) window.localStorage.setItem(adminModeStorageKey, mode);
+    else window.localStorage.removeItem(adminModeStorageKey);
+  } catch {
+    // Private browsing: the choice lasts until the page is reloaded.
+  }
+  window.dispatchEvent(new CustomEvent(adminModeChangeEvent, { detail: mode }));
+}

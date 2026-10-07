@@ -65,7 +65,7 @@ export default function AdminRoles() {
               className={`rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6 ${index === 0 ? "md:col-span-2" : ""}`}
             >
               <div className="flex items-start gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center bg-[color-mix(in_srgb,var(--admin-primary)_12%,transparent)] text-[var(--admin-primary)]">
+                <span className="rounded-[var(--radius-control)] grid h-11 w-11 shrink-0 place-items-center bg-[color-mix(in_srgb,var(--admin-primary)_12%,transparent)] text-[var(--admin-primary)]">
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">

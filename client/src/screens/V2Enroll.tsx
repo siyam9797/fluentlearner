@@ -128,7 +128,7 @@ export default function V2Enroll() {
   const { t } = c;
   const params = new URLSearchParams(useSearch());
   const presetId = Number(params.get("courseId")) || null;
-  const paymentResult = params.get("payment"); // success | cancel | failure (set by the bKash callback)
+  const paymentResult = params.get("payment"); // success | cancel | failure (set by the bKash / SSLCommerz callback)
   const paymentID = params.get("paymentID");
 
   const { data: courses = [], isLoading: coursesLoading } =
@@ -139,6 +139,9 @@ export default function V2Enroll() {
     { enabled: paymentResult === "success" && Boolean(paymentID), retry: false }
   );
   const start = trpc.payments.bkashStart.useMutation();
+  // Nagad, Rocket and cards go through SSLCommerz.
+  const startOther = trpc.payments.sslcommerzStart.useMutation();
+  const [opening, setOpening] = useState<"bkash" | "other" | null>(null);
 
   const returnedFromBkash =
     paymentResult === "cancel" || paymentResult === "failure";
@@ -160,6 +163,7 @@ export default function V2Enroll() {
   const courseTitle = course ? course.nameEn || course.name : "";
   const amount = priceAmount(course?.price);
   const bkashReady = available?.bkash ?? false;
+  const otherReady = available?.sslcommerz ?? false;
 
   // Coming back from a cancelled/failed payment: restore what the student typed.
   useEffect(() => {
@@ -208,23 +212,29 @@ export default function V2Enroll() {
     return Object.keys(next).length === 0;
   };
 
-  const pay = async () => {
+  const pay = async (gateway: "bkash" | "other") => {
     if (!course || !validateDetails()) {
       if (course) setStep(2);
       return;
     }
     setErrors({});
     writeDraft(details);
+    setOpening(gateway);
+    const checkout = {
+      courseId: course.id,
+      studentName: details.studentName.trim(),
+      studentMobile: details.studentMobile,
+      studentEmail: details.studentEmail.trim(),
+    };
     try {
-      const { bkashURL } = await start.mutateAsync({
-        courseId: course.id,
-        studentName: details.studentName.trim(),
-        studentMobile: details.studentMobile,
-        studentEmail: details.studentEmail.trim(),
-      });
+      const url =
+        gateway === "bkash"
+          ? (await start.mutateAsync(checkout)).bkashURL
+          : (await startOther.mutateAsync(checkout)).gatewayURL;
       setRedirecting(true);
-      window.location.assign(bkashURL);
+      window.location.assign(url);
     } catch (error) {
+      setOpening(null);
       setErrors({
         pay:
           error instanceof Error
@@ -233,6 +243,8 @@ export default function V2Enroll() {
       });
     }
   };
+
+  const busy = start.isPending || startOther.isPending || redirecting;
 
   const steps = [
     t("v2_enroll_step_course"),
@@ -360,8 +372,11 @@ export default function V2Enroll() {
                 <dl className="mt-6 grid w-full gap-px overflow-hidden rounded-[var(--radius-card)] bg-ink/15 text-left sm:grid-cols-2">
                   {[
                     ["Course", summary.data.course],
-                    ["Paid", `${taka(summary.data.amount)} with bKash`],
-                    ["bKash transaction ID", summary.data.trxID],
+                    [
+                      "Paid",
+                      `${taka(summary.data.amount)} with ${summary.data.method || "online payment"}`,
+                    ],
+                    ["Transaction ID", summary.data.trxID],
                     ["Login email", summary.data.email],
                   ].map(([label, value]) => (
                     <div key={label} className="bg-sand p-5">
@@ -728,7 +743,7 @@ export default function V2Enroll() {
                   Edit details
                 </button>
 
-                {!amount || !bkashReady ? (
+                {!amount || (!bkashReady && !otherReady) ? (
                   <div className="mt-8 rounded-[var(--radius-card)] bg-sand p-6">
                     <p className="font-medium">
                       Online payment isn't available for this course right now.
@@ -752,7 +767,11 @@ export default function V2Enroll() {
                         className="mt-0.5 h-5 w-5 flex-none text-brand-red"
                         aria-hidden="true"
                       />
-                      {t("v2_enroll_payment_note")}
+                      {t(
+                        otherReady
+                          ? "v2_enroll_payment_note_more"
+                          : "v2_enroll_payment_note"
+                      )}
                     </p>
                     {errors.pay && (
                       <p
@@ -762,24 +781,48 @@ export default function V2Enroll() {
                         {errors.pay}
                       </p>
                     )}
-                    <button
-                      type="button"
-                      onClick={pay}
-                      disabled={start.isPending || redirecting}
-                      className="mt-6 flex w-full items-center justify-center gap-3 rounded-[var(--radius-control)] bg-[#E2136E] px-6 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 sm:w-auto"
-                    >
-                      {start.isPending || redirecting ? (
-                        <>
-                          <Loader2
-                            className="h-5 w-5 animate-spin"
-                            aria-hidden="true"
-                          />
-                          Opening bKash…
-                        </>
-                      ) : (
-                        `${t("v2_enroll_pay_button")} · ${taka(amount)}`
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      {bkashReady && (
+                        <button
+                          type="button"
+                          onClick={() => pay("bkash")}
+                          disabled={busy}
+                          className="flex items-center justify-center gap-3 rounded-[var(--radius-control)] bg-[#E2136E] px-6 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                        >
+                          {opening === "bkash" ? (
+                            <>
+                              <Loader2
+                                className="h-5 w-5 animate-spin"
+                                aria-hidden="true"
+                              />
+                              Opening bKash…
+                            </>
+                          ) : (
+                            `${t("v2_enroll_pay_button")} · ${taka(amount)}`
+                          )}
+                        </button>
                       )}
-                    </button>
+                      {otherReady && (
+                        <button
+                          type="button"
+                          onClick={() => pay("other")}
+                          disabled={busy}
+                          className="flex items-center justify-center gap-3 rounded-[var(--radius-control)] bg-ink px-6 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                        >
+                          {opening === "other" ? (
+                            <>
+                              <Loader2
+                                className="h-5 w-5 animate-spin"
+                                aria-hidden="true"
+                              />
+                              Opening payment page…
+                            </>
+                          ) : (
+                            `Pay with Nagad / Rocket / card · ${taka(amount)}`
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 

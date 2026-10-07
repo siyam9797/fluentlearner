@@ -73,6 +73,7 @@ export type QuestionInput = {
   minWords?: number | null;
   prepSeconds?: number | null;
   responseSeconds?: number | null;
+  audioUrl?: string | null;
 };
 
 export type SectionInput = {
@@ -248,6 +249,7 @@ export async function saveTestTree(
           minWords: question.minWords ?? null,
           prepSeconds: question.prepSeconds ?? null,
           responseSeconds: question.responseSeconds ?? null,
+          audioUrl: question.audioUrl || null,
           sortOrder: questionIndex,
         };
         let questionId =
@@ -399,7 +401,7 @@ export async function finalizeAttempt(attemptId: number) {
           : null,
       gradedAt: autoMarked ? now : null,
       // Writing/Speaking: flag AI marking straight away so the result page shows it as in progress.
-      ...(!autoMarked && isAiGradingConfigured()
+      ...(!autoMarked && (await isAiGradingConfigured())
         ? {
             aiEvaluation: {
               status: "pending" as const,

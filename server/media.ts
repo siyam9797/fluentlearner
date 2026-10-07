@@ -69,6 +69,26 @@ async function collectFiles(directory: string, root: string): Promise<Omit<Media
   return results.flat();
 }
 
+/** The bundled logos and favicon (client/public), copied into the library under branding/. */
+const BRANDING_FILES = ["logo.svg", "logo-white.svg", "favicon.jpg"];
+
+/** Puts the default logos and favicon in the media library so they can be picked like any upload. */
+async function ensureBrandingFiles() {
+  const folder = path.join(path.resolve(ENV.uploadDir), "branding");
+  await fs.mkdir(folder, { recursive: true });
+  await Promise.all(
+    BRANDING_FILES.map(async name => {
+      const target = path.join(folder, name);
+      if (await fs.stat(target).catch(() => null)) return;
+      await fs
+        .copyFile(path.resolve("client/public", name), target)
+        .catch(error =>
+          console.warn(`[Media] Could not add ${name} to the library:`, error)
+        );
+    })
+  );
+}
+
 async function usedMediaUrls() {
   const db = await getDb();
   const used = new Set<string>();
@@ -86,11 +106,14 @@ async function usedMediaUrls() {
     db.select({ audioUrl: mockAnswers.audioUrl }).from(mockAnswers),
   ]);
   rows.flat().forEach(row => Object.values(row).forEach(add));
+  // The default branding files back the site's logos and favicon; keep them from being deleted.
+  BRANDING_FILES.forEach(name => used.add(publicUrl(path.join("branding", name))));
   return used;
 }
 
 export async function listMediaFiles(): Promise<MediaFile[]> {
   const root = path.resolve(ENV.uploadDir);
+  await ensureBrandingFiles();
   const [files, used] = await Promise.all([collectFiles(root, root), usedMediaUrls()]);
   return files
     .map(file => ({ ...file, inUse: used.has(file.url) }))

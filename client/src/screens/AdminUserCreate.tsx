@@ -104,7 +104,7 @@ export default function AdminUserCreate() {
 
       {created ? (
         <section className="rounded-[var(--radius-card)] max-w-2xl bg-[var(--admin-card)] p-6 sm:p-8">
-          <span className="grid h-11 w-11 place-items-center bg-[color-mix(in_srgb,var(--admin-success)_14%,transparent)] text-[var(--admin-success)]">
+          <span className="rounded-[var(--radius-control)] grid h-11 w-11 place-items-center bg-[color-mix(in_srgb,var(--admin-success)_14%,transparent)] text-[var(--admin-success)]">
             <Check className="h-5 w-5" />
           </span>
           <h2 className="mt-5 font-display text-2xl font-semibold text-[var(--admin-heading)]">

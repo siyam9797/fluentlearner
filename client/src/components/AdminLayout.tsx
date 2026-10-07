@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import SiteLogo from "@/components/SiteLogo";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
 import { useAdminProfile } from "@/hooks/useAdminProfile";
@@ -16,7 +17,11 @@ import {
   AdminAppearance,
   adminAppearanceChangeEvent,
   appearanceFromSettings,
+  adminModeChangeEvent,
+  loadAdminMode,
   loadStoredAdminAppearance,
+  saveAdminMode,
+  type AdminMode,
 } from "@/lib/adminAppearance";
 import {
   canAccessAdminDashboard,
@@ -41,6 +46,8 @@ import {
   LayoutTemplate,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   Settings,
   Shield,
   Trophy,
@@ -54,6 +61,8 @@ type NavigationItem = {
   icon: typeof Home;
   also?: string[];
   userManagement?: boolean;
+  /** Shown to the Super Admin only. */
+  superAdminOnly?: boolean;
   /** Sub-menu shown under the item while one of its pages is open. */
   children?: { label: string; href: string; also?: string[] }[];
 };
@@ -109,7 +118,15 @@ function AdminPortalTheme({
 const navigationGroups: { label: string; items: NavigationItem[] }[] = [
   {
     label: "Dashboard",
-    items: [{ label: "Overview", href: "/admin", icon: Home }],
+    items: [
+      { label: "Overview", href: "/admin", icon: Home },
+      {
+        label: "Student dashboard",
+        href: "/student",
+        icon: GraduationCap,
+        superAdminOnly: true,
+      },
+    ],
   },
   {
     label: "Learning",
@@ -154,6 +171,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         icon: Shield,
         userManagement: true,
       },
+      { label: "Instructors", href: "/admin/instructors", icon: UserRound },
       { label: "Enrollments", href: "/admin/enrollments", icon: Users },
       { label: "Payments", href: "/admin/payment-settings", icon: CreditCard },
     ],
@@ -211,8 +229,8 @@ function Login() {
           <div className="mb-5 flex h-11 w-11 items-center justify-center border border-[#e4e4e4] bg-[#fafafa]">
             <Shield className="h-5 w-5" />
           </div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            FluentLearner
+          <h1>
+            <SiteLogo className="h-10 w-auto" />
           </h1>
           <p className="mt-2 text-sm text-[#68707a]">
             Sign in to manage your learning platform.
@@ -255,9 +273,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  // Menus the user opened or closed by hand; the rest follow the current page.
+  const [menuOverrides, setMenuOverrides] = useState<Record<string, boolean>>(
+    {}
+  );
   const [storedAppearance, setStoredAppearance] =
     useState<AdminAppearance | null>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  // This admin's own light/dark choice; null follows Settings → Appearance.
+  const [mode, setMode] = useState<AdminMode | null>(null);
+  useEffect(() => {
+    setMode(loadAdminMode());
+    const onChange = (event: Event) =>
+      setMode((event as CustomEvent<AdminMode | null>).detail);
+    window.addEventListener(adminModeChangeEvent, onChange);
+    return () => window.removeEventListener(adminModeChangeEvent, onChange);
+  }, []);
   const profile = useAdminProfile(
     user?.email || "",
     user?.name || "Administrator"
@@ -287,6 +318,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, []);
+
+  useEffect(() => setMenuOverrides({}), [location]);
 
   useEffect(() => {
     if (appearanceSettings)
@@ -348,7 +381,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   );
   const appearance =
     storedAppearance || appearanceFromSettings(appearanceSettings);
-  const palette = appearance.darkMode ? appearance.dark : appearance.light;
+  const darkMode = mode ? mode === "dark" : appearance.darkMode;
+  const palette = darkMode ? appearance.dark : appearance.light;
+  const modeRow = (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={darkMode}
+      onClick={() => saveAdminMode(darkMode ? "light" : "dark")}
+      className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[var(--admin-heading)] hover:text-[var(--admin-primary)]"
+    >
+      {darkMode ? (
+        <Moon className="h-4 w-4 stroke-[1.5]" />
+      ) : (
+        <Sun className="h-4 w-4 stroke-[1.5]" />
+      )}
+      <span className="flex-1">Dark mode</span>
+      <span
+        aria-hidden="true"
+        className={`relative h-5 w-9 rounded-full transition-colors ${darkMode ? "bg-[var(--admin-primary)]" : "bg-[var(--admin-border)]"}`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-[#fff] shadow transition-[left] ${darkMode ? "left-[18px]" : "left-0.5"}`}
+        />
+      </span>
+    </button>
+  );
   const themeStyle = {
     "--admin-primary": palette.primary,
     "--admin-secondary": palette.secondary,
@@ -381,11 +439,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <aside className="admin-sidebar flex h-full w-[260px] flex-col bg-[var(--admin-background)] px-3 py-3">
       <button
         onClick={() => go("/admin")}
-        className="px-1 text-left font-display text-xl font-bold tracking-tight text-[#24292f]"
+        className="px-1 text-left"
+        aria-label="Dashboard"
       >
-        FluentLearner
+        <SiteLogo on={darkMode ? "dark" : "light"} className="h-9 w-auto" />
       </button>
-      <nav className="mt-7 min-h-0 flex-1 space-y-4 overflow-y-auto">
+      <nav className="-mr-3 mt-7 min-h-0 flex-1 space-y-4 overflow-y-auto pr-3">
         {navigationGroups.map(group => (
           <section
             key={group.label}
@@ -400,7 +459,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <div className="space-y-1">
               {group.items
                 .filter(
-                  item => !item.userManagement || canManageUsers(user.role)
+                  item =>
+                    (!item.userManagement || canManageUsers(user.role)) &&
+                    (!item.superAdminOnly || user.role === "super_admin")
                 )
                 .map(item => {
                   const active = [item.href, ...(item.also ?? [])].some(
@@ -424,23 +485,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     item.children?.find(
                       child => child.href === item.href && active
                     );
+                  const expanded = menuOverrides[item.href] ?? active;
                   return (
                     <div key={item.href}>
                       <button
-                        onClick={() => go(item.href)}
-                        aria-expanded={item.children ? active : undefined}
-                        className={`flex h-11 w-full items-center gap-3 px-1 text-left text-sm transition-colors ${active ? "text-[#c76f42]" : "text-[#343a40] hover:text-black"}`}
+                        onClick={() =>
+                          item.children
+                            ? setMenuOverrides(prev => ({
+                                ...prev,
+                                [item.href]: !expanded,
+                              }))
+                            : go(item.href)
+                        }
+                        aria-expanded={item.children ? expanded : undefined}
+                        className={`flex h-11 w-full items-center gap-3 px-1 text-left text-sm transition-colors ${active ? "text-[#c76f42]" : "text-[var(--admin-heading)] opacity-80 hover:opacity-100"}`}
                       >
                         <Icon className="h-[17px] w-[17px] stroke-[1.5]" />
                         <span className="flex-1">{item.label}</span>
                         {item.children && (
                           <ChevronDown
-                            className={`h-3.5 w-3.5 transition-transform ${active ? "" : "-rotate-90"}`}
+                            className={`h-3.5 w-3.5 transition-transform ${expanded ? "" : "-rotate-90"}`}
                           />
                         )}
                       </button>
-                      {item.children && active && (
-                        <div className="mb-1 ml-[9px] space-y-0.5 border-l border-[#e3e3e3] pl-5">
+                      {item.children && expanded && (
+                        <div className="mb-1 ml-[9px] space-y-1 border-l border-[var(--admin-border)] pl-[23px]">
                           {item.children.map(child => (
                             <button
                               key={child.href}
@@ -448,7 +517,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                               aria-current={
                                 activeChild === child ? "page" : undefined
                               }
-                              className={`flex h-8 w-full items-center text-left text-[13px] transition-colors ${activeChild === child ? "font-medium text-[#c76f42]" : "text-[#5c636b] hover:text-black"}`}
+                              className={`flex h-11 w-full items-center text-left text-sm transition-colors ${activeChild === child ? "font-medium text-[#c76f42]" : "text-[var(--admin-body)] hover:text-[var(--admin-heading)]"}`}
                             >
                               {child.label}
                             </button>
@@ -470,19 +539,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {avatar}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-[#292d32]">
+                <p className="truncate text-xs font-semibold text-[var(--admin-heading)]">
                   {displayName}
                 </p>
-                <p className="truncate text-[11px] text-[#717780]">
+                <p className="truncate text-[11px] text-[var(--admin-body)]">
                   {roleLabel}
                 </p>
               </div>
             </div>
 
-            <div className="border-t border-[#dedede] py-2">
+            <div className="border-t border-[var(--admin-border)] py-2">
               <button
                 onClick={() => navigate("/")}
-                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[#343a40] hover:text-[#c76f42]"
+                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[var(--admin-heading)] hover:text-[var(--admin-primary)]"
               >
                 <Globe2 className="h-4 w-4 stroke-[1.5]" />
                 <span className="flex-1">View site</span>
@@ -490,21 +559,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </button>
               <button
                 onClick={() => go("/admin/profile")}
-                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[#343a40] hover:text-[#c76f42]"
+                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[var(--admin-heading)] hover:text-[var(--admin-primary)]"
               >
                 <UserRound className="h-4 w-4 stroke-[1.5]" /> Profile
               </button>
               <button
                 onClick={() => go("/admin/settings")}
-                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[#343a40] hover:text-[#c76f42]"
+                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[var(--admin-heading)] hover:text-[var(--admin-primary)]"
               >
                 <Settings className="h-4 w-4 stroke-[1.5]" /> Settings
               </button>
+              {modeRow}
             </div>
-            <div className="border-t border-[#dedede] pt-2">
+            <div className="border-t border-[var(--admin-border)] pt-2">
               <button
                 onClick={logout}
-                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[#343a40] hover:text-red-600"
+                className="flex h-10 w-full items-center gap-3 px-1 text-left text-sm text-[var(--admin-heading)] hover:text-red-600"
               >
                 <LogOut className="h-4 w-4 stroke-[1.5]" /> Log out
               </button>
@@ -523,10 +593,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {avatar}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-[#292d32]">
+            <p className="truncate text-xs font-medium text-[var(--admin-heading)]">
               {displayName}
             </p>
-            <p className="truncate text-[11px] text-[#717780]">{roleLabel}</p>
+            <p className="truncate text-[11px] text-[var(--admin-body)]">
+              {roleLabel}
+            </p>
           </div>
           <ChevronUp
             className={`h-4 w-4 transition-transform ${accountOpen ? "text-[#c76f42]" : "rotate-180 text-[#68707a]"}`}
@@ -538,11 +610,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className={`admin-theme min-h-screen ${appearance.darkMode ? "admin-dark" : ""}`}
+      className={`admin-theme min-h-screen ${darkMode ? "admin-dark" : ""}`}
       style={themeStyle}
     >
-      <AdminPortalTheme style={themeStyle} darkMode={appearance.darkMode} />
-      <div className="fixed inset-y-0 left-0 z-40 hidden border-r border-[#dedede] lg:block">
+      <AdminPortalTheme style={themeStyle} darkMode={darkMode} />
+      <div className="fixed inset-y-0 left-0 z-40 hidden border-r border-[var(--admin-border)] lg:block">
         {sidebar}
       </div>
       {mobileOpen && (
@@ -556,11 +628,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#e6e6e6] bg-[var(--admin-background)] px-4 lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[var(--admin-border)] bg-[var(--admin-background)] px-4 text-[var(--admin-heading)] lg:hidden">
         <button onClick={() => setMobileOpen(true)}>
           <Menu className="h-5 w-5" />
         </button>
-        <span className="font-display font-bold">FluentLearner</span>
+        <SiteLogo on={darkMode ? "dark" : "light"} className="h-7 w-auto" />
         <button onClick={() => navigate("/")} aria-label="View website">
           <Settings className="h-5 w-5" />
         </button>

@@ -6,6 +6,7 @@ import { HvButton } from "./primitives";
 import { V2, toV2Href } from "./routes";
 import { useV2Content } from "./useV2Content";
 import type { V2MenuItem } from "./content";
+import SiteLogo from "@/components/SiteLogo";
 
 /** Menu entry as a router link, external link, or plain label when the URL is empty or "#". */
 export function MenuLink({
@@ -74,7 +75,7 @@ export default function HvNavbar() {
           className="shrink-0"
           aria-label="FluentLearner home"
         >
-          <img src="/logo.svg" alt="FluentLearner" className="h-10 w-auto" />
+          <SiteLogo className="h-10 w-auto" />
         </Link>
 
         <nav className="hidden lg:flex items-center" aria-label="Main">

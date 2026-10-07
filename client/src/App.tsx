@@ -21,11 +21,12 @@ import AdminDashboard from "./screens/AdminDashboard";
 import AdminCourses from "./screens/AdminCourses";
 import AdminSuccessStories from "./screens/AdminSuccessStories";
 import AdminEnrollments from "./screens/AdminEnrollments";
-import AdminPaymentSettings from "./screens/AdminPaymentSettings";
 import AdminBatches from "./screens/AdminBatches";
 import AdminSiteSettings from "./screens/AdminSiteSettings";
 import AdminWebsite from "./screens/AdminWebsite";
 import AdminSettings from "./screens/AdminSettings";
+import AdminInstructors from "./screens/AdminInstructors";
+import AdminPaymentSettings from "./screens/AdminPaymentSettings";
 import AdminProfile from "./screens/AdminProfile";
 import AdminLayout from "./components/AdminLayout";
 import AdminMockTests, { isMockModule } from "./screens/AdminMockTests";
@@ -120,6 +121,14 @@ function Router() {
             pathname.match(/^\/admin\/payment-settings\/(\d+)\/edit$/)?.[1]
           )}
         />
+      );
+    else if (pathname === "/admin/instructors")
+      screen = <AdminInstructors key={pathname} />;
+    else if (pathname === "/admin/instructors/new")
+      screen = <AdminInstructors key={pathname} createMode />;
+    else if (/^\/admin\/instructors\/[\w-]+\/edit$/.test(pathname))
+      screen = (
+        <AdminInstructors key={pathname} editId={pathname.split("/")[3]} />
       );
     else if (pathname === "/admin/batches")
       screen = <AdminBatches key={pathname} />;

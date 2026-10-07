@@ -3,6 +3,7 @@
  * Routes: /admin/ielts/new and /admin/ielts/:id
  */
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -30,20 +31,25 @@ import { useLocation, useSearch } from "@/lib/router";
 import { fileToBase64 } from "@/lib/fileToBase64";
 import {
   AUTO_MARKED_TYPES,
+  BUILDER_QUESTION_TYPES,
   CAMBRIDGE,
   CHOICE_SELECTION_COUNTS,
   DEFAULT_DURATION_MINUTES,
   FIXED_CHOICES,
   LISTENING_QUESTION_TYPES,
+  LISTENING_TYPE_INSTRUCTIONS,
   MODULE_LABELS,
   MODULE_QUESTION_TYPES,
   PAPER_LAYOUT,
   PRACTICE_TYPES,
   QUESTION_TYPE_LABELS,
+  READING_TYPE_INSTRUCTIONS,
   cambridgeTitle,
   choiceSelectionCount,
   isCompletionType,
   isAutoMarkedModule,
+  optionIndex,
+  optionKey,
   optionLetter,
   parseAnswerKey,
   type MockFormat,
@@ -53,7 +59,17 @@ import {
 import { MODULE_BLURB, MODULE_ICONS } from "./AdminMockTests";
 import AdminSelect from "@/components/AdminSelect";
 import AdminImageUploader from "@/components/AdminImageUploader";
+import MediaPicker from "@/components/MediaPicker";
 import ListeningLayoutBuilder from "@/components/ListeningLayoutBuilder";
+import {
+  isHtmlLayout,
+  joinLayoutGroups,
+  layoutBoxNumbers,
+  legacyLayoutToHtml,
+  type LayoutGroup,
+} from "@/lib/listeningLayout";
+import RichLayoutEditor from "@/components/RichLayoutEditor";
+import InstructionInput from "@/components/InstructionInput";
 import { Switch } from "@/components/ui/switch";
 
 type QuestionDraft = {
@@ -69,6 +85,8 @@ type QuestionDraft = {
   minWords: number | null;
   prepSeconds: number | null;
   responseSeconds: number | null;
+  /** Speaking: the examiner asking the question. */
+  audioUrl: string;
 };
 
 type SectionDraft = {
@@ -81,6 +99,9 @@ type SectionDraft = {
   imageUrl: string;
   audioUrl: string;
   questions: QuestionDraft[];
+  /** Speaking: default timers for the part's new questions (not saved on the section). */
+  prepSeconds?: number | null;
+  responseSeconds?: number | null;
 };
 
 type Settings = {
@@ -116,6 +137,7 @@ function newQuestion(
     minWords: null,
     prepSeconds: null,
     responseSeconds: null,
+    audioUrl: "",
     ...extra,
   };
 }
@@ -138,6 +160,54 @@ function newSection(
   };
 }
 
+/**
+ * Older Writing tests kept the task in the question prompt and optional plain-text context.
+ * Both now live in the section's rich text, so fold them in when such a test is opened.
+ */
+function withWritingTask(
+  module: MockModule,
+  section: SectionDraft
+): SectionDraft {
+  if (module !== "writing") return section;
+  const prompts = section.questions
+    .map(question => question.prompt.trim())
+    .filter(Boolean);
+  if (!prompts.length) return section;
+  const content = section.content.trim();
+  return {
+    ...section,
+    content:
+      prompts.map(prompt => legacyLayoutToHtml(prompt)).join("") +
+      (isHtmlLayout(content) ? content : legacyLayoutToHtml(content)),
+    questions: section.questions.map(question => ({ ...question, prompt: "" })),
+  };
+}
+
+/** Index of Speaking Part 2, whose questions use the part's rich text as their cue card. */
+const SPEAKING_CUE_CARD_PART = 1;
+
+/**
+ * A full Speaking part has rich-text content (all its questions, or the cue card) and its
+ * individual questions, each with its own text, timers, examiner audio and recording.
+ */
+/** Opening a full Speaking test: new questions default to the first question's timers; older plain-text notes become rich text. */
+function withSpeakingPart(
+  module: MockModule,
+  format: Settings["format"],
+  section: SectionDraft
+): SectionDraft {
+  if (module !== "speaking" || format !== "full") return section;
+  const first = section.questions[0];
+  const content = section.content.trim();
+  return {
+    ...section,
+    prepSeconds: first?.prepSeconds ?? null,
+    responseSeconds: first?.responseSeconds ?? null,
+    content:
+      !content || isHtmlLayout(content) ? content : legacyLayoutToHtml(content),
+  };
+}
+
 function questionStartNumber(
   sections: SectionDraft[],
   sectionIndex: number,
@@ -156,11 +226,286 @@ function questionStartNumber(
   );
 }
 
+function questionNumberLabel(
+  sections: SectionDraft[],
+  sectionIndex: number,
+  questionIndex: number
+) {
+  const first = questionStartNumber(sections, sectionIndex, questionIndex);
+  const question = sections[sectionIndex]?.questions[questionIndex];
+  const span = Math.max(1, choiceSelectionCount(question?.type ?? "mcq"));
+  return span > 1 ? `${first}–${first + span - 1}` : String(first);
+}
+
+const LABELING_TYPES: MockQuestionType[] = [
+  "map_labeling",
+  "plan_labeling",
+  "visual_labeling",
+  "diagram_labeling",
+];
+
+/** Labeling on an image with a letter grid. Visual labeling works like matching instead (worded options). */
+const GRID_LABELING_TYPES: MockQuestionType[] = [
+  "map_labeling",
+  "plan_labeling",
+  "diagram_labeling",
+];
+/**
+ * The options are just letters: on the image for a map or plan, or paragraph letters for
+ * Matching Information (a diagram's options have text).
+ */
+const LETTER_ONLY_TYPES: MockQuestionType[] = [
+  "map_labeling",
+  "plan_labeling",
+  "matching_information",
+];
+
+/** Reading's matching types: items that share one option list, like Listening matching. */
+const MATCHING_TYPES: MockQuestionType[] = [
+  "matching",
+  "matching_features",
+  "matching_information",
+  "matching_sentence_endings",
+  "matching_headings",
+];
+
+/** What the option list and the items are called for each matching type. */
+const MATCHING_WORDS: Partial<
+  Record<
+    MockQuestionType,
+    { options: string; items: string; answer: string; placeholder: string }
+  >
+> = {
+  matching_features: {
+    options: "List of options",
+    items: "Statements",
+    answer: "option",
+    placeholder: "Statement students match to an option",
+  },
+  matching_information: {
+    options: "Paragraph letters",
+    items: "Statements",
+    answer: "paragraph",
+    placeholder: "Information students find in a paragraph",
+  },
+  matching_sentence_endings: {
+    options: "List of endings",
+    items: "Sentence beginnings",
+    answer: "ending",
+    placeholder: "Beginning of the sentence",
+  },
+  matching_headings: {
+    options: "List of headings",
+    items: "Paragraphs",
+    answer: "heading",
+    placeholder: "e.g. Paragraph A",
+  },
+};
+
+/** Listening types whose correct answer is set in step 2, next to the question itself. */
+function answersInStepTwo(type: MockQuestionType) {
+  return (
+    MATCHING_TYPES.includes(type) ||
+    LABELING_TYPES.includes(type) ||
+    isCompletionType(type)
+  );
+}
+
+/**
+ * Question numbers run across parts, so a removed or resized question shifts the [[n]]
+ * answer boxes after it. A removed question's own box goes with it.
+ */
+function renumberLayouts(before: SectionDraft[], after: SectionDraft[]) {
+  const numbers = (sections: SectionDraft[]) => {
+    const byKey = new Map<string, number>();
+    sections.forEach((section, sectionIndex) =>
+      section.questions.forEach((question, questionIndex) =>
+        byKey.set(
+          question.key,
+          questionStartNumber(sections, sectionIndex, questionIndex)
+        )
+      )
+    );
+    return byKey;
+  };
+  const oldNumbers = numbers(before);
+  const newNumbers = numbers(after);
+  const moved = new Map<number, number>();
+  const removed = new Set<number>();
+  oldNumbers.forEach((number, key) => {
+    const next = newNumbers.get(key);
+    if (next !== undefined) moved.set(number, next);
+    else removed.add(number);
+  });
+  const renumber = (text: string) =>
+    text
+      .replace(
+        /(?:<span data-answer-box(?:="")?>)?\[\[(\d+)\]\](?:<\/span>)?/g,
+        (match, number) => (removed.has(Number(number)) ? "" : match)
+      )
+      .replace(/\[\[(\d+)\]\]/g, (match, number) =>
+        moved.has(Number(number)) ? `[[${moved.get(Number(number))}]]` : match
+      );
+  // Layouts hold completion boxes; a reading passage holds Matching Headings boxes.
+  return after.map(section => ({
+    ...section,
+    questionLayout: section.questionLayout
+      ? renumber(section.questionLayout)
+      : section.questionLayout,
+    content: section.content ? renumber(section.content) : section.content,
+  }));
+}
+
+/**
+ * Applies edited completion layouts to a section: every answer box is a question,
+ * numbered in the order the boxes appear. A new box adds a question of its group's type,
+ * a deleted box removes its question, and the numbers after it move up or down.
+ */
+function syncLayoutGroups(
+  sections: SectionDraft[],
+  sectionIndex: number,
+  groups: LayoutGroup[],
+  fallbackType: MockQuestionType
+): SectionDraft[] {
+  const section = sections[sectionIndex];
+  const byNumber = new Map<number, QuestionDraft>();
+  section.questions.forEach((question, questionIndex) => {
+    if (isCompletionType(question.type))
+      byNumber.set(
+        questionStartNumber(sections, sectionIndex, questionIndex),
+        question
+      );
+  });
+  const placedBefore = new Set(
+    layoutBoxNumbers(section.questionLayout ?? "").flatMap(number => {
+      const question = byNumber.get(number);
+      return question ? [question.key] : [];
+    })
+  );
+
+  const used = new Set<string>();
+  const members = groups.map(group => {
+    const list: QuestionDraft[] = [];
+    for (const number of layoutBoxNumbers(group.html)) {
+      const existing = byNumber.get(number);
+      if (existing && !used.has(existing.key)) {
+        used.add(existing.key);
+        list.push(existing);
+        continue;
+      }
+      // A copied box or one restored by undo becomes a new question too.
+      const previous = list.at(-1);
+      const type =
+        (group.type as MockQuestionType | null) ??
+        previous?.type ??
+        fallbackType;
+      list.push(
+        newQuestion(type, {
+          prompt: `${QUESTION_TYPE_LABELS[type]} question`,
+          // A flow chart's new box joins the previous box's option list (A–F).
+          ...(type === "flow_chart_completion" &&
+            previous?.type === type && { options: [...previous.options] }),
+        })
+      );
+    }
+    // The group's instruction sits on its first question.
+    const instruction = group.instruction;
+    return list.map((question, index) =>
+      index === 0
+        ? { ...question, instruction }
+        : instruction.trim() && question.instruction === instruction
+          ? { ...question, instruction: "" }
+          : question
+    );
+  });
+
+  // Each group keeps the places its questions had; new ones go after its last place.
+  let questions = [...section.questions];
+  members.forEach(list => {
+    const keys = new Set(list.map(question => question.key));
+    const slots = questions.flatMap((question, index) =>
+      keys.has(question.key) ? [index] : []
+    );
+    if (!slots.length) {
+      questions.push(...list);
+      return;
+    }
+    slots.forEach((slot, index) => (questions[slot] = list[index]));
+    questions.splice(slots.at(-1)! + 1, 0, ...list.slice(slots.length));
+  });
+  questions = questions.filter(
+    question => used.has(question.key) || !placedBefore.has(question.key)
+  );
+
+  const after = renumberLayouts(
+    sections,
+    sections.map((item, index) =>
+      index === sectionIndex ? { ...item, questions } : item
+    )
+  );
+  const numberOf = new Map(
+    questions.map((question, index) => [
+      question.key,
+      questionStartNumber(after, sectionIndex, index),
+    ])
+  );
+  const questionLayout = joinLayoutGroups(
+    groups.map((group, groupIndex) => {
+      let box = 0;
+      return {
+        ...group,
+        // Kept on the layout only until the group has a question to hold it.
+        instruction: members[groupIndex].length ? "" : group.instruction,
+        html: group.html.replace(
+          /\[\[\d+\]\]/g,
+          () => `[[${numberOf.get(members[groupIndex][box++].key)}]]`
+        ),
+      };
+    })
+  );
+  return after.map((item, index) =>
+    index === sectionIndex ? { ...item, questionLayout } : item
+  );
+}
+
+/** Matching and labeling questions are edited as groups that share one option list. */
+function isGroupedType(type: MockQuestionType) {
+  return MATCHING_TYPES.includes(type) || LABELING_TYPES.includes(type);
+}
+
+const mapLetters = (count: number) =>
+  Array.from({ length: count }, (_, index) => optionLetter(index));
+
+/**
+ * Start index → length of each run of grouped questions. A new run starts when the type
+ * changes or at a question with its own instruction.
+ */
+function matchingGroups(questions: QuestionDraft[]) {
+  const groups = new Map<number, number>();
+  let start = -1;
+  questions.forEach((question, index) => {
+    if (!isGroupedType(question.type)) {
+      start = -1;
+      return;
+    }
+    if (
+      start < 0 ||
+      question.type !== questions[start].type ||
+      question.instruction.trim()
+    ) {
+      start = index;
+      groups.set(start, 0);
+    }
+    groups.set(start, (groups.get(start) ?? 0) + 1);
+  });
+  return groups;
+}
+
 function templateFor(module: MockModule): SectionDraft[] {
   switch (module) {
     case "reading":
       return [1, 2, 3].map(n =>
-        newSection(`Passage ${n}`, [newQuestion("tfng")], {
+        newSection(`Passage ${n}`, [], {
           instructions: "Read the passage and answer the questions below.",
         })
       );
@@ -168,41 +513,32 @@ function templateFor(module: MockModule): SectionDraft[] {
       return [1, 2, 3, 4].map(n => newSection(`Part ${n}`, []));
     case "writing":
       return [
-        newSection(
-          "Task 1",
-          [
-            newQuestion("writing", {
-              minWords: 150,
-              prompt:
-                "Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
-            }),
-          ],
-          {
-            instructions:
-              "You should spend about 20 minutes on this task. Write at least 150 words.",
-          }
-        ),
+        newSection("Task 1", [newQuestion("writing", { minWords: 150 })], {
+          instructions:
+            "You should spend about 20 minutes on this task. Write at least 150 words.",
+          content:
+            "<p>Summarise the information by selecting and reporting the main features, and make comparisons where relevant.</p>",
+        }),
         newSection("Task 2", [newQuestion("writing", { minWords: 250 })], {
           instructions:
             "You should spend about 40 minutes on this task. Write at least 250 words.",
         }),
       ];
     case "speaking":
+      // Each part's content and questions are added in the editor; these are the default timers for its questions.
       return [
-        newSection("Part 1 — Introduction", [
-          newQuestion("speaking", { responseSeconds: 30 }),
-        ]),
+        newSection("Part 1 — Introduction", [], { responseSeconds: 30 }),
         newSection(
           "Part 2 — Long turn",
           [newQuestion("speaking", { prepSeconds: 60, responseSeconds: 120 })],
           {
             instructions:
               "You have one minute to prepare, then speak for up to two minutes.",
+            prepSeconds: 60,
+            responseSeconds: 120,
           }
         ),
-        newSection("Part 3 — Discussion", [
-          newQuestion("speaking", { responseSeconds: 60 }),
-        ]),
+        newSection("Part 3 — Discussion", [], { responseSeconds: 60 }),
       ];
   }
 }
@@ -221,32 +557,16 @@ function answerSheetTemplate(module: MockModule): SectionDraft[] {
   }
   if (module === "writing") {
     return [
-      newSection(
-        "Task 1",
-        [
-          newQuestion("writing", {
-            minWords: 150,
-            prompt: "Answer Writing Task 1 from your book.",
-          }),
-        ],
-        {
-          instructions:
-            "You should spend about 20 minutes on this task. Write at least 150 words.",
-        }
-      ),
-      newSection(
-        "Task 2",
-        [
-          newQuestion("writing", {
-            minWords: 250,
-            prompt: "Answer Writing Task 2 from your book.",
-          }),
-        ],
-        {
-          instructions:
-            "You should spend about 40 minutes on this task. Write at least 250 words.",
-        }
-      ),
+      newSection("Task 1", [newQuestion("writing", { minWords: 150 })], {
+        instructions:
+          "You should spend about 20 minutes on this task. Write at least 150 words.",
+        content: "<p>Answer Writing Task 1 from your book.</p>",
+      }),
+      newSection("Task 2", [newQuestion("writing", { minWords: 250 })], {
+        instructions:
+          "You should spend about 40 minutes on this task. Write at least 250 words.",
+        content: "<p>Answer Writing Task 2 from your book.</p>",
+      }),
     ];
   }
   return [
@@ -274,27 +594,34 @@ function answerSheetTemplate(module: MockModule): SectionDraft[] {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200";
+  "w-full rounded-[var(--radius-control)] border border-[var(--admin-border)] bg-transparent px-3 py-2.5 text-sm text-[var(--admin-heading)] outline-none transition-colors hover:border-[var(--admin-body)] focus:border-[var(--admin-primary)]";
 
 function Field({
   label,
   hint,
   children,
   className,
+  group = false,
 }: {
   label: string;
   hint?: string;
   children: ReactNode;
   className?: string;
+  /**
+   * Wraps a whole editor rather than one input. Renders a <div>: a <label> would forward
+   * every click inside it to its first control, stealing focus from rich text and buttons.
+   */
+  group?: boolean;
 }) {
+  const Wrapper = group ? "div" : "label";
   return (
-    <label className={`block ${className ?? ""}`}>
+    <Wrapper className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-sm font-medium text-gray-700">
         {label}
       </span>
       {children}
       {hint && <span className="mt-1 block text-xs text-gray-500">{hint}</span>}
-    </label>
+    </Wrapper>
   );
 }
 
@@ -311,6 +638,7 @@ function MediaInput({
 }) {
   const upload = trpc.mockTests.uploadMedia.useMutation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const pick = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -329,23 +657,9 @@ function MediaInput({
     }
   };
 
-  const directUrl = (
-    <div className="mt-3">
-      <span className="mb-1.5 block text-xs font-medium text-gray-600">
-        Or use a direct URL
-      </span>
-      <input
-        className={inputClass}
-        value={value}
-        placeholder="https://…"
-        onChange={e => onChange(e.target.value)}
-      />
-    </div>
-  );
-
   if (accept === "image") {
     return (
-      <Field label={label} hint="PNG or JPG, max 10 MB.">
+      <Field group label={label} hint="PNG or JPG, max 10 MB.">
         <AdminImageUploader
           value={value}
           label={label}
@@ -355,13 +669,12 @@ function MediaInput({
           onMediaSelect={onChange}
           onRemove={() => onChange("")}
         />
-        {directUrl}
       </Field>
     );
   }
 
   return (
-    <Field label={label}>
+    <Field group label={label}>
       <div className="relative flex min-h-[184px] items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[#d8d8d8] bg-transparent px-5 py-7">
         {value ? (
           <div className="flex w-full flex-col items-center gap-4">
@@ -375,19 +688,29 @@ function MediaInput({
             >
               <Trash2 className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={upload.isPending}
-              className="text-xs font-semibold text-[#c76f42] hover:underline"
-            >
-              Replace audio
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                disabled={upload.isPending}
+                className="text-xs font-semibold text-[#c76f42] hover:underline"
+              >
+                Replace audio
+              </button>
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={upload.isPending}
+                className="text-xs font-semibold text-gray-500 hover:underline"
+              >
+                Upload new
+              </button>
+            </div>
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
+            onClick={() => setPickerOpen(true)}
             disabled={upload.isPending}
             className="flex flex-col items-center text-center"
           >
@@ -397,7 +720,9 @@ function MediaInput({
               <CloudUpload className="mb-5 h-6 w-6 stroke-[1.4] text-[#c76f42]" />
             )}
             <span className="text-sm font-semibold text-[#30363d]">
-              {upload.isPending ? "Uploading audio…" : "Upload audio"}
+              {upload.isPending
+                ? "Uploading audio…"
+                : "Choose from media or upload"}
             </span>
             <span className="mt-2 text-xs text-[#747d87]">
               MP3, M4A, WAV or OGG · Max 60 MB
@@ -412,6 +737,17 @@ function MediaInput({
           onChange={pick}
           disabled={upload.isPending}
         />
+        {pickerOpen && (
+          <MediaPicker
+            label={label}
+            kind="audio"
+            onSelect={url => {
+              onChange(url);
+              setPickerOpen(false);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
       </div>
     </Field>
   );
@@ -424,6 +760,8 @@ function QuestionEditor({
   onChange,
   onRemove,
   onMove,
+  part,
+  typeOptions,
 }: {
   number: number | string;
   question: QuestionDraft;
@@ -431,13 +769,24 @@ function QuestionEditor({
   onChange: (q: QuestionDraft) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
+  /**
+   * Listening builder split: "content" writes the question (step 2), "answers" marks it (step 3).
+   * Either one fixes the type and order. Omit for the full editor.
+   */
+  part?: "content" | "answers";
+  /** Types the dropdown offers; defaults to every type of the module. */
+  typeOptions?: MockQuestionType[];
 }) {
+  const locked = part !== undefined;
+  const editable = !locked || part === "content";
   const set = (patch: Partial<QuestionDraft>) =>
     onChange({ ...question, ...patch });
-  const types = MODULE_QUESTION_TYPES[module];
+  const types = typeOptions ?? MODULE_QUESTION_TYPES[module];
   const fixed = FIXED_CHOICES[question.type];
   const autoMarked = AUTO_MARKED_TYPES.includes(question.type);
   const selectionCount = CHOICE_SELECTION_COUNTS[question.type] ?? 0;
+  // In the listening builder these are answered while writing (step 2); step 3 only adds the explanation.
+  const answeredInline = locked && answersInStepTwo(question.type);
 
   return (
     <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4">
@@ -445,7 +794,7 @@ function QuestionEditor({
         <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">
           Q{number}
         </span>
-        {types.length > 1 ? (
+        {types.length > 1 && editable ? (
           <AdminSelect
             value={question.type}
             onChange={e => {
@@ -454,11 +803,13 @@ function QuestionEditor({
                 type,
                 answers: [],
                 points: Math.max(1, choiceSelectionCount(type)),
-                options: choiceSelectionCount(type)
-                  ? question.options.length
-                    ? question.options
-                    : ["", "", "", ""]
-                  : [],
+                options: LETTER_ONLY_TYPES.includes(type)
+                  ? mapLetters(9)
+                  : choiceSelectionCount(type)
+                    ? question.options.length
+                      ? question.options
+                      : ["", "", "", ""]
+                    : [],
               });
             }}
             aria-label="Question type"
@@ -476,142 +827,202 @@ function QuestionEditor({
             {QUESTION_TYPE_LABELS[question.type]}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onMove(-1)}
-            className="rounded p-1.5 hover:bg-gray-200"
-            aria-label="Move question up"
-          >
-            <ArrowUp className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMove(1)}
-            className="rounded p-1.5 hover:bg-gray-200"
-            aria-label="Move question down"
-          >
-            <ArrowDown className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="rounded p-1.5 hover:bg-red-50"
-            aria-label="Remove question"
-          >
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </button>
-        </div>
+        {editable && (
+          <div className="ml-auto flex items-center gap-1">
+            {!locked && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onMove(-1)}
+                  className="rounded p-1.5 hover:bg-gray-200"
+                  aria-label="Move question up"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMove(1)}
+                  className="rounded p-1.5 hover:bg-gray-200"
+                  aria-label="Move question down"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded p-1.5 hover:bg-red-50"
+              aria-label="Remove question"
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {module === "listening" && (
+      {part === "answers" &&
+        !isCompletionType(question.type) &&
+        question.prompt && (
+          <p className="mb-3 text-sm text-[var(--admin-heading)]">
+            {question.prompt}
+          </p>
+        )}
+
+      {(module === "listening" ||
+        module === "speaking" ||
+        part === "content") &&
+        part !== "answers" && (
+          <Field
+            label="Instructions"
+            hint="Shown before this question. For a group, keep this on the first question only."
+            className="mb-3"
+          >
+            <InstructionInput
+              value={question.instruction}
+              onChange={instruction => set({ instruction })}
+            />
+          </Field>
+        )}
+
+      {part !== "answers" && (
         <Field
-          label="Instructions"
-          hint="Shown before this question. For a group, keep this on the first question only."
-          className="mb-3"
+          label={
+            question.type === "writing"
+              ? "Task prompt"
+              : question.type === "speaking"
+                ? "Question / cue card"
+                : "Question"
+          }
         >
           <textarea
             className={inputClass}
-            rows={2}
-            value={question.instruction}
-            onChange={e => set({ instruction: e.target.value })}
+            rows={
+              question.type === "writing" || question.type === "speaking"
+                ? 4
+                : 2
+            }
+            value={question.prompt}
+            onChange={e => set({ prompt: e.target.value })}
           />
         </Field>
       )}
 
-      <Field
-        label={
-          question.type === "writing"
-            ? "Task prompt"
-            : question.type === "speaking"
-              ? "Question / cue card"
-              : "Question"
-        }
-      >
-        <textarea
-          className={inputClass}
-          rows={
-            question.type === "writing" || question.type === "speaking" ? 4 : 2
-          }
-          value={question.prompt}
-          onChange={e => set({ prompt: e.target.value })}
-        />
-      </Field>
-
-      {selectionCount > 0 && (
-        <div className="mt-3 space-y-2">
-          <span className="block text-sm font-medium text-gray-700">
-            Options — select{" "}
-            {selectionCount === 1
-              ? "the correct one"
-              : `${selectionCount} correct answers`}
-          </span>
-          {question.options.map((option, i) => {
-            const letter = optionLetter(i);
-            return (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type={selectionCount === 1 ? "radio" : "checkbox"}
-                  name={`correct-${question.key}`}
-                  checked={question.answers.includes(letter)}
-                  onChange={event => {
-                    if (selectionCount === 1) {
-                      set({ answers: [letter] });
-                      return;
-                    }
-                    const answers = event.target.checked
-                      ? [...question.answers, letter].slice(0, selectionCount)
-                      : question.answers.filter(answer => answer !== letter);
-                    set({ answers });
-                  }}
-                  aria-label={`Mark option ${letter} correct`}
-                />
-                <span className="w-5 text-sm font-bold text-gray-500">
-                  {letter}
-                </span>
-                <input
-                  className={inputClass}
-                  value={option}
-                  placeholder={`Option ${letter}`}
-                  onChange={e =>
-                    set({
-                      options: question.options.map((o, j) =>
-                        j === i ? e.target.value : o
-                      ),
+      {part === "answers" && answeredInline ? (
+        <p className="text-sm text-[var(--admin-body)]">
+          Answer:{" "}
+          {question.answers.some(answer => answer.trim()) ? (
+            <strong className="font-medium text-[var(--admin-heading)]">
+              {isCompletionType(question.type) || !question.options.length
+                ? question.answers.filter(answer => answer.trim()).join(" / ")
+                : question.answers
+                    .map(letter => {
+                      const option =
+                        question.options[optionIndex(question.type, letter)];
+                      return option ? `${letter} · ${option}` : letter;
                     })
-                  }
-                />
-                {question.options.length > 2 && (
-                  <button
-                    type="button"
-                    className="rounded p-1.5 hover:bg-red-50"
-                    aria-label={`Remove option ${letter}`}
-                    onClick={() =>
-                      set({
-                        options: question.options.filter((_, j) => j !== i),
-                        answers: [],
-                      })
-                    }
-                  >
-                    <X className="h-4 w-4 text-red-500" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          {question.options.length < 10 && (
-            <button
-              type="button"
-              className="text-sm font-medium text-red-600 hover:underline"
-              onClick={() => set({ options: [...question.options, ""] })}
-            >
-              + Add option
-            </button>
+                    .join(", ")}
+            </strong>
+          ) : (
+            <span className="text-red-600">not set — add it in step 2</span>
           )}
-        </div>
+        </p>
+      ) : (
+        selectionCount > 0 && (
+          <div className="mt-3 space-y-2">
+            <span className="block text-sm font-medium text-gray-700">
+              {part === "content" && !answeredInline
+                ? "Options"
+                : `${part === "answers" ? "Select" : "Options — select"} ${
+                    selectionCount === 1
+                      ? "the correct one"
+                      : `${selectionCount} correct answers`
+                  }`}
+            </span>
+            {question.options.map((option, i) => {
+              const letter = optionLetter(i);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  {(part !== "content" || answeredInline) && (
+                    <input
+                      type={selectionCount === 1 ? "radio" : "checkbox"}
+                      name={`correct-${question.key}`}
+                      checked={question.answers.includes(letter)}
+                      onChange={event => {
+                        if (selectionCount === 1) {
+                          set({ answers: [letter] });
+                          return;
+                        }
+                        const answers = event.target.checked
+                          ? [...question.answers, letter].slice(
+                              0,
+                              selectionCount
+                            )
+                          : question.answers.filter(
+                              answer => answer !== letter
+                            );
+                        set({ answers });
+                      }}
+                      aria-label={`Mark option ${letter} correct`}
+                    />
+                  )}
+                  <span className="w-5 text-sm font-bold text-gray-500">
+                    {letter}
+                  </span>
+                  {part === "answers" ? (
+                    <span className="text-sm text-[var(--admin-heading)]">
+                      {option || (
+                        <span className="text-[var(--admin-placeholder)]">
+                          (empty)
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <input
+                      className={inputClass}
+                      value={option}
+                      placeholder={`Option ${letter}`}
+                      onChange={e =>
+                        set({
+                          options: question.options.map((o, j) =>
+                            j === i ? e.target.value : o
+                          ),
+                        })
+                      }
+                    />
+                  )}
+                  {part !== "answers" && question.options.length > 2 && (
+                    <button
+                      type="button"
+                      className="rounded p-1.5 hover:bg-red-50"
+                      aria-label={`Remove option ${letter}`}
+                      onClick={() =>
+                        set({
+                          options: question.options.filter((_, j) => j !== i),
+                          answers: [],
+                        })
+                      }
+                    >
+                      <X className="h-4 w-4 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {part !== "answers" && question.options.length < 10 && (
+              <button
+                type="button"
+                className="text-sm font-medium text-red-600 hover:underline"
+                onClick={() => set({ options: [...question.options, ""] })}
+              >
+                + Add option
+              </button>
+            )}
+          </div>
+        )
       )}
 
-      {fixed && (
+      {part !== "content" && fixed && (
         <Field label="Correct answer" className="mt-3">
           <AdminSelect
             value={question.answers[0] ?? ""}
@@ -629,7 +1040,7 @@ function QuestionEditor({
         </Field>
       )}
 
-      {isCompletionType(question.type) && (
+      {!locked && isCompletionType(question.type) && (
         <Field
           label="Accepted answers"
           hint="One per line. Matching ignores capitals and surrounding punctuation."
@@ -691,7 +1102,7 @@ function QuestionEditor({
         </div>
       )}
 
-      {autoMarked ? (
+      {part === "content" ? null : autoMarked ? (
         <Field
           label="Explanation (shown after submitting in practice mode)"
           className="mt-3"
@@ -726,6 +1137,531 @@ function QuestionEditor({
           />
         </Field>
       )}
+    </div>
+  );
+}
+
+/**
+ * One editor for a run of matching questions: a shared option list (A, B, C…)
+ * and one row per numbered item. Every item keeps its own copy of the options.
+ */
+function MatchingGroupEditor({
+  firstNumber,
+  questions,
+  canAddItem,
+  onChange,
+  onRemove,
+  media,
+}: {
+  firstNumber: number;
+  questions: QuestionDraft[];
+  canAddItem: boolean;
+  onChange: (questions: QuestionDraft[]) => void;
+  onRemove: () => void;
+  /** Labeling groups: the map / plan / diagram upload. */
+  media?: ReactNode;
+}) {
+  const [first] = questions;
+  const labeling = GRID_LABELING_TYPES.includes(first.type);
+  const lettersOnly = LETTER_ONLY_TYPES.includes(first.type);
+  const words = MATCHING_WORDS[first.type];
+  const key = (index: number) => optionKey(first.type, index);
+  const diagram = first.type === "diagram_labeling";
+  const options = first.options;
+  // Reading diagrams: students write words from the passage, so there is no option list.
+  const written = diagram && options.length === 0;
+  const setOptions = (next: string[], resetAnswers = false) =>
+    onChange(
+      questions.map(question => ({
+        ...question,
+        options: next,
+        answers: resetAnswers ? [] : question.answers,
+      }))
+    );
+  const setItem = (index: number, patch: Partial<QuestionDraft>) =>
+    onChange(
+      questions.map((question, i) =>
+        i === index ? { ...question, ...patch } : question
+      )
+    );
+  const lastNumber = firstNumber + questions.length - 1;
+
+  return (
+    <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">
+          Q{firstNumber}
+          {lastNumber > firstNumber ? `–${lastNumber}` : ""}
+        </span>
+        <span className="text-sm text-gray-600">
+          {QUESTION_TYPE_LABELS[first.type]}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="ml-auto rounded p-1.5 hover:bg-red-50"
+          aria-label="Remove question group"
+        >
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </button>
+      </div>
+
+      <Field label="Instructions" className="mb-4">
+        <InstructionInput
+          value={first.instruction}
+          onChange={instruction =>
+            onChange([{ ...first, instruction }, ...questions.slice(1)])
+          }
+        />
+      </Field>
+
+      {written ? (
+        <div className="space-y-5">
+          {media}
+          <div className="space-y-2">
+            <span className="block text-sm font-medium text-gray-700">
+              Correct answer for each number on the diagram
+            </span>
+            <span className="block text-xs text-[#747d87]">
+              Students type a word from the passage. Separate alternative
+              answers with “/”, e.g. cover / lid.
+            </span>
+            {questions.map((question, i) => (
+              <div key={question.key} className="flex items-center gap-2">
+                <span className="w-10 shrink-0 text-sm font-bold text-gray-500">
+                  Q{firstNumber + i}
+                </span>
+                <input
+                  className={inputClass}
+                  value={question.answers.join(" / ")}
+                  placeholder="Accepted answer"
+                  aria-label={`Accepted answers for question ${firstNumber + i}`}
+                  onChange={e =>
+                    setItem(i, {
+                      answers: e.target.value
+                        .split("/")
+                        .map(answer => answer.trimStart()),
+                    })
+                  }
+                />
+                {questions.length > 1 && (
+                  <button
+                    type="button"
+                    className="rounded p-1.5 hover:bg-red-50"
+                    aria-label={`Remove question ${firstNumber + i}`}
+                    onClick={() =>
+                      onChange(
+                        questions
+                          .filter((_, j) => j !== i)
+                          .map((item, j) =>
+                            j === 0
+                              ? { ...item, instruction: first.instruction }
+                              : item
+                          )
+                      )
+                    }
+                  >
+                    <X className="h-4 w-4 text-red-500" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {canAddItem && (
+              <button
+                type="button"
+                className="text-sm font-medium text-red-600 hover:underline"
+                onClick={() =>
+                  onChange([
+                    ...questions,
+                    newQuestion(first.type, { options: [] }),
+                  ])
+                }
+              >
+                + Add another number
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-4">
+            {labeling && media}
+            {lettersOnly ? (
+              <Field
+                label={words?.options ?? "Letters on the image"}
+                hint="Students choose from these letters for every item."
+              >
+                <AdminSelect
+                  value={options.length}
+                  onChange={e =>
+                    setOptions(mapLetters(Number(e.target.value)), true)
+                  }
+                >
+                  {Array.from({ length: 11 }, (_, index) => index + 2).map(
+                    count => (
+                      <option key={count} value={count}>
+                        A–{optionLetter(count - 1)} ({count} letters)
+                      </option>
+                    )
+                  )}
+                </AdminSelect>
+              </Field>
+            ) : (
+              <div className="space-y-2">
+                <span className="block text-sm font-medium text-gray-700">
+                  {words?.options ?? "Options"}
+                </span>
+                {options.map((option, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-5 text-sm font-bold text-gray-500">
+                      {key(i)}
+                    </span>
+                    <input
+                      className={inputClass}
+                      value={option}
+                      placeholder={`Option ${key(i)}`}
+                      onChange={e =>
+                        setOptions(
+                          options.map((o, j) => (j === i ? e.target.value : o))
+                        )
+                      }
+                    />
+                    {options.length > 2 && (
+                      <button
+                        type="button"
+                        className="rounded p-1.5 hover:bg-red-50"
+                        aria-label={`Remove option ${key(i)}`}
+                        onClick={() =>
+                          setOptions(
+                            options.filter((_, j) => j !== i),
+                            true
+                          )
+                        }
+                      >
+                        <X className="h-4 w-4 text-red-500" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {options.length < 10 && (
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-red-600 hover:underline"
+                    onClick={() => setOptions([...options, ""])}
+                  >
+                    + Add option
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <span className="block text-sm font-medium text-gray-700">
+              {words
+                ? `${words.items} · correct ${words.answer}`
+                : `${
+                    diagram
+                      ? "Numbered parts"
+                      : labeling
+                        ? "Places to label"
+                        : "Items to match"
+                  } · correct ${labeling ? "letter" : "option"}`}
+            </span>
+            {questions.map((question, i) => (
+              <div key={question.key} className="flex items-center gap-2">
+                <span className="w-7 shrink-0 text-sm font-bold text-gray-500">
+                  {firstNumber + i}
+                </span>
+                <input
+                  className={inputClass}
+                  value={question.prompt}
+                  placeholder={
+                    words
+                      ? words.placeholder
+                      : diagram
+                        ? "Label (optional — the number is on the diagram)"
+                        : labeling
+                          ? "e.g. Exhibition"
+                          : "Item students match to an option"
+                  }
+                  onChange={e => setItem(i, { prompt: e.target.value })}
+                />
+                <AdminSelect
+                  value={question.answers[0] ?? ""}
+                  onChange={e =>
+                    setItem(i, {
+                      answers: e.target.value ? [e.target.value] : [],
+                    })
+                  }
+                  className="w-[92px] shrink-0"
+                  aria-label={`Correct option for item ${firstNumber + i}`}
+                >
+                  <option value="">Ans</option>
+                  {options.map((_, j) => (
+                    <option key={j} value={key(j)}>
+                      {key(j)}
+                    </option>
+                  ))}
+                </AdminSelect>
+                {questions.length > 1 && (
+                  <button
+                    type="button"
+                    className="rounded p-1.5 hover:bg-red-50"
+                    aria-label={`Remove item ${firstNumber + i}`}
+                    onClick={() =>
+                      onChange(
+                        questions
+                          .filter((_, j) => j !== i)
+                          .map((item, j) =>
+                            j === 0
+                              ? { ...item, instruction: first.instruction }
+                              : item
+                          )
+                      )
+                    }
+                  >
+                    <X className="h-4 w-4 text-red-500" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {canAddItem && (
+              <button
+                type="button"
+                className="text-sm font-medium text-red-600 hover:underline"
+                onClick={() =>
+                  onChange([
+                    ...questions,
+                    newQuestion(first.type, { options: [...options] }),
+                  ])
+                }
+              >
+                + Add item
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Accepted answers for a written completion box, separated by “/”. */
+function CompletionAnswerInput({
+  number,
+  answers,
+  onChange,
+}: {
+  number: number;
+  answers: string[];
+  onChange: (answers: string[]) => void;
+}) {
+  return (
+    <label className="flex items-center gap-3">
+      <span className="w-10 shrink-0 text-sm font-bold text-gray-500">
+        Q{number}
+      </span>
+      <input
+        className={inputClass}
+        value={answers.join(" / ")}
+        placeholder="Accepted answers, e.g. library / the library"
+        onChange={e =>
+          onChange(e.target.value.split("/").map(answer => answer.trimStart()))
+        }
+      />
+    </label>
+  );
+}
+
+/**
+ * Start index → length of each run of flow-chart boxes. A run shares one option list;
+ * an instruction starts a new run.
+ */
+function flowChartGroups(questions: QuestionDraft[]) {
+  const groups = new Map<number, number>();
+  let start = -1;
+  questions.forEach((question, index) => {
+    if (question.type !== "flow_chart_completion") {
+      start = -1;
+      return;
+    }
+    if (start < 0 || question.instruction.trim()) start = index;
+    groups.set(start, (groups.get(start) ?? 0) + 1);
+  });
+  return groups;
+}
+
+/**
+ * Optional A, B, C… box for a flow chart. With options, students drag a letter into
+ * each box; without, they write words.
+ */
+function FlowChartOptionsEditor({
+  firstNumber,
+  lastNumber,
+  options,
+  onChange,
+}: {
+  firstNumber: number;
+  lastNumber: number;
+  options: string[];
+  onChange: (options: string[], resetAnswers: boolean) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-[var(--radius-control)] border border-[var(--admin-border)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-medium text-[#30363d]">
+          Flow chart Q{firstNumber}
+          {lastNumber > firstNumber ? `–${lastNumber}` : ""} · options box
+        </span>
+        {options.length === 0 ? (
+          <button
+            type="button"
+            className="text-sm font-medium text-[var(--admin-primary)] hover:underline"
+            onClick={() => onChange(["", ""], true)}
+          >
+            + Options box
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="text-sm font-medium text-[#747d87] hover:text-[#30363d]"
+            onClick={() =>
+              confirm(
+                "Remove the options box? Students will write words instead."
+              ) && onChange([], true)
+            }
+          >
+            Remove options box
+          </button>
+        )}
+      </div>
+      {options.length === 0 ? (
+        <p className="text-xs text-[#747d87]">
+          Students write words in each box. Add an options box when they choose
+          letters from a list instead.
+        </p>
+      ) : (
+        <>
+          {options.map((option, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-5 text-sm font-bold text-gray-500">
+                {optionLetter(i)}
+              </span>
+              <input
+                className={inputClass}
+                value={option}
+                placeholder={`Option ${optionLetter(i)}`}
+                onChange={e =>
+                  onChange(
+                    options.map((o, j) => (j === i ? e.target.value : o)),
+                    false
+                  )
+                }
+              />
+              {options.length > 2 && (
+                <button
+                  type="button"
+                  className="rounded p-1.5 hover:bg-red-50"
+                  aria-label={`Remove option ${optionLetter(i)}`}
+                  onClick={() =>
+                    onChange(
+                      options.filter((_, j) => j !== i),
+                      true
+                    )
+                  }
+                >
+                  <X className="h-4 w-4 text-red-500" />
+                </button>
+              )}
+            </div>
+          ))}
+          {options.length < 10 && (
+            <button
+              type="button"
+              className="text-sm font-medium text-red-600 hover:underline"
+              onClick={() => onChange([...options, ""], false)}
+            >
+              + Add option
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Speaking's add flow, as in the Reading and Listening builders: instructions, then how many. */
+function SpeakingQuestionAdder({
+  hasQuestions,
+  onAdd,
+}: {
+  hasQuestions: boolean;
+  onAdd: (count: number, instruction: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(1);
+  const [instruction, setInstruction] = useState("");
+
+  if (!open)
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-card)] border border-dashed border-[var(--admin-border)] px-5 py-8 text-sm font-medium text-[#30363d] transition-colors hover:border-[#c76f42] hover:text-[#c76f42]"
+        onClick={() => {
+          setInstruction("");
+          setCount(1);
+          setOpen(true);
+        }}
+      >
+        <Plus className="h-4 w-4" />
+        {hasQuestions ? "Add more questions" : "Add question"}
+      </button>
+    );
+
+  return (
+    <div className="space-y-4 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4 sm:p-5">
+      <div>
+        <span className="mb-1.5 flex items-center justify-between text-xs font-medium text-[#30363d]">
+          Instructions for these questions
+          <button
+            type="button"
+            className="text-xs font-medium text-[#747d87] hover:text-[#30363d]"
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </button>
+        </span>
+        <InstructionInput value={instruction} onChange={setInstruction} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end">
+        <label>
+          <span className="mb-1.5 block text-xs font-medium text-[#30363d]">
+            How many?
+          </span>
+          <AdminSelect
+            value={count}
+            onChange={event => setCount(Number(event.target.value))}
+          >
+            {Array.from({ length: 10 }, (_, index) => index + 1).map(amount => (
+              <option key={amount} value={amount}>
+                {amount}
+              </option>
+            ))}
+          </AdminSelect>
+        </label>
+        <button
+          type="button"
+          className="admin-button admin-button-secondary sm:justify-self-start"
+          onClick={() => {
+            onAdd(count, instruction);
+            setOpen(false);
+          }}
+        >
+          <Plus className="h-4 w-4" /> Add {count}{" "}
+          {count === 1 ? "question" : "questions"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -885,7 +1821,7 @@ function AnswerKeyRow({
         </AdminSelect>
       ) : (
         <input
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="h-9 rounded-[var(--radius-control)] border border-[var(--admin-border)] bg-transparent px-3 text-sm outline-none transition-colors hover:border-[var(--admin-body)] focus:border-[var(--admin-primary)]"
           value={question.answers.join(" / ")}
           placeholder="e.g. library / the library"
           aria-label={`Accepted answers for question ${number}`}
@@ -1112,7 +2048,14 @@ function validate(settings: Settings, sections: SectionDraft[]) {
     return "Choose the book and test number.";
   if (!sections.length) return "Add at least one section.";
   let n = 0;
-  for (const section of sections) {
+  for (const [sectionIndex, section] of sections.entries()) {
+    // Part 2's questions take their cue card from the part's rich text.
+    const cueCardPart =
+      settings.module === "speaking" &&
+      settings.format === "full" &&
+      sectionIndex === SPEAKING_CUE_CARD_PART;
+    if (cueCardPart && !section.content.trim())
+      return `${section.title} needs its cue card.`;
     if (settings.module !== "listening" && !section.title.trim())
       return "Every section needs a title.";
     if (
@@ -1124,11 +2067,42 @@ function validate(settings: Settings, sections: SectionDraft[]) {
       ) > 10
     )
       return `${section.title} cannot contain more than 10 questions.`;
+    if (
+      settings.module === "listening" &&
+      settings.format === "full" &&
+      section.questions.reduce(
+        (total, question) =>
+          total + Math.max(1, choiceSelectionCount(question.type)),
+        0
+      ) < 10
+    )
+      return `${section.title} needs 10 questions before its answers can be added.`;
+    if (
+      settings.module === "speaking" &&
+      settings.format === "full" &&
+      !section.questions.length
+    )
+      return `${section.title} needs at least one question.`;
+    if (
+      settings.module === "writing" &&
+      !section.content.trim() &&
+      !section.questions.some(q => q.prompt.trim())
+    )
+      return `${section.title} needs its task.`;
     for (const q of section.questions) {
       n += 1;
-      if (!q.prompt.trim()) return `Question ${n} has no prompt.`;
+      if (
+        !q.prompt.trim() &&
+        q.type !== "diagram_labeling" &&
+        q.type !== "writing" &&
+        !cueCardPart
+      )
+        return `Question ${n} has no prompt.`;
       const selectionCount = choiceSelectionCount(q.type);
-      if (selectionCount) {
+      if (q.type === "diagram_labeling" && !q.options.length) {
+        if (!q.answers.some(a => a.trim()))
+          return `Add at least one accepted answer for question ${n}.`;
+      } else if (selectionCount) {
         if (q.options.filter(o => o.trim()).length < 2)
           return `Question ${n} needs at least two options.`;
         if (q.answers.length !== selectionCount)
@@ -1136,6 +2110,12 @@ function validate(settings: Settings, sections: SectionDraft[]) {
       }
       if ((q.type === "tfng" || q.type === "ynng") && !q.answers[0])
         return `Choose the correct answer for question ${n}.`;
+      if (
+        q.type === "flow_chart_completion" &&
+        q.options.length &&
+        q.options.filter(o => o.trim()).length < 2
+      )
+        return `Question ${n}'s options box needs at least two options.`;
       if (isCompletionType(q.type) && !q.answers.some(a => a.trim()))
         return `Add at least one accepted answer for question ${n}.`;
     }
@@ -1175,30 +2155,37 @@ export default function AdminMockTestEditor() {
       practiceType: existing.practiceType ?? null,
     });
     setSections(
-      existing.sections.map(s => ({
-        key: nanoid(),
-        id: s.id,
-        title: s.title,
-        instructions: s.instructions ?? "",
-        content: s.content ?? "",
-        questionLayout: s.questionLayout ?? "",
-        imageUrl: s.imageUrl ?? "",
-        audioUrl: s.audioUrl ?? "",
-        questions: s.questions.map(q => ({
-          key: nanoid(),
-          id: q.id,
-          type: q.type,
-          instruction: q.instruction ?? "",
-          prompt: q.prompt,
-          options: q.options ?? [],
-          answers: q.answers ?? [],
-          explanation: q.explanation ?? "",
-          points: q.points,
-          minWords: q.minWords,
-          prepSeconds: q.prepSeconds,
-          responseSeconds: q.responseSeconds,
-        })),
-      }))
+      existing.sections.map(s =>
+        withSpeakingPart(
+          existing.module,
+          existing.format ?? "full",
+          withWritingTask(existing.module, {
+            key: nanoid(),
+            id: s.id,
+            title: s.title,
+            instructions: s.instructions ?? "",
+            content: s.content ?? "",
+            questionLayout: s.questionLayout ?? "",
+            imageUrl: s.imageUrl ?? "",
+            audioUrl: s.audioUrl ?? "",
+            questions: s.questions.map(q => ({
+              key: nanoid(),
+              id: q.id,
+              type: q.type,
+              instruction: q.instruction ?? "",
+              prompt: q.prompt,
+              options: q.options ?? [],
+              answers: q.answers ?? [],
+              explanation: q.explanation ?? "",
+              points: q.points,
+              minWords: q.minWords,
+              prepSeconds: q.prepSeconds,
+              responseSeconds: q.responseSeconds,
+              audioUrl: q.audioUrl ?? "",
+            })),
+          })
+        )
+      )
     );
   }, [existing]);
 
@@ -1225,7 +2212,7 @@ export default function AdminMockTestEditor() {
       variant: "academic",
       mode: "exam",
       durationMinutes: DEFAULT_DURATION_MINUTES[module],
-      maxAttempts: preset ? null : 1,
+      maxAttempts: null,
       isPublished: false,
       format: preset ? "answer_sheet" : "full",
       series: preset?.series ?? null,
@@ -1309,7 +2296,9 @@ export default function AdminMockTestEditor() {
                   title:
                     settings.module === "listening"
                       ? `Part ${sectionIndex + 1}`
-                      : s.title.trim(),
+                      : settings.module === "reading"
+                        ? `Passage ${sectionIndex + 1}`
+                        : s.title.trim(),
                   instructions: s.instructions || null,
                   content: s.content || null,
                   questionLayout: s.questionLayout || null,
@@ -1321,9 +2310,12 @@ export default function AdminMockTestEditor() {
                     instruction: q.instruction || null,
                     // Answer-sheet questions are numbered like the book: 1…40 across all parts.
                     prompt: sheet ? `Question ${++seq}` : q.prompt.trim(),
-                    options: choiceSelectionCount(q.type)
-                      ? q.options.map(o => o.trim())
-                      : null,
+                    options:
+                      choiceSelectionCount(q.type) ||
+                      (q.type === "flow_chart_completion" &&
+                        q.options.some(o => o.trim()))
+                        ? q.options.map(o => o.trim())
+                        : null,
                     answers: AUTO_MARKED_TYPES.includes(q.type)
                       ? q.answers.map(a => a.trim()).filter(Boolean)
                       : null,
@@ -1332,6 +2324,7 @@ export default function AdminMockTestEditor() {
                     minWords: q.minWords,
                     prepSeconds: q.prepSeconds,
                     responseSeconds: q.responseSeconds,
+                    audioUrl: q.type === "speaking" ? q.audioUrl || null : null,
                   })),
                 })),
               });
@@ -1390,6 +2383,13 @@ export default function AdminMockTestEditor() {
     setSections(prev =>
       prev.map(s => (s.key === key ? { ...s, ...patch } : s))
     );
+  const updateQuestions = (key: string, questions: QuestionDraft[]) =>
+    setSections(prev =>
+      renumberLayouts(
+        prev,
+        prev.map(s => (s.key === key ? { ...s, questions } : s))
+      )
+    );
   const moveItem = <T,>(list: T[], index: number, dir: -1 | 1) => {
     const target = index + dir;
     if (target < 0 || target >= list.length) return list;
@@ -1398,7 +2398,283 @@ export default function AdminMockTestEditor() {
     return copy;
   };
   const defaultType = MODULE_QUESTION_TYPES[settings.module][0];
+  // Full Listening and Reading tests are built with the question builder (types, layout, answer key).
+  const usesBuilder =
+    settings.format === "full" &&
+    (settings.module === "listening" || settings.module === "reading");
   let running = 0;
+
+  /** Questions for a full Listening part or Reading passage: types, grouped editors and the rich-text layout. */
+  const questionBuilder = (section: SectionDraft, sIndex: number) => {
+    const module = settings.module === "reading" ? "reading" : "listening";
+    const builderTypes: readonly MockQuestionType[] =
+      BUILDER_QUESTION_TYPES[module];
+    const sectionTotal = (item: SectionDraft) =>
+      item.questions.reduce(
+        (total, question) =>
+          total + Math.max(1, choiceSelectionCount(question.type)),
+        0
+      );
+    // 10 questions per Listening part; a Reading test has 40 across its passages.
+    const maxQuestions =
+      module === "listening"
+        ? 10
+        : 40 -
+          sections.reduce(
+            (total, item, index) =>
+              index === sIndex ? total : total + sectionTotal(item),
+            0
+          );
+    const questionEditors = section.questions.map((question, questionIndex) => {
+      const partTotal = section.questions.reduce(
+        (total, item) => total + Math.max(1, choiceSelectionCount(item.type)),
+        0
+      );
+      if (isGroupedType(question.type)) {
+        const length = matchingGroups(section.questions).get(questionIndex);
+        if (!length) return null;
+        const replaceGroup = (next: QuestionDraft[]) =>
+          updateQuestions(section.key, [
+            ...section.questions.slice(0, questionIndex),
+            ...next,
+            ...section.questions.slice(questionIndex + length),
+          ]);
+        return (
+          <MatchingGroupEditor
+            key={question.key}
+            firstNumber={questionStartNumber(sections, sIndex, questionIndex)}
+            questions={section.questions.slice(
+              questionIndex,
+              questionIndex + length
+            )}
+            canAddItem={partTotal < maxQuestions}
+            onChange={replaceGroup}
+            onRemove={() =>
+              confirm("Remove this question group?") && replaceGroup([])
+            }
+            media={
+              <MediaInput
+                label={
+                  module === "reading"
+                    ? "Diagram image"
+                    : "Map / plan / diagram image"
+                }
+                accept="image"
+                value={section.imageUrl}
+                onChange={url =>
+                  updateSection(section.key, {
+                    imageUrl: url,
+                  })
+                }
+              />
+            }
+          />
+        );
+      }
+      return isCompletionType(question.type) ? null : (
+        <QuestionEditor
+          key={question.key}
+          number={questionNumberLabel(sections, sIndex, questionIndex)}
+          question={question}
+          module={settings.module}
+          part="content"
+          typeOptions={builderTypes.filter(
+            type =>
+              !isCompletionType(type) &&
+              Math.max(1, choiceSelectionCount(type)) <=
+                Math.max(1, choiceSelectionCount(question.type)) +
+                  maxQuestions -
+                  section.questions.reduce(
+                    (total, item) =>
+                      total + Math.max(1, choiceSelectionCount(item.type)),
+                    0
+                  )
+          )}
+          onChange={q =>
+            updateQuestions(
+              section.key,
+              section.questions.map(x => (x.key === q.key ? q : x))
+            )
+          }
+          onRemove={() =>
+            confirm(
+              `Remove question ${questionNumberLabel(
+                sections,
+                sIndex,
+                questionIndex
+              )}?`
+            ) &&
+            updateQuestions(
+              section.key,
+              section.questions.filter(x => x.key !== question.key)
+            )
+          }
+          onMove={() => {}}
+        />
+      );
+    });
+    const answerKey = section.questions.map((question, questionIndex) => {
+      if (!isCompletionType(question.type)) return null;
+      const number = questionStartNumber(sections, sIndex, questionIndex);
+      if (question.type === "flow_chart_completion") {
+        const length = flowChartGroups(section.questions).get(questionIndex);
+        const group = length
+          ? section.questions.slice(questionIndex, questionIndex + length)
+          : [];
+        return (
+          <Fragment key={question.key}>
+            {length && (
+              <FlowChartOptionsEditor
+                firstNumber={number}
+                lastNumber={number + length - 1}
+                options={question.options}
+                onChange={(options, resetAnswers) =>
+                  updateSection(section.key, {
+                    questions: section.questions.map(x =>
+                      group.includes(x)
+                        ? {
+                            ...x,
+                            options,
+                            answers: resetAnswers ? [] : x.answers,
+                          }
+                        : x
+                    ),
+                  })
+                }
+              />
+            )}
+            {question.options.length > 0 && (
+              <label className="flex items-center gap-3">
+                <span className="w-10 shrink-0 text-sm font-bold text-gray-500">
+                  Q{number}
+                </span>
+                <AdminSelect
+                  value={question.answers[0] ?? ""}
+                  onChange={e =>
+                    updateSection(section.key, {
+                      questions: section.questions.map(x =>
+                        x.key === question.key
+                          ? {
+                              ...x,
+                              answers: e.target.value ? [e.target.value] : [],
+                            }
+                          : x
+                      ),
+                    })
+                  }
+                  aria-label={`Correct option for question ${number}`}
+                >
+                  <option value="">Correct letter…</option>
+                  {question.options.map((option, j) => (
+                    <option key={j} value={optionLetter(j)}>
+                      {optionLetter(j)}
+                      {option.trim() ? `. ${option.trim()}` : ""}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </label>
+            )}
+            {question.options.length === 0 && (
+              <CompletionAnswerInput
+                key={question.key}
+                number={number}
+                answers={question.answers}
+                onChange={answers =>
+                  updateSection(section.key, {
+                    questions: section.questions.map(x =>
+                      x.key === question.key ? { ...x, answers } : x
+                    ),
+                  })
+                }
+              />
+            )}
+          </Fragment>
+        );
+      }
+      return (
+        <CompletionAnswerInput
+          key={question.key}
+          number={number}
+          answers={question.answers}
+          onChange={answers =>
+            updateSection(section.key, {
+              questions: section.questions.map(x =>
+                x.key === question.key ? { ...x, answers } : x
+              ),
+            })
+          }
+        />
+      );
+    });
+    return (
+      <ListeningLayoutBuilder
+        types={builderTypes}
+        typeInstructions={
+          module === "reading"
+            ? READING_TYPE_INSTRUCTIONS
+            : LISTENING_TYPE_INSTRUCTIONS
+        }
+        maxQuestions={maxQuestions}
+        sectionWord={module === "reading" ? "passage" : "part"}
+        value={section.questionLayout}
+        onChange={groups =>
+          setSections(prev => {
+            const index = prev.findIndex(item => item.key === section.key);
+            return index < 0
+              ? prev
+              : syncLayoutGroups(
+                  prev,
+                  index,
+                  groups,
+                  builderTypes.find(isCompletionType) ?? "note_completion"
+                );
+          })
+        }
+        questions={section.questions.map((question, questionIndex) => ({
+          key: question.key,
+          type: question.type,
+          number: questionStartNumber(sections, sIndex, questionIndex),
+          instruction: question.instruction,
+          editor: questionEditors[questionIndex],
+          answerKey: answerKey[questionIndex],
+        }))}
+        existingQuestionCount={section.questions.reduce(
+          (total, question) =>
+            total + Math.max(1, choiceSelectionCount(question.type)),
+          0
+        )}
+        onCreateQuestions={(type, count, instruction) =>
+          // Later passages renumber, so their answer boxes move with them.
+          updateQuestions(section.key, [
+            ...section.questions,
+            ...Array.from({ length: count }, (_, index) =>
+              newQuestion(type, {
+                // Reading diagrams take written answers, not letters.
+                ...(module === "reading" &&
+                  type === "diagram_labeling" && { options: [] }),
+                ...(LETTER_ONLY_TYPES.includes(type) && {
+                  // Paragraphs A–G is the usual Matching Information passage.
+                  options: mapLetters(type === "matching_information" ? 7 : 9),
+                }),
+                instruction: index === 0 ? instruction : "",
+              })
+            ),
+          ])
+        }
+        // Reading diagrams take their image inside the group, next to the answers.
+        labelingMedia={
+          module === "reading" ? undefined : (
+            <MediaInput
+              label="Map / plan / diagram image (optional)"
+              accept="image"
+              value={section.imageUrl}
+              onChange={url => updateSection(section.key, { imageUrl: url })}
+            />
+          )
+        }
+      />
+    );
+  };
 
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
@@ -1455,7 +2731,7 @@ export default function AdminMockTestEditor() {
                     practiceType:
                       mode === "practice" ? settings.practiceType : null,
                     maxAttempts:
-                      mode === "practice" ? null : (settings.maxAttempts ?? 1),
+                      mode === "practice" ? null : settings.maxAttempts,
                     durationMinutes:
                       settings.durationMinutes ??
                       DEFAULT_DURATION_MINUTES[settings.module],
@@ -1466,6 +2742,30 @@ export default function AdminMockTestEditor() {
                 <option value="practice">Practice</option>
               </AdminSelect>
             </Field>
+            {settings.mode === "exam" && (
+              <Field
+                label="Attempts allowed"
+                hint="How many times a student can take this test as a timed exam. Practice is always unlimited."
+              >
+                <AdminSelect
+                  value={settings.maxAttempts ?? ""}
+                  onChange={e =>
+                    setS({
+                      maxAttempts: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                >
+                  <option value="">Unlimited</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? "attempt" : "attempts"}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </Field>
+            )}
             {settings.series === CAMBRIDGE.key && (
               <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
                 <Field label="Book">
@@ -1569,72 +2869,29 @@ export default function AdminMockTestEditor() {
           <div
             key={section.key}
             className={`space-y-4 pb-8 ${
-              settings.module === "listening" ? "" : "border-b border-gray-200"
+              settings.module === "reading" ? "border-b border-gray-200" : ""
             }`}
           >
-            <div className="flex flex-wrap items-center gap-2">
-              {settings.module === "listening" ? (
-                <h3 className="min-w-0 flex-1 py-1 text-lg font-bold text-gray-900">
-                  Part {sIndex + 1}
-                </h3>
-              ) : (
-                <>
-                  <input
-                    className="min-w-0 flex-1 rounded-lg border border-transparent px-2 py-1 text-lg font-bold text-gray-900 hover:border-gray-200 focus:border-red-500 focus:outline-none"
-                    value={section.title}
-                    onChange={e =>
-                      updateSection(section.key, { title: e.target.value })
-                    }
-                    aria-label="Section title"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSections(prev => moveItem(prev, sIndex, -1))
-                    }
-                    className="rounded p-1.5 hover:bg-gray-100"
-                    aria-label="Move section up"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSections(prev => moveItem(prev, sIndex, 1))
-                    }
-                    className="rounded p-1.5 hover:bg-gray-100"
-                    aria-label="Move section down"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      confirm(`Remove "${section.title}" and its questions?`) &&
-                      setSections(prev =>
-                        prev.filter(s => s.key !== section.key)
-                      )
-                    }
-                    className="rounded p-1.5 hover:bg-red-50"
-                    aria-label="Remove section"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </button>
-                </>
-              )}
-            </div>
+            {/* Sections are fixed in every module: Listening and Speaking parts, Reading passages, Writing tasks. */}
+            <h3 className="py-1 text-lg font-bold text-gray-900">
+              {settings.module === "speaking"
+                ? section.title
+                : `${
+                    settings.module === "listening"
+                      ? "Part"
+                      : settings.module === "writing"
+                        ? "Task"
+                        : "Passage"
+                  } ${sIndex + 1}`}
+            </h3>
 
             {(settings.module !== "listening" ||
               settings.format === "answer_sheet") && (
               <Field label="Instructions">
-                <textarea
-                  className={inputClass}
-                  rows={2}
+                <InstructionInput
                   value={section.instructions}
-                  onChange={e =>
-                    updateSection(section.key, {
-                      instructions: e.target.value,
-                    })
+                  onChange={instructions =>
+                    updateSection(section.key, { instructions })
                   }
                 />
               </Field>
@@ -1656,112 +2913,261 @@ export default function AdminMockTestEditor() {
                 />
                 {settings.format === "full" && section.audioUrl && (
                   <Field
-                    label="2. Build the questions"
+                    group
+                    label="2. Add questions"
                     hint="Write the question content visually. Choosing “Create new answer box” automatically creates its answer-key entry below."
                   >
-                    <ListeningLayoutBuilder
-                      value={section.questionLayout}
-                      onChange={questionLayout =>
-                        updateSection(section.key, {
-                          questionLayout,
-                        })
-                      }
-                      questions={section.questions.flatMap(
-                        (question, questionIndex) =>
-                          isCompletionType(question.type)
-                            ? [
-                                {
-                                  number: questionStartNumber(
-                                    sections,
-                                    sIndex,
-                                    questionIndex
-                                  ),
-                                  label:
-                                    question.prompt ||
-                                    QUESTION_TYPE_LABELS[question.type],
-                                },
-                              ]
-                            : []
-                      )}
-                      existingQuestionCount={section.questions.reduce(
-                        (total, question) =>
-                          total +
-                          Math.max(1, choiceSelectionCount(question.type)),
-                        0
-                      )}
-                      onCreateQuestions={(type, count, instruction) => {
-                        const firstNumber = questionStartNumber(
-                          sections,
-                          sIndex,
-                          section.questions.length
-                        );
-                        const numberSpan = Math.max(
-                          1,
-                          choiceSelectionCount(type)
-                        );
-                        updateSection(section.key, {
-                          questions: [
-                            ...section.questions,
-                            ...Array.from({ length: count }, (_, index) =>
-                              newQuestion(type, {
-                                instruction: index === 0 ? instruction : "",
-                                prompt: `${QUESTION_TYPE_LABELS[type]} question`,
-                              })
-                            ),
-                          ],
-                        });
-                        return Array.from(
-                          { length: count },
-                          (_, index) => firstNumber + index * numberSpan
-                        );
-                      }}
-                      labelingMedia={
-                        <MediaInput
-                          label="Map / plan / diagram image (optional)"
-                          accept="image"
-                          value={section.imageUrl}
-                          onChange={url =>
-                            updateSection(section.key, { imageUrl: url })
-                          }
-                        />
-                      }
-                    />
+                    {questionBuilder(section, sIndex)}
                   </Field>
                 )}
               </>
             )}
-            {settings.format === "full" &&
-              (settings.module === "reading" ||
-                settings.module === "writing" ||
-                settings.module === "speaking") && (
+            {settings.format === "full" && settings.module === "reading" && (
+              <Field
+                group
+                label="Passage"
+                hint="Use the image button to add a picture or diagram. For Matching Headings, add the questions first, then put each “+ Heading box” on its own line above its paragraph."
+              >
+                <RichLayoutEditor
+                  value={section.content}
+                  onChange={content => updateSection(section.key, { content })}
+                  images
+                  minHeightClass="min-h-[320px]"
+                  // Matching Headings: a box above each paragraph, as in the real test.
+                  insertLabel="+ Heading box"
+                  questions={section.questions.flatMap(
+                    (question, questionIndex) =>
+                      question.type === "matching_headings"
+                        ? [
+                            {
+                              number: questionStartNumber(
+                                sections,
+                                sIndex,
+                                questionIndex
+                              ),
+                              label: question.prompt || "Heading",
+                            },
+                          ]
+                        : []
+                  )}
+                />
+              </Field>
+            )}
+            {settings.format === "full" && settings.module === "reading" && (
+              <Field
+                group
+                label="Questions"
+                hint="Choose a question type for each group. Completion types are written in the editor with “+ Answer box”."
+              >
+                {questionBuilder(section, sIndex)}
+              </Field>
+            )}
+            {/* A writing task is its instructions plus the task itself; the answer is marked by AI. */}
+            {settings.module === "writing" && (
+              <Field
+                group
+                label="Task"
+                hint="The task students answer. Use the image button for a Task 1 chart or diagram."
+              >
+                <RichLayoutEditor
+                  value={section.content}
+                  onChange={content => updateSection(section.key, { content })}
+                  images
+                  minHeightClass="min-h-[260px]"
+                />
+              </Field>
+            )}
+            {/* A Speaking part: its content as rich text, then each question added individually. */}
+            {settings.module === "speaking" && settings.format === "full" && (
+              <>
                 <Field
+                  group
                   label={
-                    settings.module === "reading"
-                      ? "Passage text"
-                      : settings.module === "writing"
-                        ? "Extra context (optional)"
-                        : "Topic notes (optional)"
+                    section.questions.some(q => q.prepSeconds)
+                      ? "Cue card"
+                      : "Questions"
                   }
                 >
-                  <textarea
-                    className={inputClass}
-                    rows={settings.module === "reading" ? 12 : 3}
+                  <RichLayoutEditor
                     value={section.content}
-                    onChange={e =>
-                      updateSection(section.key, { content: e.target.value })
+                    onChange={content =>
+                      updateSection(section.key, { content })
                     }
+                    minHeightClass="min-h-[180px]"
                   />
                 </Field>
-              )}
+                <Field group label="Individual questions">
+                  <div className="space-y-3">
+                    {section.questions.map((question, qIndex) => {
+                      const setQuestion = (patch: Partial<QuestionDraft>) =>
+                        updateQuestions(
+                          section.key,
+                          section.questions.map(item =>
+                            item.key === question.key
+                              ? { ...item, ...patch }
+                              : item
+                          )
+                        );
+                      return (
+                        <div
+                          key={question.key}
+                          className="space-y-3 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-4"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">
+                              Q{qIndex + 1}
+                            </span>
+                            <span className="flex-1" />
+                            <button
+                              type="button"
+                              disabled={qIndex === 0}
+                              onClick={() =>
+                                updateQuestions(
+                                  section.key,
+                                  moveItem(section.questions, qIndex, -1)
+                                )
+                              }
+                              className="rounded p-1.5 hover:bg-gray-200 disabled:opacity-30"
+                              aria-label="Move question up"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={qIndex === section.questions.length - 1}
+                              onClick={() =>
+                                updateQuestions(
+                                  section.key,
+                                  moveItem(section.questions, qIndex, 1)
+                                )
+                              }
+                              className="rounded p-1.5 hover:bg-gray-200 disabled:opacity-30"
+                              aria-label="Move question down"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                (!question.prompt.trim() &&
+                                  !question.audioUrl) ||
+                                confirm(`Remove question ${qIndex + 1}?`)
+                                  ? updateQuestions(
+                                      section.key,
+                                      section.questions.filter(
+                                        item => item.key !== question.key
+                                      )
+                                    )
+                                  : undefined
+                              }
+                              className="rounded p-1.5 hover:bg-red-50"
+                              aria-label="Remove question"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </button>
+                          </div>
+                          {/* Part 2's cue card is the part's rich text above. */}
+                          {sIndex !== SPEAKING_CUE_CARD_PART && (
+                            <Field label="Question">
+                              <textarea
+                                className={inputClass}
+                                rows={2}
+                                value={question.prompt}
+                                onChange={e =>
+                                  setQuestion({ prompt: e.target.value })
+                                }
+                              />
+                            </Field>
+                          )}
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <Field
+                              label="Preparation (seconds)"
+                              hint="Leave empty for none. Set it for a Part 2 cue card."
+                            >
+                              <input
+                                type="number"
+                                min={0}
+                                className={inputClass}
+                                value={question.prepSeconds ?? ""}
+                                onChange={e =>
+                                  setQuestion({
+                                    prepSeconds: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
+                                  })
+                                }
+                              />
+                            </Field>
+                            <Field label="Answer time (seconds)">
+                              <input
+                                type="number"
+                                min={0}
+                                className={inputClass}
+                                value={question.responseSeconds ?? ""}
+                                onChange={e =>
+                                  setQuestion({
+                                    responseSeconds: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
+                                  })
+                                }
+                              />
+                            </Field>
+                          </div>
+                          <MediaInput
+                            label="Examiner audio (optional)"
+                            accept="audio"
+                            value={question.audioUrl}
+                            onChange={audioUrl => setQuestion({ audioUrl })}
+                          />
+                        </div>
+                      );
+                    })}
+                    {/* Part 2 is a single cue card. */}
+                    {!(
+                      sIndex === SPEAKING_CUE_CARD_PART &&
+                      section.questions.length
+                    ) && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-card)] border border-dashed border-[var(--admin-border)] px-5 py-8 text-sm font-medium text-[#30363d] transition-colors hover:border-[#c76f42] hover:text-[#c76f42]"
+                        onClick={() =>
+                          updateQuestions(section.key, [
+                            ...section.questions,
+                            // Same timers as the question above; the part's default for the first.
+                            newQuestion("speaking", {
+                              prepSeconds: section.questions.length
+                                ? (section.questions.at(-1)?.prepSeconds ??
+                                  null)
+                                : (section.prepSeconds ?? null),
+                              responseSeconds: section.questions.length
+                                ? (section.questions.at(-1)?.responseSeconds ??
+                                  null)
+                                : (section.responseSeconds ?? null),
+                            }),
+                          ])
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                        {section.questions.length
+                          ? "Add another question"
+                          : "Add question"}
+                      </button>
+                    )}
+                  </div>
+                </Field>
+              </>
+            )}
+            {/* Reading and Writing images go inside the rich text; an older separate image stays removable. */}
             {settings.format === "full" &&
+              !!section.imageUrl &&
               (settings.module === "writing" ||
-                settings.module === "reading") && (
+                (settings.module === "reading" &&
+                  !section.questions.some(question =>
+                    LABELING_TYPES.includes(question.type)
+                  ))) && (
                 <MediaInput
-                  label={
-                    settings.module === "writing"
-                      ? "Chart / diagram image (Task 1)"
-                      : "Image (optional)"
-                  }
+                  label="Image (older tests only)"
                   accept="image"
                   value={section.imageUrl}
                   onChange={url =>
@@ -1771,27 +3177,40 @@ export default function AdminMockTestEditor() {
               )}
             <div
               className={`space-y-3 ${
-                settings.module === "listening" &&
-                settings.format === "full" &&
-                !section.audioUrl
+                (settings.module === "listening" &&
+                  settings.format === "full" &&
+                  (!section.audioUrl ||
+                    section.questions.reduce(
+                      (total, question) =>
+                        total +
+                        Math.max(1, choiceSelectionCount(question.type)),
+                      0
+                    ) < 10)) ||
+                (usesBuilder && !section.questions.length) ||
+                settings.module === "writing" ||
+                (settings.module === "speaking" && settings.format === "full")
                   ? "hidden"
                   : ""
               }`}
             >
-              {settings.module === "listening" &&
-                settings.format === "full" &&
-                section.questions.length > 0 && (
-                  <div className="pb-1 pt-2">
-                    <h4 className="text-sm font-semibold text-[#30363d]">
-                      3. Add answers and explanations
-                    </h4>
-                    <p className="mt-1 text-xs text-[#747d87]">
-                      Set each accepted answer and optionally add an explanation
-                      shown after submission in practice mode.
-                    </p>
-                  </div>
-                )}
-              {section.questions.map((question, qIndex) => {
+              {usesBuilder && section.questions.length > 0 && (
+                <div className="pb-1 pt-2">
+                  <h4 className="text-sm font-semibold text-[#30363d]">
+                    {settings.module === "listening" ? "3. " : ""}Add answers
+                    and explanations
+                  </h4>
+                  <p className="mt-1 text-xs text-[#747d87]">
+                    Set each accepted answer and optionally add an explanation
+                    shown after submission in practice mode.
+                  </p>
+                </div>
+              )}
+              {/* Writing tasks and full Speaking parts edit their questions above. */}
+              {(settings.module === "writing" ||
+              (settings.module === "speaking" && settings.format === "full")
+                ? []
+                : section.questions
+              ).map((question, qIndex) => {
                 const firstNumber = running + 1;
                 const numberSpan = Math.max(
                   1,
@@ -1822,11 +3241,10 @@ export default function AdminMockTestEditor() {
                         })
                       }
                       onRemove={() =>
-                        updateSection(section.key, {
-                          questions: section.questions.filter(
-                            x => x.key !== question.key
-                          ),
-                        })
+                        updateQuestions(
+                          section.key,
+                          section.questions.filter(x => x.key !== question.key)
+                        )
                       }
                     />
                   );
@@ -1837,6 +3255,7 @@ export default function AdminMockTestEditor() {
                     number={numberLabel}
                     question={question}
                     module={settings.module}
+                    part={usesBuilder ? "answers" : undefined}
                     onChange={q =>
                       updateSection(section.key, {
                         questions: section.questions.map(x =>
@@ -1845,11 +3264,10 @@ export default function AdminMockTestEditor() {
                       })
                     }
                     onRemove={() =>
-                      updateSection(section.key, {
-                        questions: section.questions.filter(
-                          x => x.key !== question.key
-                        ),
-                      })
+                      updateQuestions(
+                        section.key,
+                        section.questions.filter(x => x.key !== question.key)
+                      )
                     }
                     onMove={dir =>
                       updateSection(section.key, {
@@ -1859,8 +3277,26 @@ export default function AdminMockTestEditor() {
                   />
                 );
               })}
-              {(settings.module !== "listening" ||
-                settings.format === "answer_sheet") && (
+              {settings.module === "speaking" && (
+                <SpeakingQuestionAdder
+                  hasQuestions={section.questions.length > 0}
+                  onAdd={(count, instruction) => {
+                    const last =
+                      section.questions[section.questions.length - 1];
+                    updateQuestions(section.key, [
+                      ...section.questions,
+                      ...Array.from({ length: count }, (_, index) =>
+                        newQuestion("speaking", {
+                          instruction: index === 0 ? instruction : "",
+                          prepSeconds: last?.prepSeconds ?? null,
+                          responseSeconds: last?.responseSeconds ?? null,
+                        })
+                      ),
+                    ]);
+                  }}
+                />
+              )}
+              {!usesBuilder && settings.module !== "speaking" && (
                 <AddQuestionControl
                   module={settings.module}
                   defaultType={defaultType}
@@ -1903,24 +3339,6 @@ export default function AdminMockTestEditor() {
             </div>
           </div>
         ))}
-
-        {settings.module !== "listening" && (
-          <button
-            type="button"
-            className="admin-button admin-button-secondary"
-            onClick={() =>
-              setSections(prev => [
-                ...prev,
-                newSection(`Section ${prev.length + 1}`, [
-                  newQuestion(defaultType),
-                ]),
-              ])
-            }
-          >
-            <Plus className="h-4 w-4" />
-            Add section
-          </button>
-        )}
       </div>
     </div>
   );

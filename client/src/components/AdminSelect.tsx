@@ -76,9 +76,12 @@ export default function AdminSelect({
   return (
     <SelectPrimitive.Root
       value={isEmpty ? EMPTY : current}
-      onValueChange={next =>
-        onChange({ target: { value: next === EMPTY ? "" : next } })
-      }
+      onValueChange={next => {
+        // Radix sends "" by itself when the value changes before its items mount (e.g. a
+        // form filled in after loading). Real choices never are "": the empty one is EMPTY.
+        if (next === "") return;
+        onChange({ target: { value: next === EMPTY ? "" : next } });
+      }}
       disabled={disabled}
     >
       <SelectPrimitive.Trigger

@@ -1,15 +1,43 @@
-import { isBkashConfigured } from "./bkash";
+import {
+  BKASH_BASE_URLS,
+  BKASH_SECRET_KEYS,
+  BKASH_SETTINGS,
+  BkashError,
+  bkashSource,
+  checkBkashCredentials,
+  isBkashConfigured,
+  savedBkashSettings,
+} from "./bkash";
+import { canManageUsers } from "@shared/roles";
+import {
+  SSLCOMMERZ_BASE_URLS,
+  SSLCOMMERZ_SECRET_KEYS,
+  SSLCOMMERZ_SETTINGS,
+  SslcommerzError,
+  checkSslcommerzCredentials,
+  isSslcommerzConfigured,
+  savedSslcommerzSettings,
+  sslcommerzSource,
+} from "./sslcommerz";
 import {
   NEW_PASSWORD_COOKIE,
-  bkashPaymentSummary,
+  onlinePaymentSummary,
   isValidPaymentId,
   requestOrigin,
   startBkashEnrollment,
+  startSslcommerzEnrollment,
 } from "./payments";
 import { COOKIE_NAME } from "@shared/const";
 import { verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, adminProcedure, router } from "./_core/trpc";
+import {
+  publicProcedure,
+  adminProcedure,
+  superAdminProcedure,
+  router,
+} from "./_core/trpc";
+import Anthropic from "@anthropic-ai/sdk";
+import { AI_API_KEY_SETTING, checkAiApiKey, savedAiApiKey } from "./aiGrading";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -50,10 +78,11 @@ import {
   generateStudentId,
   getAllSiteSettings,
   bulkUpsertSiteSettings,
+  upsertSiteSetting,
   getAppUserByEmail,
   updateAppUserLastSignedIn,
 } from "./db";
-import { storagePut } from "./storage";
+import { storagePut, storagePutNamed } from "./storage";
 import { sessionService } from "./_core/session";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
@@ -167,6 +196,34 @@ const enrollmentInput = z.object({
   paymentAmount: z.string().min(1, "Enter the payment amount"),
   paymentScreenshotUrl: z.string().optional().nullable(),
 });
+
+/** Settings that hold keys or payment credentials: never sent to the browser, never saved by siteSettings.update. */
+const SECRET_SETTING_KEYS = new Set([
+  AI_API_KEY_SETTING,
+  ...BKASH_SECRET_KEYS,
+  ...SSLCOMMERZ_SECRET_KEYS,
+]);
+
+/** What the v2 enroll page collects before sending the student to a payment gateway. */
+const checkoutInput = z.object({
+  courseId: z.number(),
+  studentName: z.string().trim().min(1, "Enter your name"),
+  studentMobile: z
+    .string()
+    .transform(value => value.replace(/[\s-]/g, ""))
+    .pipe(
+      z.string().regex(/^01[3-9]\d{8}$/, "Enter a valid 11-digit mobile number")
+    ),
+  studentEmail: z.string().trim().email("Enter a valid email address"),
+});
+
+function requirePaymentManager(role: string) {
+  if (!canManageUsers(role))
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only an Admin or the Super Admin can change online payment",
+    });
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -368,26 +425,16 @@ export const appRouter = router({
   // ============================================
   /** Online payments (bKash Tokenized Checkout) for the v2 enroll page. */
   payments: router({
-    available: publicProcedure.query(() => ({ bkash: isBkashConfigured() })),
+    available: publicProcedure.query(async () => ({
+      bkash: await isBkashConfigured(),
+      /** Nagad, Rocket and cards through SSLCommerz. */
+      sslcommerz: await isSslcommerzConfigured(),
+    })),
 
     bkashStart: publicProcedure
-      .input(
-        z.object({
-          courseId: z.number(),
-          studentName: z.string().trim().min(1, "Enter your name"),
-          studentMobile: z
-            .string()
-            .transform(value => value.replace(/[\s-]/g, ""))
-            .pipe(
-              z
-                .string()
-                .regex(/^01[3-9]\d{8}$/, "Enter a valid 11-digit mobile number")
-            ),
-          studentEmail: z.string().trim().email("Enter a valid email address"),
-        })
-      )
+      .input(checkoutInput)
       .mutation(async ({ input, ctx }) => {
-        if (!isBkashConfigured())
+        if (!(await isBkashConfigured()))
           throw new Error(
             "Online payment isn't available right now. Please contact us to enroll."
           );
@@ -400,11 +447,25 @@ export const appRouter = router({
         });
       }),
 
+    /** Nagad, Rocket or card through SSLCommerz's checkout page. */
+    sslcommerzStart: publicProcedure
+      .input(checkoutInput)
+      .mutation(async ({ input, ctx }) => {
+        if (!(await isSslcommerzConfigured()))
+          throw new Error(
+            "Online payment isn't available right now. Please contact us to enroll."
+          );
+        return startSslcommerzEnrollment({
+          ...input,
+          callbackBase: `${requestOrigin(ctx.req)}/api/payments/sslcommerz/callback`,
+        });
+      }),
+
     bkashResult: publicProcedure
       .input(z.object({ paymentID: z.string() }))
       .query(async ({ input, ctx }) => {
         if (!isValidPaymentId(input.paymentID)) return null;
-        const summary = await bkashPaymentSummary(input.paymentID);
+        const summary = await onlinePaymentSummary(input.paymentID);
         if (!summary) return null;
         // The generated password is only shown to the student who was just signed in to that account.
         const cookie = ctx.req.headers.get("cookie") ?? "";
@@ -550,9 +611,12 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         const buffer = Buffer.from(input.base64, "base64");
-        const ext = input.filename.split(".").pop() || "jpg";
-        const key = `uploads/images/${nanoid()}.${ext}`;
-        const { url } = await storagePut(key, buffer, input.contentType);
+        const { url, key } = await storagePutNamed(
+          "images",
+          input.filename,
+          buffer,
+          "jpg"
+        );
         return { url, key };
       }),
 
@@ -634,18 +698,7 @@ export const appRouter = router({
             code: "PAYLOAD_TOO_LARGE",
             message: "This file is larger than the allowed limit.",
           });
-        const extension =
-          input.filename
-            .split(".")
-            .pop()
-            ?.toLowerCase()
-            .replace(/[^a-z0-9]/g, "") || "bin";
-        const result = await storagePut(
-          `uploads/${categories.folder}/${nanoid()}-${input.filename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/\.[^.]+$/, "")}.${extension}`,
-          buffer,
-          input.contentType
-        );
-        return result;
+        return storagePutNamed(categories.folder, input.filename, buffer);
       }),
     delete: adminProcedure
       .input(z.object({ key: z.string().min(1) }))
@@ -672,7 +725,9 @@ export const appRouter = router({
   siteSettings: router({
     /** Public: get all site settings (for frontend rendering) */
     getAll: publicProcedure.query(async () => {
-      const settings = await getAllSiteSettings();
+      const settings = (await getAllSiteSettings()).filter(
+        s => !SECRET_SETTING_KEYS.has(s.settingKey)
+      );
       // Convert array to key-value map for easy frontend consumption
       const map: Record<string, string | null> = {};
       for (const s of settings) {
@@ -683,7 +738,9 @@ export const appRouter = router({
 
     /** Public: get all site settings with metadata (for admin UI) */
     getAllWithMeta: adminProcedure.query(async () => {
-      return getAllSiteSettings();
+      return (await getAllSiteSettings()).filter(
+        s => !SECRET_SETTING_KEYS.has(s.settingKey)
+      );
     }),
 
     /** Admin: bulk update site settings */
@@ -700,9 +757,228 @@ export const appRouter = router({
         )
       )
       .mutation(async ({ input }) => {
-        await bulkUpsertSiteSettings(input);
+        // Keys and payment credentials are saved only through aiSettings / paymentGateway.
+        await bulkUpsertSiteSettings(
+          input.filter(s => !SECRET_SETTING_KEYS.has(s.key))
+        );
         return { success: true };
       }),
+  }),
+
+  // ============================================
+  // ONLINE PAYMENT — bKash checkout credentials for the v2 enroll page (Admin, Super Admin)
+  // ============================================
+  paymentGateway: router({
+    /** Mode, on/off and where the credentials come from; never the secrets themselves. */
+    status: adminProcedure.query(async ({ ctx }) => {
+      requirePaymentManager(ctx.user.role);
+      const saved = await savedBkashSettings();
+      return {
+        source: await bkashSource(),
+        active: await isBkashConfigured(),
+        enabled: saved?.enabled ?? true,
+        mode: saved?.mode ?? "sandbox",
+        username: saved?.username ?? "",
+        appKeyHint: saved?.appKey ? `…${saved.appKey.slice(-4)}` : null,
+        hasPassword: !!saved?.password,
+        hasAppSecret: !!saved?.appSecret,
+      };
+    }),
+
+    /** SSLCommerz (Nagad, Rocket, cards): mode, on/off and source; never the store password. */
+    sslcommerzStatus: adminProcedure.query(async ({ ctx }) => {
+      requirePaymentManager(ctx.user.role);
+      const saved = await savedSslcommerzSettings();
+      return {
+        source: await sslcommerzSource(),
+        active: await isSslcommerzConfigured(),
+        enabled: saved?.enabled ?? true,
+        mode: saved?.mode ?? "sandbox",
+        storeId: saved?.storeId ?? "",
+        hasStorePassword: !!saved?.storePassword,
+      };
+    }),
+
+    /** Checks the store with SSLCommerz, then saves it. A blank password keeps the saved one. */
+    sslcommerzSave: adminProcedure
+      .input(
+        z.object({
+          enabled: z.boolean(),
+          mode: z.enum(["sandbox", "live"]),
+          storeId: z.string().trim().min(1, "Enter the SSLCommerz store ID"),
+          storePassword: z.string().trim().max(300),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        requirePaymentManager(ctx.user.role);
+        const saved = await savedSslcommerzSettings();
+        const storePassword = input.storePassword || saved?.storePassword || "";
+        if (!storePassword)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Enter the store password.",
+          });
+        if (input.enabled) {
+          try {
+            await checkSslcommerzCredentials({
+              baseUrl: SSLCOMMERZ_BASE_URLS[input.mode],
+              storeId: input.storeId,
+              storePassword,
+            });
+          } catch (error) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                error instanceof SslcommerzError
+                  ? `SSLCommerz rejected this store: ${error.message}`
+                  : "Could not reach SSLCommerz to check this store. Try again.",
+            });
+          }
+        }
+        const save = (key: string, value: string, label: string) =>
+          upsertSiteSetting(key, value, "secret", "payment", label);
+        await save(
+          SSLCOMMERZ_SETTINGS.enabled,
+          String(input.enabled),
+          "SSLCommerz enabled"
+        );
+        await save(SSLCOMMERZ_SETTINGS.mode, input.mode, "SSLCommerz mode");
+        await save(
+          SSLCOMMERZ_SETTINGS.storeId,
+          input.storeId,
+          "SSLCommerz store ID"
+        );
+        await save(
+          SSLCOMMERZ_SETTINGS.storePassword,
+          storePassword,
+          "SSLCommerz store password"
+        );
+        return { success: true };
+      }),
+
+    /** Checks the credentials with bKash, then saves them. Blank secrets keep the saved ones. */
+    save: adminProcedure
+      .input(
+        z.object({
+          enabled: z.boolean(),
+          mode: z.enum(["sandbox", "live"]),
+          username: z.string().trim().min(1, "Enter the bKash username"),
+          password: z.string().trim().max(300),
+          appKey: z.string().trim().max(300),
+          appSecret: z.string().trim().max(300),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        requirePaymentManager(ctx.user.role);
+        const saved = await savedBkashSettings();
+        const credentials = {
+          baseUrl: BKASH_BASE_URLS[input.mode],
+          username: input.username,
+          password: input.password || saved?.password || "",
+          appKey: input.appKey || saved?.appKey || "",
+          appSecret: input.appSecret || saved?.appSecret || "",
+        };
+        if (
+          !credentials.password ||
+          !credentials.appKey ||
+          !credentials.appSecret
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Enter the password, app key and app secret.",
+          });
+        if (input.enabled) {
+          try {
+            await checkBkashCredentials(credentials);
+          } catch (error) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                error instanceof BkashError
+                  ? `bKash rejected these credentials: ${error.message}`
+                  : "Could not reach bKash to check these credentials. Try again.",
+            });
+          }
+        }
+        const save = (key: string, value: string, label: string) =>
+          upsertSiteSetting(key, value, "secret", "payment", label);
+        await save(
+          BKASH_SETTINGS.enabled,
+          String(input.enabled),
+          "bKash enabled"
+        );
+        await save(BKASH_SETTINGS.mode, input.mode, "bKash mode");
+        await save(
+          BKASH_SETTINGS.username,
+          credentials.username,
+          "bKash username"
+        );
+        await save(
+          BKASH_SETTINGS.password,
+          credentials.password,
+          "bKash password"
+        );
+        await save(BKASH_SETTINGS.appKey, credentials.appKey, "bKash app key");
+        await save(
+          BKASH_SETTINGS.appSecret,
+          credentials.appSecret,
+          "bKash app secret"
+        );
+        return { success: true };
+      }),
+  }),
+
+  // ============================================
+  // AI SETTINGS — Anthropic API key for AI marking (Super Admin)
+  // ============================================
+  aiSettings: router({
+    /** Where the key comes from and its last characters; never the key itself. */
+    status: superAdminProcedure.query(async () => {
+      const saved = await savedAiApiKey();
+      const env = process.env.ANTHROPIC_API_KEY?.trim() || null;
+      const key = saved ?? env;
+      return {
+        source: saved
+          ? ("settings" as const)
+          : env
+            ? ("environment" as const)
+            : null,
+        hint: key ? `…${key.slice(-4)}` : null,
+      };
+    }),
+
+    /** Checks the key with Anthropic, then saves it. */
+    saveKey: superAdminProcedure
+      .input(z.object({ apiKey: z.string().trim().min(20).max(300) }))
+      .mutation(async ({ input }) => {
+        try {
+          await checkAiApiKey(input.apiKey);
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Anthropic.AuthenticationError
+                ? "Anthropic rejected this API key. Check it and try again."
+                : error instanceof Anthropic.APIError
+                  ? `Could not check the key with Anthropic (${error.status ?? "network error"}).`
+                  : "Could not check the key with Anthropic.",
+          });
+        }
+        await upsertSiteSetting(
+          AI_API_KEY_SETTING,
+          input.apiKey,
+          "secret",
+          "ai",
+          "Anthropic API key"
+        );
+        return { success: true };
+      }),
+
+    /** Removes the saved key (the environment key, if any, is used again). */
+    clearKey: superAdminProcedure.mutation(async () => {
+      await upsertSiteSetting(AI_API_KEY_SETTING, null, "secret", "ai");
+      return { success: true };
+    }),
   }),
 
   // ============================================

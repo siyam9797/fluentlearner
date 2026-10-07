@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Copy,
   ExternalLink,
@@ -10,10 +10,16 @@ import {
   Loader2,
   MoreVertical,
   Trash2,
-  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import MediaDropzone from "@/components/MediaDropzone";
 import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminFilterDrawer, {
+  AdminFilterButton,
+  passesFilter,
+  type FilterGroup,
+  type FilterSelection,
+} from "@/components/AdminFilterDrawer";
 import { trpc } from "@/lib/trpc";
 
 function toBase64(file: File) {
@@ -25,6 +31,65 @@ function toBase64(file: File) {
   });
 }
 
+const MB = 1024 * 1024;
+
+/** Upload types the server accepts, by extension (browsers leave file.type empty for some). */
+const TYPES_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  ogg: "audio/ogg",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  txt: "text/plain",
+  csv: "text/csv",
+};
+const ACCEPT = Object.keys(TYPES_BY_EXTENSION)
+  .map(extension => `.${extension}`)
+  .join(",");
+const SERVER_TYPES = new Set([
+  ...Object.values(TYPES_BY_EXTENSION),
+  "audio/x-wav",
+  "audio/x-m4a",
+  "audio/webm",
+]);
+
+/** Same size limits as the server's media upload. */
+const UPLOAD_LIMITS = {
+  image: { bytes: 10 * MB, label: "Images" },
+  video: { bytes: 64 * MB, label: "Videos" },
+  audio: { bytes: 60 * MB, label: "Audio files" },
+  document: { bytes: 25 * MB, label: "Documents" },
+};
+
+function contentTypeOf(file: File) {
+  if (SERVER_TYPES.has(file.type)) return file.type;
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return TYPES_BY_EXTENSION[extension] ?? null;
+}
+
+function kindOf(contentType: string): keyof typeof UPLOAD_LIMITS {
+  if (contentType.startsWith("image/")) return "image";
+  if (contentType.startsWith("video/")) return "video";
+  if (contentType.startsWith("audio/")) return "audio";
+  return "document";
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -33,14 +98,53 @@ function formatSize(bytes: number) {
 
 export default function AdminMedia() {
   const utils = trpc.useUtils();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const { data: files, isLoading } = trpc.media.list.useQuery();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterSelection>({
+    kind: [],
+    usage: [],
+  });
+  const allFiles = files ?? [];
+  const usageOf = (file: (typeof allFiles)[number]) =>
+    file.inUse ? "used" : "unused";
+  const visibleFiles = allFiles.filter(
+    file =>
+      passesFilter(filters, "kind", file.kind) &&
+      passesFilter(filters, "usage", usageOf(file))
+  );
+  const filterGroups: FilterGroup[] = [
+    {
+      key: "kind",
+      title: "Type",
+      options: [
+        ["image", "Images"],
+        ["video", "Videos"],
+        ["audio", "Audio"],
+        ["document", "Documents"],
+      ].map(([value, label]) => ({
+        value,
+        label,
+        count: allFiles.filter(file => file.kind === value).length,
+      })),
+    },
+    {
+      key: "usage",
+      title: "Usage",
+      options: [
+        ["used", "In use"],
+        ["unused", "Not in use"],
+      ].map(([value, label]) => ({
+        value,
+        label,
+        count: allFiles.filter(file => usageOf(file) === value).length,
+      })),
+    },
+  ];
   const upload = trpc.media.upload.useMutation({
     onSuccess: async () => {
       await utils.media.list.invalidate();
-      toast.success("Image uploaded");
+      toast.success("File uploaded");
     },
     onError: error => toast.error(error.message),
   });
@@ -71,16 +175,18 @@ export default function AdminMedia() {
 
   const uploadFile = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/"))
-      return toast.error("Please choose an image file.");
-    if (file.size > 5 * 1024 * 1024)
-      return toast.error("Images must be 5 MB or smaller.");
+    const contentType = contentTypeOf(file);
+    if (!contentType) return toast.error("This file type isn't supported.");
+    const kind = kindOf(contentType);
+    if (file.size > UPLOAD_LIMITS[kind].bytes)
+      return toast.error(
+        `${UPLOAD_LIMITS[kind].label} must be ${UPLOAD_LIMITS[kind].bytes / MB} MB or smaller.`
+      );
     await upload.mutateAsync({
       base64: await toBase64(file),
       filename: file.name,
-      contentType: file.type,
+      contentType,
     });
-    if (inputRef.current) inputRef.current.value = "";
   };
 
   const copyPath = async (url: string) => {
@@ -98,53 +204,47 @@ export default function AdminMedia() {
 
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
-      <AdminPageHeader title="Media" />
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-        hidden
-        onChange={event => uploadFile(event.target.files?.[0])}
+      <AdminPageHeader
+        title="Media"
+        action={
+          <AdminFilterButton
+            label="Filter media"
+            selection={filters}
+            onClick={() => setFilterOpen(true)}
+          />
+        }
       />
-      <button
-        type="button"
-        disabled={upload.isPending}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={event => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={event => {
-          event.preventDefault();
-          setDragging(false);
-          uploadFile(event.dataTransfer.files?.[0]);
-        }}
-        className={`mb-8 flex min-h-[230px] w-full flex-col items-center justify-center border border-dashed px-6 text-center transition-colors sm:mb-10 sm:min-h-[280px] ${dragging ? "border-[#c76f42] bg-[#c76f42]/5" : "border-[#d5d7d9] bg-transparent hover:border-[#c76f42]"}`}
-      >
-        {upload.isPending ? (
-          <Loader2 className="mb-7 h-7 w-7 animate-spin text-[#c76f42]" />
-        ) : (
-          <Upload className="mb-7 h-7 w-7 stroke-[1.5] text-[#c76f42]" />
-        )}
-        <strong className="text-[16px] font-semibold text-[#252a30] sm:text-[17px]">
-          {upload.isPending
-            ? "Uploading image…"
-            : "Drop an image here or browse"}
-        </strong>
-        <span className="mt-2 text-sm text-[#69737e] sm:text-[15px]">
-          JPG, PNG, WebP, GIF or AVIF · Max 5 MB
-        </span>
-      </button>
+      {filterOpen && (
+        <AdminFilterDrawer
+          title="Filter media"
+          groups={filterGroups}
+          selection={filters}
+          onChange={setFilters}
+          onClose={() => setFilterOpen(false)}
+          resultCount={visibleFiles.length}
+        />
+      )}
+
+      <MediaDropzone
+        accept={ACCEPT}
+        uploading={upload.isPending}
+        onFile={uploadFile}
+        noun="file"
+        hint="Images up to 10 MB · audio up to 60 MB · video up to 64 MB · PDF, Word, PowerPoint, Excel, TXT or CSV up to 25 MB"
+        className="mb-8 min-h-[230px] sm:mb-10 sm:min-h-[280px]"
+      />
 
       {isLoading ? (
         <div className="grid h-64 place-items-center">
           <Loader2 className="h-7 w-7 animate-spin text-[#c76f42]" />
         </div>
-      ) : files?.length ? (
+      ) : allFiles.length > 0 && visibleFiles.length === 0 ? (
+        <div className="py-12 text-center text-sm text-[#69737e]">
+          No files match these filters.
+        </div>
+      ) : visibleFiles.length ? (
         <div className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
-          {files.map(file => (
+          {visibleFiles.map(file => (
             <article key={file.key}>
               <div className="relative grid aspect-square place-items-center overflow-visible bg-[#f1f1f1]">
                 <div className="absolute inset-0 overflow-hidden">
@@ -167,8 +267,8 @@ export default function AdminMedia() {
                   )}
                 </div>
                 {file.inUse && (
-                  <span className="absolute left-3 top-3 bg-[#1976d2] px-2.5 py-1.5 text-xs font-medium text-white sm:text-sm">
-                    In Use
+                  <span className="admin-status-label info absolute left-3 top-3">
+                    In use
                   </span>
                 )}
                 <div className="absolute right-3 top-3 z-10" data-media-menu>
@@ -179,7 +279,7 @@ export default function AdminMedia() {
                         current === file.key ? null : file.key
                       )
                     }
-                    className="grid h-11 w-11 place-items-center bg-white text-[#252a30] shadow-sm hover:bg-[#fafafa]"
+                    className="rounded-[var(--radius-control)] grid h-11 w-11 place-items-center bg-white text-[#252a30] shadow-sm hover:bg-[#fafafa]"
                     aria-label={`Actions for ${file.name}`}
                     aria-expanded={openMenu === file.key}
                   >

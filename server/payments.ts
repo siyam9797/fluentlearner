@@ -1,8 +1,10 @@
 /**
- * Online course payments (bKash). An enrollment row is created as "pending" when checkout starts,
- * becomes "verified" with the real bKash transaction once paid, and is removed if the payment is cancelled or fails.
+ * Online course payments: bKash (its own checkout) and SSLCommerz (Nagad, Rocket, cards…). An enrollment
+ * row is created as "pending" when checkout starts, becomes "verified" with the real transaction once paid,
+ * and is removed if the payment is cancelled or fails.
  *
- * While a payment is in progress, transactionId holds `bkash:<paymentID>`; adminNotes always records the paymentID.
+ * While a payment is in progress, transactionId holds `<gateway>:<paymentID>`; adminNotes always records
+ * the gateway's payment ID ("bKash payment …" / "SSLCommerz payment …").
  *
  * Every paid enrollment gets a student account (the dashboard finds enrollments by email):
  * - no account for the email → one is created inactive at checkout and activated once paid ("new");
@@ -13,7 +15,7 @@
  * Only "new"/"reused" accounts are signed in automatically — otherwise paying with someone else's email would log you in as them.
  * adminNotes carries `[account:<kind>:<userId>]` so the callback knows which case applies.
  */
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, or } from "drizzle-orm";
 import { getDb } from "./db";
 import { appUsers, enrollments, courses } from "./database/schema";
 import { notifyOwner } from "./_core/notification";
@@ -26,10 +28,17 @@ import {
   BkashError,
   type BkashPayment,
 } from "./bkash";
+import {
+  SslcommerzError,
+  createSslcommerzSession,
+  validateSslcommerzPayment,
+} from "./sslcommerz";
 
-const pendingTxn = (paymentID: string) => `bkash:${paymentID}`;
+type Gateway = "bKash" | "SSLCommerz";
+const pendingTxn = (gateway: Gateway, paymentID: string) =>
+  `${gateway.toLowerCase()}:${paymentID}`;
 
-/** bKash payment IDs are plain tokens; anything else is rejected before it reaches a query. */
+/** Payment IDs (bKash paymentID, SSLCommerz tran_id) are plain tokens; anything else is rejected before it reaches a query. */
 export const isValidPaymentId = (
   value: string | null | undefined
 ): value is string =>
@@ -46,7 +55,8 @@ export function requestOrigin(req: Request) {
     req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
   return `${proto}://${host}`;
 }
-const paymentNote = (paymentID: string) => `bKash payment ${paymentID}`;
+const paymentNote = (gateway: Gateway, paymentID: string) =>
+  `${gateway} payment ${paymentID}`;
 
 /** Cookie that carries the generated password from the bKash callback to the confirmation screen. */
 export const NEW_PASSWORD_COOKIE = "fl_enroll_pw";
@@ -82,13 +92,15 @@ async function db() {
   return database;
 }
 
-export async function startBkashEnrollment(input: {
+type CheckoutInput = {
   courseId: number;
   studentName: string;
   studentMobile: string;
   studentEmail: string;
-  callbackURL: string;
-}) {
+};
+
+/** Checks the course, finds or creates the student's account and adds a pending enrollment. */
+async function prepareCheckout(input: CheckoutInput, method: string) {
   const database = await db();
   const [course] = await database
     .select()
@@ -135,15 +147,47 @@ export async function startBkashEnrollment(input: {
     studentMobile: input.studentMobile,
     studentEmail: email,
     courseId: course.id,
-    paymentMethod: "bKash (online)",
+    paymentMethod: method,
     paymentAccountNumber: input.studentMobile,
-    transactionId: `bkash:starting:${Date.now()}`,
+    transactionId: `online:starting:${Date.now()}`,
     paymentAmount: amount,
     status: "pending",
-    adminNotes: `Online bKash payment started but not completed. ${account}`,
+    adminNotes: `Online payment started but not completed. ${account}`,
   });
-  const enrollmentId = inserted[0].insertId;
+  return { enrollmentId: inserted[0].insertId, account, amount, course, email };
+}
 
+/** Records the gateway's payment ID on the pending enrollment. */
+async function markStarted(
+  enrollmentId: number,
+  account: string,
+  gateway: Gateway,
+  paymentID: string
+) {
+  const database = await db();
+  await database
+    .update(enrollments)
+    .set({
+      transactionId: pendingTxn(gateway, paymentID),
+      adminNotes: `Online payment started but not completed (${paymentNote(gateway, paymentID)}). ${account}`,
+    })
+    .where(eq(enrollments.id, enrollmentId));
+}
+
+/** Undoes a checkout that never reached the gateway. */
+async function abandonCheckout(enrollmentId: number, account: string) {
+  const database = await db();
+  await database.delete(enrollments).where(eq(enrollments.id, enrollmentId));
+  await removeUnusedAccount(account);
+}
+
+export async function startBkashEnrollment(
+  input: CheckoutInput & { callbackURL: string }
+) {
+  const { enrollmentId, account, amount } = await prepareCheckout(
+    input,
+    "bKash (online)"
+  );
   try {
     const payment = await createBkashPayment({
       amount,
@@ -151,19 +195,42 @@ export async function startBkashEnrollment(input: {
       payerReference: input.studentMobile,
       callbackURL: input.callbackURL,
     });
-    await database
-      .update(enrollments)
-      .set({
-        transactionId: pendingTxn(payment.paymentID),
-        adminNotes: `Online payment started but not completed (${paymentNote(payment.paymentID)}). ${account}`,
-      })
-      .where(eq(enrollments.id, enrollmentId));
+    await markStarted(enrollmentId, account, "bKash", payment.paymentID);
     return { bkashURL: payment.bkashURL };
   } catch (error) {
-    await database.delete(enrollments).where(eq(enrollments.id, enrollmentId));
-    await removeUnusedAccount(account);
+    await abandonCheckout(enrollmentId, account);
     throw error instanceof BkashError
       ? new Error(`bKash: ${error.message}`)
+      : error;
+  }
+}
+
+/** Starts an SSLCommerz checkout (Nagad, Rocket, cards…); send the student to the returned URL. */
+export async function startSslcommerzEnrollment(
+  input: CheckoutInput & { callbackBase: string }
+) {
+  const { enrollmentId, account, amount, course, email } =
+    await prepareCheckout(input, "Nagad / Rocket / card (online)");
+  // Unique per attempt; SSLCommerz sends it back as tran_id.
+  const tranId = `FL${enrollmentId}T${Date.now().toString(36)}`;
+  try {
+    const { gatewayURL } = await createSslcommerzSession({
+      tranId,
+      amount,
+      callbackBase: input.callbackBase,
+      customer: {
+        name: input.studentName,
+        email,
+        phone: input.studentMobile,
+      },
+      product: course.nameEn || course.name,
+    });
+    await markStarted(enrollmentId, account, "SSLCommerz", tranId);
+    return { gatewayURL };
+  } catch (error) {
+    await abandonCheckout(enrollmentId, account);
+    throw error instanceof SslcommerzError
+      ? new Error(`Payment gateway: ${error.message}`)
       : error;
   }
 }
@@ -178,14 +245,86 @@ async function removeUnusedAccount(notes: string | null) {
     .where(and(eq(appUsers.id, tag.userId), eq(appUsers.isActive, false)));
 }
 
-/** Handles the customer's return from bKash. Safe to call twice for the same payment. */
-export async function completeBkashPayment(paymentID: string, status: string) {
+type PendingRow = typeof enrollments.$inferSelect;
+
+async function findCheckout(gateway: Gateway, paymentID: string) {
   const database = await db();
   const [row] = await database
     .select()
     .from(enrollments)
-    .where(like(enrollments.adminNotes, `%${paymentNote(paymentID)}%`))
+    .where(
+      like(enrollments.adminNotes, `%${paymentNote(gateway, paymentID)})%`)
+    )
     .limit(1);
+  return row ?? null;
+}
+
+/** Removes a pending checkout that was cancelled or failed. */
+async function dropCheckout(row: PendingRow) {
+  const database = await db();
+  await database
+    .delete(enrollments)
+    .where(and(eq(enrollments.id, row.id), eq(enrollments.status, "pending")));
+  await removeUnusedAccount(row.adminNotes);
+}
+
+/** Paid: verify the enrollment, switch on the account it created and notify the owner. */
+async function confirmCheckout(
+  row: PendingRow,
+  gateway: Gateway,
+  paymentID: string,
+  paid: {
+    trxID: string;
+    amount?: string | null;
+    account?: string | null;
+    method: string;
+  }
+) {
+  const database = await db();
+  const tag = readAccountTag(row.adminNotes);
+  await database
+    .update(enrollments)
+    .set({
+      status: "verified",
+      verifiedAt: new Date(),
+      transactionId: paid.trxID,
+      paymentMethod: `${paid.method} (online)`,
+      paymentAccountNumber: paid.account || row.paymentAccountNumber,
+      paymentAmount: paid.amount || row.paymentAmount,
+      adminNotes:
+        `Paid online with ${paid.method} — confirmed automatically (${paymentNote(gateway, paymentID)}).${
+          tag?.kind === "existing"
+            ? " Linked to the student's existing account."
+            : tag
+              ? " Student account created."
+              : ""
+        } ${tag ? accountTag(tag.kind, tag.userId) : ""}`.trim(),
+    })
+    .where(eq(enrollments.id, row.id));
+
+  // Switch on the account this checkout created and give it a password the student will see once.
+  const loginUserId = tag && tag.kind !== "existing" ? tag.userId : null;
+  const password = loginUserId ? generatePassword() : null;
+  if (loginUserId && password)
+    await database
+      .update(appUsers)
+      .set({ isActive: true, passwordHash: await hashPassword(password) })
+      .where(eq(appUsers.id, loginUserId));
+
+  try {
+    await notifyOwner({
+      title: `✅ Paid enrollment — ${row.studentName}`,
+      content: `Name: ${row.studentName}\nMobile: ${row.studentMobile}\nPaid ৳${paid.amount ?? row.paymentAmount} with ${paid.method}\nTrxID: ${paid.trxID}\n\nConfirmed automatically.`,
+    });
+  } catch (error) {
+    console.warn("[Payments] Failed to notify owner:", error);
+  }
+  return { ok: true as const, enrollmentId: row.id, loginUserId, password };
+}
+
+/** Handles the customer's return from bKash. Safe to call twice for the same payment. */
+export async function completeBkashPayment(paymentID: string, status: string) {
+  const row = await findCheckout("bKash", paymentID);
   if (!row) return { ok: false as const, reason: "not-found", courseId: null };
   if (row.status === "verified")
     return {
@@ -196,12 +335,7 @@ export async function completeBkashPayment(paymentID: string, status: string) {
     };
 
   if (status !== "success") {
-    await database
-      .delete(enrollments)
-      .where(
-        and(eq(enrollments.id, row.id), eq(enrollments.status, "pending"))
-      );
-    await removeUnusedAccount(row.adminNotes);
+    await dropCheckout(row);
     return {
       ok: false as const,
       reason: status === "cancel" ? "cancel" : "failure",
@@ -224,57 +358,80 @@ export async function completeBkashPayment(paymentID: string, status: string) {
     }
   }
   if (payment?.transactionStatus !== "Completed" || !payment.trxID) {
-    await database
-      .delete(enrollments)
-      .where(
-        and(eq(enrollments.id, row.id), eq(enrollments.status, "pending"))
-      );
-    await removeUnusedAccount(row.adminNotes);
+    await dropCheckout(row);
     return { ok: false as const, reason: "failure", courseId: row.courseId };
   }
+  return confirmCheckout(row, "bKash", paymentID, {
+    trxID: payment.trxID,
+    amount: payment.amount,
+    account: payment.customerMsisdn,
+    method: "bKash",
+  });
+}
 
-  const tag = readAccountTag(row.adminNotes);
-  await database
-    .update(enrollments)
-    .set({
-      status: "verified",
-      verifiedAt: new Date(),
-      transactionId: payment.trxID,
-      paymentAccountNumber: payment.customerMsisdn || row.paymentAccountNumber,
-      paymentAmount: payment.amount || row.paymentAmount,
-      adminNotes:
-        `Paid online with bKash — confirmed automatically (${paymentNote(paymentID)}).${
-          tag?.kind === "existing"
-            ? " Linked to the student's existing account."
-            : tag
-              ? " Student account created."
-              : ""
-        } ${tag ? accountTag(tag.kind, tag.userId) : ""}`.trim(),
-    })
-    .where(eq(enrollments.id, row.id));
+/**
+ * Handles the customer's return from SSLCommerz (and its IPN). The payment is only trusted after
+ * SSLCommerz's validation API confirms it for this transaction and amount. Safe to call twice.
+ */
+export async function completeSslcommerzPayment(
+  tranId: string,
+  status: string,
+  valId: string | null
+) {
+  const row = await findCheckout("SSLCommerz", tranId);
+  if (!row) return { ok: false as const, reason: "not-found", courseId: null };
+  if (row.status === "verified")
+    return {
+      ok: true as const,
+      enrollmentId: row.id,
+      loginUserId: null,
+      password: null,
+    };
 
-  // Paid: switch on the account this checkout created and give it a password the student will see once.
-  const loginUserId = tag && tag.kind !== "existing" ? tag.userId : null;
-  const password = loginUserId ? generatePassword() : null;
-  if (loginUserId && password)
-    await database
-      .update(appUsers)
-      .set({ isActive: true, passwordHash: await hashPassword(password) })
-      .where(eq(appUsers.id, loginUserId));
-
-  try {
-    await notifyOwner({
-      title: `✅ Paid enrollment — ${row.studentName}`,
-      content: `Name: ${row.studentName}\nMobile: ${row.studentMobile}\nPaid ৳${payment.amount ?? row.paymentAmount} with bKash\nTrxID: ${payment.trxID}\n\nConfirmed automatically.`,
-    });
-  } catch (error) {
-    console.warn("[Payments] Failed to notify owner:", error);
+  if (status !== "success" || !valId) {
+    await dropCheckout(row);
+    return {
+      ok: false as const,
+      reason: status === "cancel" ? "cancel" : "failure",
+      courseId: row.courseId,
+    };
   }
-  return { ok: true as const, enrollmentId: row.id, loginUserId, password };
+
+  const payment = await validateSslcommerzPayment(valId).catch(() => null);
+  const valid =
+    payment &&
+    (payment.status === "VALID" || payment.status === "VALIDATED") &&
+    payment.tran_id === tranId &&
+    payment.currency_type === "BDT" &&
+    Number(payment.currency_amount ?? payment.amount) >=
+      Number(row.paymentAmount);
+  if (!valid) {
+    await dropCheckout(row);
+    return { ok: false as const, reason: "failure", courseId: row.courseId };
+  }
+  return confirmCheckout(row, "SSLCommerz", tranId, {
+    trxID: payment.bank_tran_id || payment.val_id || valId,
+    amount: payment.currency_amount ?? payment.amount,
+    method: sslcommerzMethodLabel(payment.card_type, payment.card_issuer),
+  });
+}
+
+/** "NAGAD-Nagad" → "Nagad", "DBBLMOBILEB-Dbbl Mobile Banking" → "Rocket", otherwise the card brand. */
+function sslcommerzMethodLabel(cardType?: string, issuer?: string) {
+  const text = `${cardType ?? ""} ${issuer ?? ""}`.toLowerCase();
+  if (text.includes("nagad")) return "Nagad";
+  if (
+    text.includes("dbbl mobile") ||
+    text.includes("dbblmobile") ||
+    text.includes("rocket")
+  )
+    return "Rocket";
+  if (text.includes("bkash")) return "bKash";
+  return cardType?.split("-")[1]?.trim() || cardType || "SSLCommerz";
 }
 
 /** What the confirmation screen shows; only for completed payments. */
-export async function bkashPaymentSummary(paymentID: string) {
+export async function onlinePaymentSummary(paymentID: string) {
   const database = await db();
   const [row] = await database
     .select({
@@ -284,12 +441,21 @@ export async function bkashPaymentSummary(paymentID: string) {
       adminNotes: enrollments.adminNotes,
       transactionId: enrollments.transactionId,
       paymentAmount: enrollments.paymentAmount,
+      paymentMethod: enrollments.paymentMethod,
       courseName: courses.name,
       courseNameEn: courses.nameEn,
     })
     .from(enrollments)
     .leftJoin(courses, eq(courses.id, enrollments.courseId))
-    .where(like(enrollments.adminNotes, `%${paymentNote(paymentID)}%`))
+    .where(
+      or(
+        like(enrollments.adminNotes, `%${paymentNote("bKash", paymentID)})%`),
+        like(
+          enrollments.adminNotes,
+          `%${paymentNote("SSLCommerz", paymentID)})%`
+        )
+      )
+    )
     .limit(1);
   if (!row || row.status !== "verified") return null;
   return {
@@ -297,6 +463,8 @@ export async function bkashPaymentSummary(paymentID: string) {
     course: row.courseNameEn || row.courseName || "",
     amount: row.paymentAmount,
     trxID: row.transactionId,
+    /** "bKash", "Nagad", "Rocket", a card brand… */
+    method: (row.paymentMethod ?? "").replace(/ \(online\)$/, ""),
     email: row.studentEmail ?? "",
     /** "created" when this payment made the account, "existing" when it was added to one the student already had. */
     account:

@@ -54,8 +54,13 @@ export default function AdminUserEdit({ id }: { id: number }) {
       user?.role === "super_admin" ||
       (role !== "super_admin" && role !== "admin")
   );
+  // The local developer login (id 0) is linked to the account with its email.
+  const isSelf =
+    !!account &&
+    (account.id === user?.id ||
+      account.email.toLowerCase() === user?.email?.toLowerCase());
   const roleLocked =
-    account?.id === user?.id ||
+    isSelf ||
     (user?.role !== "super_admin" &&
       (account?.role === "super_admin" || account?.role === "admin"));
 
@@ -66,7 +71,7 @@ export default function AdminUserEdit({ id }: { id: number }) {
       id,
       name: form.name,
       role: roleLocked ? undefined : form.role,
-      isActive: account.id === user?.id ? undefined : form.isActive,
+      isActive: isSelf ? undefined : form.isActive,
     });
   };
 
@@ -138,14 +143,14 @@ export default function AdminUserEdit({ id }: { id: number }) {
               ))}
             </AdminSelect>
             <span className="mt-2 block text-xs font-normal text-[var(--admin-body)]">
-              {ROLE_DEFINITIONS[form.role].description}
+              {ROLE_DEFINITIONS[form.role]?.description}
             </span>
           </label>
           <label className="flex items-center gap-3 self-start pt-8 text-sm font-medium">
             <input
               type="checkbox"
               checked={form.isActive}
-              disabled={account.id === user?.id}
+              disabled={isSelf}
               onChange={event =>
                 setForm(current => ({
                   ...current,

@@ -25,6 +25,9 @@ import AdminFilterDrawer, {
   type FilterSelection,
 } from "@/components/AdminFilterDrawer";
 import AdminPageHeader from "@/components/AdminPageHeader";
+import AdminPagination, {
+  useAdminPagination,
+} from "@/components/AdminPagination";
 import AdminViewToggle, {
   type AdminListView,
 } from "@/components/AdminViewToggle";
@@ -64,7 +67,6 @@ export const MODULE_BLURB: Record<MockModule, string> = {
   speaking: "Parts 1–3 recorded in the browser. You listen and mark.",
 };
 
-const PAGE_SIZE = 20;
 const NO_FILTERS: FilterSelection = {
   source: [],
   practiceType: [],
@@ -105,7 +107,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
   } | null>(() =>
     search.get("attempts") === "submitted" ? { status: "submitted" } : null
   );
-  const [page, setPage] = useState(1);
 
   type Test = (typeof allTests)[number];
   const sourceOf = (test: Test): Source =>
@@ -127,11 +128,10 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
         passesFilter(filters, "status", statusOf(test))
     )
     .sort((a, b) => SOURCE_RANK[sourceOf(a)] - SOURCE_RANK[sourceOf(b)]);
-  const pages = Math.max(1, Math.ceil(tests.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pages);
-  const shown = tests.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+  const { pageRows: shown, pagination } = useAdminPagination(
+    tests,
+    "admin-mock-tests-page-size",
+    [query, filters]
   );
 
   const filterGroups = useMemo<FilterGroup[]>(() => {
@@ -211,11 +211,9 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
     onError: err => toast.error(err.message),
   });
 
-  const resetPage = () => setPage(1);
   const closeSearch = () => {
     setQuery("");
     setSearchOpen(false);
-    resetPage();
   };
 
   const kindOf = (test: Test) => {
@@ -380,7 +378,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
               value={query}
               onChange={e => {
                 setQuery(e.target.value);
-                resetPage();
               }}
               onKeyDown={e => e.key === "Escape" && closeSearch()}
               placeholder={`Search ${label} tests by title`}
@@ -415,7 +412,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
           selection={filters}
           onChange={next => {
             setFilters(next);
-            resetPage();
           }}
           onClose={() => setFilterOpen(false)}
           resultCount={tests.length}
@@ -545,36 +541,7 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-            <span>
-              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(currentPage * PAGE_SIZE, tests.length)} of{" "}
-              {tests.length}
-            </span>
-            {pages > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage(currentPage - 1)}
-                  className="admin-button admin-button-secondary disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {currentPage} of {pages}
-                </span>
-                <button
-                  type="button"
-                  disabled={currentPage === pages}
-                  onClick={() => setPage(currentPage + 1)}
-                  className="admin-button admin-button-secondary disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
+          <AdminPagination {...pagination} noun="tests" />
         </>
       )}
     </div>
