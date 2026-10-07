@@ -594,6 +594,36 @@ export async function getAttemptView(
   };
 }
 
+/** The exam screen for a test (published or not) as a student would see it, for admins. Nothing is stored. */
+export async function getPreviewView(testId: number) {
+  const tree = await getTestTree(testId);
+  if (!tree)
+    throw new TRPCError({ code: "NOT_FOUND", message: "Test not found" });
+  const now = new Date();
+  const attempt: MockAttempt = {
+    id: 0,
+    testId,
+    userId: 0,
+    status: "in_progress",
+    mode: "exam",
+    startedAt: now,
+    deadlineAt: tree.durationMinutes
+      ? new Date(now.getTime() + tree.durationMinutes * 60_000)
+      : null,
+    submittedAt: null,
+    rawScore: null,
+    maxScore: null,
+    band: null,
+    criteria: null,
+    feedback: null,
+    gradedAt: null,
+    aiEvaluation: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  return getAttemptView(attempt, { revealAnswers: false });
+}
+
 export async function listStudentTests(userId: number) {
   const database = await db();
   const tests = await database

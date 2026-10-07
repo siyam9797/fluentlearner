@@ -2,9 +2,10 @@
  * Speaking answer recorder: optional preparation countdown, timed recording, upload.
  * Where the browser supports it (Chrome, Edge), speech is also transcribed live; the transcript is what AI marking reads.
  */
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Mic, RotateCcw, Square } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { ExamPreviewContext } from "@/lib/examPreview";
 import { fileToBase64 } from "@/lib/fileToBase64";
 import { HvActionButton } from "@/components/home-v2/primitives";
 
@@ -99,6 +100,7 @@ export default function Recorder({
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef<number | null>(null);
   const upload = trpc.student.uploadRecording.useMutation();
+  const preview = useContext(ExamPreviewContext);
   const recognition = useRef<SpeechRecognitionLike | null>(null);
   const transcript = useRef<string[]>([]);
   const listening = useRef(false);
@@ -206,6 +208,11 @@ export default function Recorder({
       const text = canTranscribe ? transcript.current.join(" ").trim() : null;
       try {
         const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        if (preview) {
+          onUploaded(URL.createObjectURL(blob), text);
+          setPhase("done");
+          return;
+        }
         const { url } = await upload.mutateAsync({
           attemptId,
           questionId,

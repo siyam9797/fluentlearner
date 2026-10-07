@@ -65,13 +65,17 @@ const envConfig = (): BkashConfig => ({
   appSecret: process.env.BKASH_APP_SECRET ?? "",
 });
 
+/** The "Accept bKash payments" switch. Applies whether the credentials come from Settings or the environment. */
+export async function isBkashEnabled() {
+  return (await setting(BKASH_SETTINGS.enabled)) !== "false";
+}
+
 /** The credentials in use (Settings first, then the environment), or null when online payment is off. */
 async function config(): Promise<BkashConfig | null> {
+  if (!(await isBkashEnabled())) return null;
   const saved = await savedBkashSettings();
   const c = saved
-    ? saved.enabled
-      ? { baseUrl: BKASH_BASE_URLS[saved.mode], ...saved }
-      : null
+    ? { baseUrl: BKASH_BASE_URLS[saved.mode], ...saved }
     : envConfig();
   return c && c.baseUrl && c.username && c.password && c.appKey && c.appSecret
     ? c

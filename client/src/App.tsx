@@ -43,7 +43,9 @@ import AdminResourceForm from "./screens/AdminResourceForm";
 import AdminMedia from "./screens/AdminMedia";
 import AdminEnrollmentDetail from "./screens/AdminEnrollmentDetail";
 import StudentDashboard from "./screens/StudentDashboard";
-import StudentAttempt from "./screens/StudentAttempt";
+import StudentAttempt, {
+  StudentAttemptPreview,
+} from "./screens/StudentAttempt";
 
 function Router() {
   const pathname = usePathname() ?? "/";
@@ -79,6 +81,9 @@ function Router() {
     return <StudentDashboard />;
   if (pathname.startsWith("/student/attempts/"))
     return <StudentAttempt key={pathname} />;
+  // Full-screen like the real exam, so outside the admin layout.
+  if (/^\/admin\/ielts\/preview\/\d+$/.test(pathname))
+    return <StudentAttemptPreview key={pathname} />;
   if (pathname.startsWith("/admin")) {
     let screen = <AdminDashboard />;
     if (pathname === "/admin/courses") screen = <AdminCourses key={pathname} />;

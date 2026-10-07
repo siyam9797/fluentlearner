@@ -3,6 +3,7 @@
  */
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -38,6 +39,7 @@ import {
   splitLayoutGroups,
 } from "@/lib/listeningLayout";
 import { renderRichHtml } from "@/lib/richHtml";
+import { ExamPreviewContext } from "@/lib/examPreview";
 import { formatInstruction } from "@/components/InstructionInput";
 import { canAccessStudentDashboard } from "@shared/roles";
 import {
@@ -1144,12 +1146,17 @@ function ExamHeader({
   saveState: SaveState;
 }) {
   const { test } = view;
+  const preview = useContext(ExamPreviewContext);
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-ink/15 px-4 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-xs uppercase tracking-[0.14em] text-ink/60">
           {MODULE_LABELS[test.module]} ·{" "}
-          {view.attempt.mode === "exam" ? "Exam" : "Practice"}
+          {preview
+            ? "Preview"
+            : view.attempt.mode === "exam"
+              ? "Exam"
+              : "Practice"}
         </p>
         <h1 className="truncate text-base">{test.title}</h1>
       </div>
@@ -1168,15 +1175,27 @@ function ExamHeader({
             : `${clock(remaining)} left`}
         </span>
       )}
-      <span className="text-sm text-ink/60" role="status" aria-live="polite">
-        {saveState === "saving"
-          ? "Saving…"
-          : saveState === "dirty"
-            ? "Unsaved changes"
-            : saveState === "error"
-              ? "Offline — will retry"
-              : "All answers saved"}
-      </span>
+      {preview ? (
+        <span className="flex items-center gap-4 text-sm text-ink/60">
+          Preview — answers aren&apos;t saved
+          <Link
+            href={`/admin/ielts/${test.id}`}
+            className="font-medium text-ink underline"
+          >
+            Exit preview
+          </Link>
+        </span>
+      ) : (
+        <span className="text-sm text-ink/60" role="status" aria-live="polite">
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "dirty"
+              ? "Unsaved changes"
+              : saveState === "error"
+                ? "Offline — will retry"
+                : "All answers saved"}
+        </span>
+      )}
     </header>
   );
 }
@@ -1728,6 +1747,8 @@ function WritingExam({
 
 function ExamRunner({ view }: { view: View }) {
   const utils = trpc.useUtils();
+  const preview = useContext(ExamPreviewContext);
+  const [, navigate] = useLocation();
   const { attempt, test } = view;
   const numbers = useMemo(() => numbered(view), [view]);
   const [answers, setAnswers] = useState<AnswerState>(() =>
@@ -1766,6 +1787,7 @@ function ExamRunner({ view }: { view: View }) {
     trpc.student.submit.useMutation();
 
   const flush = useCallback(async () => {
+    if (preview) return dirty.current.clear();
     if (!dirty.current.size || submitted.current) return;
     const ids = [...dirty.current];
     dirty.current.clear();
@@ -1783,12 +1805,21 @@ function ExamRunner({ view }: { view: View }) {
       ids.forEach(id => dirty.current.add(id));
       setSaveState("error");
     }
-  }, [attempt.id, saveAnswers]);
+  }, [attempt.id, preview, saveAnswers]);
 
   const submit = useCallback(
     async (auto = false) => {
       if (submitted.current) return;
       submitted.current = true;
+      if (preview) {
+        toast.info(
+          auto
+            ? "Time is up — this is where the answers would be submitted."
+            : "Preview finished — nothing was submitted."
+        );
+        navigate(`/admin/ielts/${test.id}`);
+        return;
+      }
       try {
         await submitAnswers({
           attemptId: attempt.id,
@@ -1813,7 +1844,7 @@ function ExamRunner({ view }: { view: View }) {
         );
       }
     },
-    [attempt.id, submitAnswers, utils]
+    [attempt.id, navigate, preview, submitAnswers, test.id, utils]
   );
 
   // Timer
@@ -2659,6 +2690,45 @@ export default function StudentAttempt() {
   return (
     <StudentShell bare={data?.attempt.status === "in_progress"}>
       {valid ? <AttemptPage id={id} /> : null}
+    </StudentShell>
+  );
+}
+
+/** /admin/ielts/preview/:id — the exam screen as students see it, for staff. Nothing is saved. */
+export function StudentAttemptPreview() {
+  const [pathname] = useLocation();
+  const id = Number(pathname.split("/")[4]);
+  const { user } = useAuth();
+  const { data, isLoading, error } = trpc.mockTests.preview.useQuery(
+    { id },
+    {
+      enabled: Number.isFinite(id) && id > 0 && !!user,
+      refetchOnWindowFocus: false,
+      retry: false,
+    }
+  );
+  return (
+    <StudentShell bare staffPreview>
+      {data ? (
+        <ExamPreviewContext.Provider value>
+          <ExamRunner view={data} />
+        </ExamPreviewContext.Provider>
+      ) : isLoading ? (
+        <div
+          className="flex min-h-[60vh] items-center justify-center"
+          role="status"
+        >
+          <span className="h-10 w-10 animate-spin rounded-full border-2 border-ink border-t-transparent" />
+        </div>
+      ) : (
+        <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
+          <h1 className="text-[32px]">Test not found</h1>
+          {error && <p className="mt-3 text-ink/70">{error.message}</p>}
+          <Link href="/admin/ielts" className="mt-4 inline-block underline">
+            Back to IELTS tests
+          </Link>
+        </div>
+      )}
     </StudentShell>
   );
 }

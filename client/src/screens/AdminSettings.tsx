@@ -30,7 +30,6 @@ function OnlinePaymentSettings() {
   const utils = trpc.useUtils();
   const status = trpc.paymentGateway.status.useQuery();
   const [form, setForm] = useState({
-    enabled: true,
     mode: "sandbox" as "sandbox" | "live",
     username: "",
     password: "",
@@ -41,7 +40,6 @@ function OnlinePaymentSettings() {
     if (!status.data) return;
     setForm(current => ({
       ...current,
-      enabled: status.data.enabled,
       mode: status.data.mode,
       username: status.data.username,
     }));
@@ -57,12 +55,34 @@ function OnlinePaymentSettings() {
       await utils.paymentGateway.status.invalidate();
       utils.payments.available.invalidate();
       toast.success(
-        form.enabled
-          ? "Credentials checked with bKash and saved."
-          : "Saved. Online payment is off."
+        status.data?.enabled === false
+          ? "Saved. bKash payments are off."
+          : "Credentials checked with bKash and saved."
       );
     },
     onError: error => toast.error(error.message),
+  });
+  const setEnabled = trpc.paymentGateway.setEnabled.useMutation({
+    onMutate: async ({ enabled }) => {
+      await utils.paymentGateway.status.cancel();
+      const previous = utils.paymentGateway.status.getData();
+      utils.paymentGateway.status.setData(undefined, current =>
+        current ? { ...current, enabled } : current
+      );
+      return { previous };
+    },
+    onSuccess: (_result, { enabled }) =>
+      toast.success(
+        enabled ? "bKash payments turned on." : "bKash payments turned off."
+      ),
+    onError: (error, _input, context) => {
+      utils.paymentGateway.status.setData(undefined, context?.previous);
+      toast.error(error.message);
+    },
+    onSettled: () => {
+      utils.paymentGateway.status.invalidate();
+      utils.payments.available.invalidate();
+    },
   });
   const data = status.data;
   const field =
@@ -104,7 +124,7 @@ function OnlinePaymentSettings() {
               ? data.source === "environment"
                 ? "On — using the server's BKASH_* settings. Saving here replaces them."
                 : `On — ${data.mode === "live" ? "Live" : "Sandbox"} mode${data.appKeyHint ? `, app key ${data.appKeyHint}` : ""}.`
-              : data?.source === "settings" && !data.enabled
+              : data && !data.enabled
                 ? "Off — turned off here."
                 : "Off — no bKash credentials are set."}
         </span>
@@ -124,10 +144,9 @@ function OnlinePaymentSettings() {
             </span>
           </span>
           <Switch
-            checked={form.enabled}
-            onCheckedChange={enabled =>
-              setForm(current => ({ ...current, enabled }))
-            }
+            checked={data?.enabled ?? true}
+            disabled={!data || setEnabled.isPending}
+            onCheckedChange={enabled => setEnabled.mutate({ enabled })}
           />
         </label>
         <div className="grid gap-5 sm:grid-cols-2">

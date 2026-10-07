@@ -26,7 +26,10 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { canAccessStudentDashboard } from "@shared/roles";
+import {
+  canAccessAdminDashboard,
+  canAccessStudentDashboard,
+} from "@shared/roles";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
@@ -117,9 +120,12 @@ function StudentLogin() {
 export default function StudentShell({
   children,
   bare,
+  staffPreview,
 }: {
   children: ReactNode;
   bare?: boolean;
+  /** Admin preview of a student screen: staff accounts get through instead of students. */
+  staffPreview?: boolean;
 }) {
   const { user, loading, logout } = useAuth();
   const [pathname, navigate] = useLocation();
@@ -191,6 +197,12 @@ export default function StudentShell({
     </div>
   ) : !user ? (
     <StudentLogin />
+  ) : staffPreview ? (
+    canAccessAdminDashboard(user.role) ? null : (
+      <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
+        <h1 className="text-[32px]">Staff accounts only</h1>
+      </div>
+    )
   ) : !isStudent ? (
     <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
       <h1 className="text-[32px]">Student accounts only</h1>

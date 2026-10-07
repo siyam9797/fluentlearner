@@ -15,6 +15,7 @@ import {
   ArrowDown,
   ArrowUp,
   CloudUpload,
+  Eye,
   FileInput,
   Loader2,
   Music2,
@@ -2273,70 +2274,87 @@ export default function AdminMockTestEditor() {
       }
       action={
         settings ? (
-          <button
-            className="admin-primary-button"
-            disabled={save.isPending}
-            onClick={() => {
-              const problem = validate(settings, sections);
-              if (problem) return toast.error(problem);
-              let seq = 0;
-              const sheet =
-                settings.format === "answer_sheet" &&
-                isAutoMarkedModule(settings.module);
-              save.mutate({
-                id: testId,
-                test: {
-                  ...settings,
-                  durationMinutes:
-                    settings.mode === "exam" ? settings.durationMinutes : null,
-                  description: settings.description || null,
-                },
-                sections: sections.map((s, sectionIndex) => ({
-                  id: s.id,
-                  title:
-                    settings.module === "listening"
-                      ? `Part ${sectionIndex + 1}`
-                      : settings.module === "reading"
-                        ? `Passage ${sectionIndex + 1}`
-                        : s.title.trim(),
-                  instructions: s.instructions || null,
-                  content: s.content || null,
-                  questionLayout: s.questionLayout || null,
-                  imageUrl: s.imageUrl || null,
-                  audioUrl: s.audioUrl || null,
-                  questions: s.questions.map(q => ({
-                    id: q.id,
-                    type: q.type,
-                    instruction: q.instruction || null,
-                    // Answer-sheet questions are numbered like the book: 1…40 across all parts.
-                    prompt: sheet ? `Question ${++seq}` : q.prompt.trim(),
-                    options:
-                      choiceSelectionCount(q.type) ||
-                      (q.type === "flow_chart_completion" &&
-                        q.options.some(o => o.trim()))
-                        ? q.options.map(o => o.trim())
-                        : null,
-                    answers: AUTO_MARKED_TYPES.includes(q.type)
-                      ? q.answers.map(a => a.trim()).filter(Boolean)
-                      : null,
-                    explanation: q.explanation || null,
-                    points: q.points,
-                    minWords: q.minWords,
-                    prepSeconds: q.prepSeconds,
-                    responseSeconds: q.responseSeconds,
-                    audioUrl: q.type === "speaking" ? q.audioUrl || null : null,
-                  })),
-                })),
-              });
-            }}
-          >
-            {save.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            {testId && (
+              <a
+                href={`/admin/ielts/preview/${testId}`}
+                target="_blank"
+                rel="noopener"
+                title="Opens the last saved version as students see it"
+                className="admin-button admin-button-secondary"
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </a>
             )}
-            Save test
-          </button>
+            <button
+              className="admin-primary-button"
+              disabled={save.isPending}
+              onClick={() => {
+                const problem = validate(settings, sections);
+                if (problem) return toast.error(problem);
+                let seq = 0;
+                const sheet =
+                  settings.format === "answer_sheet" &&
+                  isAutoMarkedModule(settings.module);
+                save.mutate({
+                  id: testId,
+                  test: {
+                    ...settings,
+                    durationMinutes:
+                      settings.mode === "exam"
+                        ? settings.durationMinutes
+                        : null,
+                    description: settings.description || null,
+                  },
+                  sections: sections.map((s, sectionIndex) => ({
+                    id: s.id,
+                    title:
+                      settings.module === "listening"
+                        ? `Part ${sectionIndex + 1}`
+                        : settings.module === "reading"
+                          ? `Passage ${sectionIndex + 1}`
+                          : s.title.trim(),
+                    instructions: s.instructions || null,
+                    content: s.content || null,
+                    questionLayout: s.questionLayout || null,
+                    imageUrl: s.imageUrl || null,
+                    audioUrl: s.audioUrl || null,
+                    questions: s.questions.map(q => ({
+                      id: q.id,
+                      type: q.type,
+                      instruction: q.instruction || null,
+                      // Answer-sheet questions are numbered like the book: 1…40 across all parts.
+                      prompt: sheet ? `Question ${++seq}` : q.prompt.trim(),
+                      options:
+                        choiceSelectionCount(q.type) ||
+                        (q.type === "flow_chart_completion" &&
+                          q.options.some(o => o.trim()))
+                          ? q.options.map(o => o.trim())
+                          : null,
+                      answers: AUTO_MARKED_TYPES.includes(q.type)
+                        ? q.answers.map(a => a.trim()).filter(Boolean)
+                        : null,
+                      explanation: q.explanation || null,
+                      points: q.points,
+                      minWords: q.minWords,
+                      prepSeconds: q.prepSeconds,
+                      responseSeconds: q.responseSeconds,
+                      audioUrl:
+                        q.type === "speaking" ? q.audioUrl || null : null,
+                    })),
+                  })),
+                });
+              }}
+            >
+              {save.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save test
+            </button>
+          </div>
         ) : undefined
       }
     />

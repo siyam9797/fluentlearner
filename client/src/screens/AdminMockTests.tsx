@@ -258,6 +258,14 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
       <button
         type="button"
         onClick={() =>
+          window.open(`/admin/ielts/preview/${test.id}`, "_blank", "noopener")
+        }
+      >
+        Preview as student
+      </button>
+      <button
+        type="button"
+        onClick={() =>
           setAttemptsPanel({ test: { id: test.id, title: test.title } })
         }
       >

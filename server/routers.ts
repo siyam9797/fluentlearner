@@ -6,6 +6,7 @@ import {
   bkashSource,
   checkBkashCredentials,
   isBkashConfigured,
+  isBkashEnabled,
   savedBkashSettings,
 } from "./bkash";
 import { canManageUsers } from "@shared/roles";
@@ -776,7 +777,7 @@ export const appRouter = router({
       return {
         source: await bkashSource(),
         active: await isBkashConfigured(),
-        enabled: saved?.enabled ?? true,
+        enabled: await isBkashEnabled(),
         mode: saved?.mode ?? "sandbox",
         username: saved?.username ?? "",
         appKeyHint: saved?.appKey ? `…${saved.appKey.slice(-4)}` : null,
@@ -856,11 +857,25 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    /** The "Accept bKash payments" switch; saved on its own so it works without re-entering credentials. */
+    setEnabled: adminProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        requirePaymentManager(ctx.user.role);
+        await upsertSiteSetting(
+          BKASH_SETTINGS.enabled,
+          String(input.enabled),
+          "secret",
+          "payment",
+          "bKash enabled"
+        );
+        return { success: true };
+      }),
+
     /** Checks the credentials with bKash, then saves them. Blank secrets keep the saved ones. */
     save: adminProcedure
       .input(
         z.object({
-          enabled: z.boolean(),
           mode: z.enum(["sandbox", "live"]),
           username: z.string().trim().min(1, "Enter the bKash username"),
           password: z.string().trim().max(300),
@@ -887,7 +902,7 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: "Enter the password, app key and app secret.",
           });
-        if (input.enabled) {
+        if (await isBkashEnabled()) {
           try {
             await checkBkashCredentials(credentials);
           } catch (error) {
@@ -902,11 +917,6 @@ export const appRouter = router({
         }
         const save = (key: string, value: string, label: string) =>
           upsertSiteSetting(key, value, "secret", "payment", label);
-        await save(
-          BKASH_SETTINGS.enabled,
-          String(input.enabled),
-          "bKash enabled"
-        );
         await save(BKASH_SETTINGS.mode, input.mode, "bKash mode");
         await save(
           BKASH_SETTINGS.username,

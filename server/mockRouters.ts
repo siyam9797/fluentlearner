@@ -128,6 +128,17 @@ export const mockTestsRouter = router({
       return test;
     }),
 
+  /** The exam screen exactly as students see it, without starting an attempt. */
+  preview: adminProcedure
+    .input(z.object({ id: z.number().int() }))
+    .query(async ({ input }) => {
+      const view = await mock.getPreviewView(input.id);
+      return {
+        ...view,
+        attempt: { ...view.attempt, aiEvaluation: studentAiView(null) },
+      };
+    }),
+
   save: adminProcedure
     .input(
       z
