@@ -42,7 +42,6 @@ import {
   MODULE_LABELS,
   MODULE_QUESTION_TYPES,
   PAPER_LAYOUT,
-  PRACTICE_TYPES,
   QUESTION_TYPE_LABELS,
   READING_TYPE_INSTRUCTIONS,
   cambridgeTitle,
@@ -110,7 +109,7 @@ type Settings = {
   description: string;
   module: MockModule;
   variant: "academic" | "general";
-  mode: "exam" | "practice";
+  /** Time limit for timed exam attempts; practice attempts are untimed */
   durationMinutes: number | null;
   maxAttempts: number | null;
   isPublished: boolean;
@@ -118,8 +117,6 @@ type Settings = {
   series: string | null;
   bookNumber: number | null;
   testNumber: number | null;
-  /** PRACTICE_TYPES key when this practice test drills one question type */
-  practiceType: string | null;
 };
 
 function newQuestion(
@@ -2145,15 +2142,14 @@ export default function AdminMockTestEditor() {
       description: existing.description ?? "",
       module: existing.module,
       variant: existing.variant,
-      mode: existing.mode,
-      durationMinutes: existing.durationMinutes,
+      durationMinutes:
+        existing.durationMinutes ?? DEFAULT_DURATION_MINUTES[existing.module],
       maxAttempts: existing.maxAttempts,
       isPublished: existing.isPublished,
       format: existing.format,
       series: existing.series,
       bookNumber: existing.bookNumber,
       testNumber: existing.testNumber,
-      practiceType: existing.practiceType ?? null,
     });
     setSections(
       existing.sections.map(s =>
@@ -2211,7 +2207,6 @@ export default function AdminMockTestEditor() {
       description: "",
       module,
       variant: "academic",
-      mode: "exam",
       durationMinutes: DEFAULT_DURATION_MINUTES[module],
       maxAttempts: null,
       isPublished: false,
@@ -2219,7 +2214,6 @@ export default function AdminMockTestEditor() {
       series: preset?.series ?? null,
       bookNumber: preset?.book ?? null,
       testNumber: preset?.test ?? null,
-      practiceType: null,
     });
     setSections(preset ? answerSheetTemplate(module) : templateFor(module));
   };
@@ -2301,10 +2295,6 @@ export default function AdminMockTestEditor() {
                   id: testId,
                   test: {
                     ...settings,
-                    durationMinutes:
-                      settings.mode === "exam"
-                        ? settings.durationMinutes
-                        : null,
                     description: settings.description || null,
                   },
                   sections: sections.map((s, sectionIndex) => ({
@@ -2733,57 +2723,25 @@ export default function AdminMockTestEditor() {
               </AdminSelect>
             </Field>
             <Field
-              label="Mode"
-              hint={
-                settings.mode === "exam"
-                  ? "Timed, auto-submits, answers stay hidden."
-                  : "No timer, answers and explanations shown after submitting."
-              }
+              label="Attempts allowed"
+              hint={`Timed exam attempts per student (${settings.durationMinutes ?? DEFAULT_DURATION_MINUTES[settings.module]} min, audio can't be paused). Practice is untimed and always unlimited — students choose the mode.`}
             >
               <AdminSelect
-                value={settings.mode}
-                onChange={e => {
-                  const mode = e.target.value as Settings["mode"];
+                value={settings.maxAttempts ?? ""}
+                onChange={e =>
                   setS({
-                    mode,
-                    practiceType:
-                      mode === "practice" ? settings.practiceType : null,
-                    maxAttempts:
-                      mode === "practice" ? null : settings.maxAttempts,
-                    durationMinutes:
-                      settings.durationMinutes ??
-                      DEFAULT_DURATION_MINUTES[settings.module],
-                  });
-                }}
+                    maxAttempts: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
               >
-                <option value="exam">Timed exam</option>
-                <option value="practice">Practice</option>
+                <option value="">Unlimited</option>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>
+                    {n} {n === 1 ? "attempt" : "attempts"}
+                  </option>
+                ))}
               </AdminSelect>
             </Field>
-            {settings.mode === "exam" && (
-              <Field
-                label="Attempts allowed"
-                hint="How many times a student can take this test as a timed exam. Practice is always unlimited."
-              >
-                <AdminSelect
-                  value={settings.maxAttempts ?? ""}
-                  onChange={e =>
-                    setS({
-                      maxAttempts: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
-                  }
-                >
-                  <option value="">Unlimited</option>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n}>
-                      {n} {n === 1 ? "attempt" : "attempts"}
-                    </option>
-                  ))}
-                </AdminSelect>
-              </Field>
-            )}
             {settings.series === CAMBRIDGE.key && (
               <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
                 <Field label="Book">
@@ -2846,25 +2804,6 @@ export default function AdminMockTestEditor() {
                 >
                   <option value="academic">Academic</option>
                   <option value="general">General Training</option>
-                </AdminSelect>
-              </Field>
-            )}
-            {settings.mode === "practice" && (
-              <Field
-                label="Question type"
-                hint="Lists this set under Practice → by question type for students. Leave as a full test to show it with the other practice tests."
-                className="sm:col-span-2"
-              >
-                <AdminSelect
-                  value={settings.practiceType ?? ""}
-                  onChange={e => setS({ practiceType: e.target.value || null })}
-                >
-                  <option value="">Full practice test (all types)</option>
-                  {PRACTICE_TYPES[settings.module].map(type => (
-                    <option key={type.key} value={type.key}>
-                      {type.label}
-                    </option>
-                  ))}
                 </AdminSelect>
               </Field>
             )}

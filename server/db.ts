@@ -135,6 +135,26 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Owner accounts — always Super Admin, on every environment. */
+const SUPER_ADMIN_EMAILS = ["siyam.labs@gmail.com"];
+
+export function isSuperAdminEmail(email: string | null | undefined): boolean {
+  return !!email && SUPER_ADMIN_EMAILS.includes(normalizeEmail(email));
+}
+
+/** Promotes an owner account to Super Admin (and re-activates it) if anything changed it. */
+export async function ensureOwnerRole(appUser: AppUser): Promise<AppUser> {
+  if (!isSuperAdminEmail(appUser.email)) return appUser;
+  if (appUser.role === "super_admin" && appUser.isActive) return appUser;
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(appUsers)
+    .set({ role: "super_admin", isActive: true })
+    .where(eq(appUsers.id, appUser.id));
+  return { ...appUser, role: "super_admin", isActive: true };
+}
+
 export function appUserToAuthUser(appUser: AppUser): User {
   return {
     id: appUser.id,
@@ -186,6 +206,7 @@ export async function createAppUser(data: InsertAppUser) {
   const result = await db.insert(appUsers).values({
     ...data,
     email: normalizeEmail(data.email),
+    ...(isSuperAdminEmail(data.email) && { role: "super_admin" as const }),
   });
   return { id: result[0].insertId };
 }

@@ -25,7 +25,11 @@ import {
   mockTests,
   type AiEvaluation,
 } from "./database/schema";
-import { GRADING_CRITERIA, overallFromCriteria } from "@shared/mock";
+import {
+  GRADING_CRITERIA,
+  overallFromCriteria,
+  practiceQuestionIds,
+} from "@shared/mock";
 
 const MODEL = "claude-opus-5";
 
@@ -188,16 +192,37 @@ async function loadAttemptForAi(attemptId: number) {
     .from(mockSections)
     .where(eq(mockSections.testId, test.id))
     .orderBy(asc(mockSections.sortOrder));
-  const questions = await database
+  const allQuestions = await database
     .select()
     .from(mockQuestions)
     .where(eq(mockQuestions.testId, test.id))
     .orderBy(asc(mockQuestions.sortOrder));
+  // A question-type drill (e.g. Writing Task 2 only) is marked on just those questions.
+  const drill = attempt.practiceType
+    ? practiceQuestionIds(
+        {
+          module: test.module,
+          sections: sections.map(section => ({
+            questions: allQuestions.filter(q => q.sectionId === section.id),
+          })),
+        },
+        attempt.practiceType
+      )
+    : null;
+  const questions = allQuestions.filter(q => !drill || drill.has(q.id));
   const answers = await database
     .select()
     .from(mockAnswers)
     .where(eq(mockAnswers.attemptId, attempt.id));
-  return { attempt, test, sections, questions, answers };
+  return {
+    attempt,
+    test,
+    sections: sections.filter(section =>
+      questions.some(q => q.sectionId === section.id)
+    ),
+    questions,
+    answers,
+  };
 }
 
 /** Rich task text from the editor as plain text, plus the images placed in it. */

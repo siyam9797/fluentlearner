@@ -603,14 +603,28 @@ export function parseAnswerKey(text: string, module: "listening" | "reading") {
 
 /**
  * Official IELTS question types, for "practice by question type".
- * A practice set is a mock test tagged with one of these keys (mock_tests.practiceType).
- * Each maps onto the stored question kinds above (e.g. Matching Headings → mcq, Summary Completion → short_answer).
+ * Nothing is tagged by hand: Reading and Listening questions belong to a type through their builder
+ * question type, Writing and Speaking questions through the part they sit in. A student drilling a
+ * type practises just those questions from every published test (mock_attempts.practiceType).
  */
 export type PracticeTypeInfo = {
   key: string;
   label: string;
   description: string;
+  /** Reading/Listening: the builder question types it covers */
+  questionTypes?: MockQuestionType[];
+  /** Writing/Speaking: the part it covers (0 = Task 1 / Part 1) */
+  part?: number;
 };
+
+const CHOICE_TYPES: MockQuestionType[] = [
+  "mcq",
+  "one_choice",
+  "two_choices",
+  "three_choices",
+  "four_choices",
+  "five_choices",
+];
 
 export const PRACTICE_TYPES: Record<MockModule, PracticeTypeInfo[]> = {
   reading: [
@@ -618,58 +632,80 @@ export const PRACTICE_TYPES: Record<MockModule, PracticeTypeInfo[]> = {
       key: "reading_matching_headings",
       label: "Matching Headings",
       description: "Choose the heading that best fits each paragraph.",
+      questionTypes: ["matching_headings"],
     },
     {
       key: "reading_matching_information",
       label: "Matching Information",
       description:
         "Find which paragraph contains a given piece of information.",
+      questionTypes: ["matching_information"],
     },
     {
       key: "reading_matching_features",
       label: "Matching Features",
       description: "Match statements to people, places, dates or categories.",
+      questionTypes: ["matching_features", "matching"],
     },
     {
       key: "reading_sentence_endings",
       label: "Matching Sentence Endings",
       description: "Complete each sentence with the correct ending.",
+      questionTypes: ["matching_sentence_endings"],
     },
     {
       key: "reading_tfng",
       label: "True / False / Not Given",
       description:
         "Decide whether statements agree with the facts in the passage.",
+      questionTypes: ["tfng"],
     },
     {
       key: "reading_ynng",
       label: "Yes / No / Not Given",
       description: "Decide whether statements agree with the writer's views.",
+      questionTypes: ["ynng"],
     },
     {
       key: "reading_multiple_choice",
       label: "Multiple Choice",
       description: "Choose the correct answer from several options.",
+      questionTypes: CHOICE_TYPES,
     },
     {
       key: "reading_summary_completion",
       label: "Summary / Note Completion",
       description: "Fill gaps in a summary using words from the passage.",
+      questionTypes: [
+        "summary_completion",
+        "note_completion",
+        "form_completion",
+      ],
     },
     {
       key: "reading_sentence_completion",
       label: "Sentence Completion",
       description: "Complete sentences with words from the passage.",
+      questionTypes: ["sentence_completion"],
     },
     {
       key: "reading_diagram_labelling",
-      label: "Table / Diagram Completion",
-      description: "Complete a table or label a diagram from the passage.",
+      label: "Table / Flow-chart / Diagram Completion",
+      description: "Complete a table or flow-chart, or label a diagram.",
+      questionTypes: [
+        "table_completion",
+        "flow_chart_completion",
+        "diagram_labeling",
+        "map_labeling",
+        "plan_labeling",
+        "visual_labeling",
+      ],
     },
     {
       key: "reading_short_answer",
       label: "Short Answer Questions",
       description: "Answer questions using a few words from the passage.",
+      questionTypes: ["short_answers", "short_answer"],
     },
   ],
   listening: [
@@ -677,93 +713,69 @@ export const PRACTICE_TYPES: Record<MockModule, PracticeTypeInfo[]> = {
       key: "listening_form_completion",
       label: "Form / Note / Table Completion",
       description: "Fill in missing details while you listen.",
+      questionTypes: ["form_completion", "note_completion", "table_completion"],
     },
     {
       key: "listening_multiple_choice",
       label: "Multiple Choice",
       description: "Choose the correct answer as the speakers talk.",
+      questionTypes: [...CHOICE_TYPES, "tfng", "ynng"],
     },
     {
       key: "listening_matching",
       label: "Matching",
       description: "Match items in a list to a set of options.",
+      questionTypes: [
+        "matching",
+        "matching_features",
+        "matching_information",
+        "matching_sentence_endings",
+        "matching_headings",
+      ],
     },
     {
       key: "listening_map_labelling",
       label: "Map / Plan / Diagram Labelling",
       description: "Label places on a map or parts of a diagram.",
+      questionTypes: [
+        "map_labeling",
+        "plan_labeling",
+        "visual_labeling",
+        "diagram_labeling",
+      ],
     },
     {
       key: "listening_sentence_completion",
       label: "Sentence Completion",
       description: "Complete sentences with words you hear.",
+      questionTypes: ["sentence_completion"],
     },
     {
       key: "listening_flow_chart",
       label: "Flow-chart / Summary Completion",
       description: "Complete the steps of a process or a summary.",
+      questionTypes: ["flow_chart_completion", "summary_completion"],
     },
     {
       key: "listening_short_answer",
       label: "Short Answer Questions",
       description: "Answer questions in a few words.",
+      questionTypes: ["short_answers", "short_answer"],
     },
   ],
   writing: [
     {
-      key: "writing_t1_line_graph",
-      label: "Task 1: Line Graph",
-      description: "Describe trends over time.",
+      key: "writing_task1",
+      label: "Task 1",
+      description:
+        "Describe a graph, chart, table, process or map (a letter in General Training).",
+      part: 0,
     },
     {
-      key: "writing_t1_bar_chart",
-      label: "Task 1: Bar Chart",
-      description: "Compare categories shown as bars.",
-    },
-    {
-      key: "writing_t1_pie_chart",
-      label: "Task 1: Pie Chart",
-      description: "Compare proportions of a whole.",
-    },
-    {
-      key: "writing_t1_table",
-      label: "Task 1: Table",
-      description: "Select and compare the key figures in a table.",
-    },
-    {
-      key: "writing_t1_process",
-      label: "Task 1: Process Diagram",
-      description: "Describe the stages of a process in order.",
-    },
-    {
-      key: "writing_t1_map",
-      label: "Task 1: Maps",
-      description: "Describe how a place has changed.",
-    },
-    {
-      key: "writing_t1_letter",
-      label: "Task 1 (General): Letter",
-      description: "Write a formal, semi-formal or informal letter.",
-    },
-    {
-      key: "writing_t2_opinion",
-      label: "Task 2: Opinion Essay",
-      description: "Agree or disagree and give reasons.",
-    },
-    {
-      key: "writing_t2_discussion",
-      label: "Task 2: Discussion Essay",
-      description: "Discuss both views and give your opinion.",
-    },
-    {
-      key: "writing_t2_problem_solution",
-      label: "Task 2: Problem / Solution",
-      description: "Explain causes or problems and suggest solutions.",
-    },
-    {
-      key: "writing_t2_advantages",
-      label: "Task 2: Advantages / Disadvantages",
-      description: "Weigh the benefits and drawbacks.",
+      key: "writing_task2",
+      label: "Task 2",
+      description: "Write an essay giving and supporting your opinion.",
+      part: 1,
     },
   ],
   speaking: [
@@ -771,16 +783,19 @@ export const PRACTICE_TYPES: Record<MockModule, PracticeTypeInfo[]> = {
       key: "speaking_part1",
       label: "Part 1: Introduction & Interview",
       description: "Short questions about familiar topics.",
+      part: 0,
     },
     {
       key: "speaking_part2",
       label: "Part 2: Cue Card",
       description: "Speak for up to 2 minutes after 1 minute of preparation.",
+      part: 1,
     },
     {
       key: "speaking_part3",
       label: "Part 3: Discussion",
       description: "Discuss abstract ideas linked to the Part 2 topic.",
+      part: 2,
     },
   ],
 };
@@ -795,4 +810,64 @@ const PRACTICE_TYPE_INDEX = new Map(
 
 export function practiceTypeInfo(key: string | null | undefined) {
   return key ? (PRACTICE_TYPE_INDEX.get(key) ?? null) : null;
+}
+
+/** The practice type a question counts towards, from its question type or (Writing/Speaking) its part. */
+export function practiceTypeOfQuestion(
+  module: MockModule,
+  type: MockQuestionType,
+  partIndex: number
+) {
+  return (
+    PRACTICE_TYPES[module].find(info =>
+      info.part !== undefined
+        ? info.part === partIndex
+        : info.questionTypes?.includes(type)
+    )?.key ?? null
+  );
+}
+
+type PracticeTree = {
+  module: MockModule;
+  sections: { questions: { id: number; type: MockQuestionType }[] }[];
+};
+
+/** Ids of the questions in a test that belong to one practice type. */
+export function practiceQuestionIds(test: PracticeTree, key: string) {
+  return new Set(
+    test.sections.flatMap((section, partIndex) =>
+      section.questions
+        .filter(
+          q => practiceTypeOfQuestion(test.module, q.type, partIndex) === key
+        )
+        .map(q => q.id)
+    )
+  );
+}
+
+/** Every practice type a test has questions for. */
+export function practiceTypesInTest(test: PracticeTree) {
+  return Array.from(
+    new Set(
+      test.sections.flatMap((section, partIndex) =>
+        section.questions.flatMap(
+          q => practiceTypeOfQuestion(test.module, q.type, partIndex) ?? []
+        )
+      )
+    )
+  );
+}
+
+/** Question numbers as printed on the paper; a multi-answer question takes one number per answer. */
+export function questionNumbers(
+  sections: { questions: { id: number; type: MockQuestionType }[] }[]
+) {
+  const map = new Map<number, number>();
+  let n = 0;
+  for (const section of sections)
+    for (const q of section.questions) {
+      map.set(q.id, n + 1);
+      n += Math.max(1, CHOICE_SELECTION_COUNTS[q.type] ?? 1);
+    }
+  return map;
 }

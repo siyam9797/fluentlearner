@@ -410,9 +410,9 @@ export const mockTests = mysqlTable(
     variant: mysqlEnum("variant", ["academic", "general"])
       .default("academic")
       .notNull(),
-    /** exam = timed, limited attempts, answers hidden; practice = untimed, answers shown */
+    /** Unused: students choose exam or practice per attempt (mock_attempts.mode). Kept so no migration is needed. */
     mode: mysqlEnum("mode", ["exam", "practice"]).default("exam").notNull(),
-    /** Time limit in minutes (exam mode) */
+    /** Time limit in minutes for timed exam attempts; null falls back to DEFAULT_DURATION_MINUTES */
     durationMinutes: int("durationMinutes"),
     /** null = unlimited */
     maxAttempts: int("maxAttempts"),
@@ -429,7 +429,7 @@ export const mockTests = mysqlTable(
     series: varchar("series", { length: 50 }),
     bookNumber: int("bookNumber"),
     testNumber: int("testNumber"),
-    /** Official IELTS question type this practice set drills (PRACTICE_TYPES key), or null for full tests */
+    /** Unused: question types now come from each question (see practiceTypeOfQuestion). Kept so no migration is needed. */
     practiceType: varchar("practiceType", { length: 60 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -520,6 +520,8 @@ export const mockAttempts = mysqlTable(
       .notNull(),
     /** Chosen by the student when starting: "exam" is timed and mentor-marked, "practice" is untimed with answers and AI marking shown straight away */
     mode: mysqlEnum("mode", ["exam", "practice"]).default("exam").notNull(),
+    /** PRACTICE_TYPES key when the student drills one question type: only those questions are shown and marked */
+    practiceType: varchar("practiceType", { length: 60 }),
     startedAt: timestamp("startedAt").defaultNow().notNull(),
     /** Hard deadline for timed attempts */
     deadlineAt: timestamp("deadlineAt"),

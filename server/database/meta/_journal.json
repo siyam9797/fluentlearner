@@ -141,6 +141,13 @@
       "when": 1790633000000,
       "tag": "0019_question_audio",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1790634000000,
+      "tag": "0020_attempt_practice_type",
+      "breakpoints": true
     }
   ]
 }

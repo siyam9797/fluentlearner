@@ -54,6 +54,7 @@ import {
   optionIndex,
   optionKey,
   optionLetter,
+  practiceTypeInfo,
 } from "@shared/mock";
 
 type View = RouterOutputs["student"]["attempt"];
@@ -70,6 +71,7 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
   const [playing, setPlaying] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [played, setPlayed] = useState(false);
 
   useEffect(() => {
     setSupported(typeof window !== "undefined" && "speechSynthesis" in window);
@@ -90,6 +92,7 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
     utterance.onend = () => setPlaying(false);
     utterance.onerror = () => setPlaying(false);
     setPlaying(true);
+    setPlayed(true);
     window.speechSynthesis.speak(utterance);
   };
 
@@ -104,7 +107,7 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
         <button
           type="button"
           onClick={playing ? stop : play}
-          disabled={!supported}
+          disabled={!supported || (exam && (playing || played))}
           className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-brand-red transition-colors hover:bg-brand-red-light disabled:opacity-50"
           aria-label={playing ? "Pause audio script" : "Play audio script"}
         >
@@ -122,21 +125,27 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
           <p className="mt-1 text-sm text-white/60">
             {playing
               ? "Playing audio script…"
-              : supported
-                ? "Press play when you are ready"
-                : "Audio playback is not supported in this browser"}
+              : !supported
+                ? "Audio playback is not supported in this browser"
+                : exam && played
+                  ? "The recording has finished"
+                  : exam
+                    ? "You will hear the recording once, without pausing"
+                    : "Press play when you are ready"}
           </p>
         </div>
-        <HvActionButton
-          onClick={play}
-          disabled={!supported}
-          variant="ghost"
-          size="xs"
-          className="rounded-full"
-          icon={<RotateCcw className="h-4 w-4" />}
-        >
-          Replay
-        </HvActionButton>
+        {!exam && (
+          <HvActionButton
+            onClick={play}
+            disabled={!supported}
+            variant="ghost"
+            size="xs"
+            className="rounded-full"
+            icon={<RotateCcw className="h-4 w-4" />}
+          >
+            Replay
+          </HvActionButton>
+        )}
         {!exam && (
           <HvActionButton
             onClick={() => setShowTranscript(value => !value)}
@@ -158,6 +167,98 @@ function ScriptedAudioPlayer({ text, exam }: { text: string; exam: boolean }) {
   );
 }
 
+/**
+ * Listening audio in a timed exam: like the real test it plays once, with no pause, seek or replay.
+ * Finishing is remembered per attempt and part, so reloading the page doesn't allow a second listen.
+ */
+function ExamAudioPlayer({
+  src,
+  storageKey,
+}: {
+  src: string;
+  storageKey?: string;
+}) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const [state, setState] = useState<"ready" | "playing" | "done">(() => {
+    try {
+      return storageKey && localStorage.getItem(storageKey) ? "done" : "ready";
+    } catch {
+      return "ready";
+    }
+  });
+  const [progress, setProgress] = useState(0);
+
+  const start = () => {
+    audio.current
+      ?.play()
+      .then(() => setState("playing"))
+      .catch(() => toast.error("The recording could not start. Try again."));
+  };
+
+  const finish = () => {
+    setState("done");
+    try {
+      if (storageKey) localStorage.setItem(storageKey, "1");
+    } catch {
+      // Storage can be unavailable (private mode); playback still works.
+    }
+  };
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] bg-ink text-white">
+      <audio
+        ref={audio}
+        src={src}
+        preload="auto"
+        onTimeUpdate={e => {
+          const el = e.currentTarget;
+          if (el.duration) setProgress(el.currentTime / el.duration);
+        }}
+        // Media keys or headphone buttons can still pause it; carry on playing.
+        onPause={e => {
+          if (state === "playing" && !e.currentTarget.ended)
+            void e.currentTarget.play().catch(() => undefined);
+        }}
+        onEnded={finish}
+      />
+      <div className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
+        <button
+          type="button"
+          onClick={start}
+          disabled={state !== "ready"}
+          className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-brand-red transition-colors hover:bg-brand-red-light disabled:opacity-50"
+          aria-label="Play the recording"
+        >
+          {state === "done" ? (
+            <Check className="h-5 w-5" />
+          ) : (
+            <Play className="ml-0.5 h-5 w-5 fill-current" />
+          )}
+        </button>
+        <div className="min-w-[180px] flex-1">
+          <p className="flex items-center gap-2 font-medium">
+            <Volume2 className="h-4 w-4 text-brand-red-light" />
+            Listening audio
+          </p>
+          <p className="mt-1 text-sm text-white/60" role="status">
+            {state === "playing"
+              ? "Playing — the recording can't be paused"
+              : state === "done"
+                ? "The recording has finished"
+                : "You will hear the recording once, without pausing. Press play when you are ready."}
+          </p>
+        </div>
+      </div>
+      <div className="h-1 bg-white/10">
+        <div
+          className="h-full bg-brand-red transition-[width]"
+          style={{ width: `${(state === "done" ? 1 : progress) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function clock(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);
@@ -166,15 +267,11 @@ function clock(ms: number) {
   return `${h ? `${h}:` : ""}${String(m).padStart(h ? 2 : 1, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+/** Question numbers from the server, as on the full paper (a question-type drill keeps them). */
 function numbered(view: View) {
-  const map = new Map<number, number>();
-  let n = 0;
-  for (const s of view.test.sections)
-    for (const q of s.questions) {
-      map.set(q.id, n + 1);
-      n += Math.max(1, CHOICE_SELECTION_COUNTS[q.type] ?? 1);
-    }
-  return map;
+  return new Map(
+    view.test.sections.flatMap(s => s.questions.map(q => [q.id, q.number]))
+  );
 }
 
 function questionNumberLabel(question: Question, start: number) {
@@ -1156,7 +1253,8 @@ function ExamHeader({
             ? "Preview"
             : view.attempt.mode === "exam"
               ? "Exam"
-              : "Practice"}
+              : (practiceTypeInfo(view.attempt.practiceType)?.label ??
+                "Practice")}
         </p>
         <h1 className="truncate text-base">{test.title}</h1>
       </div>
@@ -2161,7 +2259,9 @@ function ExamRunner({ view }: { view: View }) {
           <div className="min-w-0 flex-1">
             <p className="text-xs uppercase tracking-[0.14em] text-ink/60">
               {MODULE_LABELS[test.module]} ·{" "}
-              {attempt.mode === "exam" ? "Exam" : "Practice"}
+              {attempt.mode === "exam"
+                ? "Exam"
+                : (practiceTypeInfo(attempt.practiceType)?.label ?? "Practice")}
             </p>
             <h1 className="truncate text-lg">{test.title}</h1>
           </div>
@@ -2239,25 +2339,32 @@ function ExamRunner({ view }: { view: View }) {
             {formatInstruction(section.instructions)}
           </p>
         )}
-        {section.audioUrl && (
-          <div className="mt-5 rounded-[var(--radius-control)] bg-sand p-4">
-            <audio
-              controls
-              preload="auto"
+        {section.audioUrl &&
+          (attempt.mode === "exam" ? (
+            <ExamAudioPlayer
+              key={section.id}
               src={section.audioUrl}
-              className="w-full"
-              controlsList="nodownload noplaybackrate"
+              storageKey={
+                // Admin previews (id 0) can listen again each time.
+                attempt.id
+                  ? `exam-audio-played:${attempt.id}:${section.id}`
+                  : undefined
+              }
             />
-            {attempt.mode === "exam" && (
-              <p className="mt-2 text-sm text-ink/60">
-                In the real test you hear the recording once — try not to replay
-                it.
-              </p>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="mt-5 rounded-[var(--radius-control)] bg-sand p-4">
+              <audio
+                controls
+                preload="auto"
+                src={section.audioUrl}
+                className="w-full"
+                controlsList="nodownload noplaybackrate"
+              />
+            </div>
+          ))}
         {scriptedListening && (
           <ScriptedAudioPlayer
+            key={section.id}
             text={section.content!}
             exam={attempt.mode === "exam"}
           />
@@ -2392,6 +2499,9 @@ function AttemptResult({ view }: { view: View }) {
   const aiMarking =
     awaiting && ai?.status === "pending" && attempt.mode === "practice";
   const aiGraded = !awaiting && ai?.applied === true;
+  // A question-type drill shows its raw score; it is too short for a Reading/Listening band.
+  const drill = practiceTypeInfo(attempt.practiceType);
+  const drillScore = !!drill && !!attempt.maxScore;
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-12 lg:py-16">
@@ -2401,6 +2511,7 @@ function AttemptResult({ view }: { view: View }) {
       <p className="mt-6 flex items-center gap-2 text-lg">
         <DecorSquare />
         {MODULE_LABELS[test.module]} result
+        {drill && <span className="text-ink/60">· {drill.label}</span>}
       </p>
       <h1 className="mt-2 text-[36px] sm:text-[44px]">{test.title}</h1>
 
@@ -2409,14 +2520,20 @@ function AttemptResult({ view }: { view: View }) {
           <p className="text-sm text-white/80">
             {awaiting
               ? "Status"
-              : test.module === "reading" || test.module === "listening"
-                ? "Estimated band"
-                : "Band"}
+              : drillScore
+                ? "Score"
+                : test.module === "reading" || test.module === "listening"
+                  ? "Estimated band"
+                  : "Band"}
           </p>
           <p className="mt-4 text-[64px] font-semibold leading-none">
-            {awaiting ? "…" : formatBand(attempt.band)}
+            {awaiting
+              ? "…"
+              : drillScore
+                ? `${attempt.rawScore}/${attempt.maxScore}`
+                : formatBand(attempt.band)}
           </p>
-          {attempt.maxScore ? (
+          {attempt.maxScore && !drillScore ? (
             <p className="mt-3 text-white/85">
               {attempt.rawScore} of {attempt.maxScore} correct
             </p>

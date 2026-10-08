@@ -36,9 +36,8 @@ import { trpc } from "@/lib/trpc";
 import { Link, useLocation, useSearch } from "@/lib/router";
 import {
   CAMBRIDGE,
+  DEFAULT_DURATION_MINUTES,
   MODULE_LABELS,
-  PRACTICE_TYPES,
-  practiceTypeInfo,
   type MockModule,
 } from "@shared/mock";
 
@@ -69,16 +68,13 @@ export const MODULE_BLURB: Record<MockModule, string> = {
 
 const NO_FILTERS: FilterSelection = {
   source: [],
-  practiceType: [],
-  mode: [],
   status: [],
 };
 
-type Source = "own" | "types" | "cambridge";
+type Source = "own" | "cambridge";
 // Also the list order: our own tests first, the large Cambridge library last.
 const SOURCES: { key: Source; label: string }[] = [
   { key: "own", label: "Our tests" },
-  { key: "types", label: "Question-type practice" },
   { key: "cambridge", label: CAMBRIDGE.label },
 ];
 const SOURCE_RANK = Object.fromEntries(
@@ -110,11 +106,7 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
 
   type Test = (typeof allTests)[number];
   const sourceOf = (test: Test): Source =>
-    test.series === CAMBRIDGE.key
-      ? "cambridge"
-      : test.practiceType
-        ? "types"
-        : "own";
+    test.series === CAMBRIDGE.key ? "cambridge" : "own";
   const statusOf = (test: Test) => (test.isPublished ? "published" : "draft");
 
   const needle = query.trim().toLowerCase();
@@ -123,8 +115,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
       test =>
         (!needle || test.title.toLowerCase().includes(needle)) &&
         passesFilter(filters, "source", sourceOf(test)) &&
-        passesFilter(filters, "practiceType", test.practiceType ?? "") &&
-        passesFilter(filters, "mode", test.mode) &&
         passesFilter(filters, "status", statusOf(test))
     )
     .sort((a, b) => SOURCE_RANK[sourceOf(a)] - SOURCE_RANK[sourceOf(b)]);
@@ -146,31 +136,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
           label,
           count: count(test => sourceOf(test) === key),
         })),
-      },
-      {
-        key: "practiceType",
-        title: "Question type",
-        options: PRACTICE_TYPES[module].map(type => ({
-          value: type.key,
-          label: type.label,
-          count: count(test => test.practiceType === type.key),
-        })),
-      },
-      {
-        key: "mode",
-        title: "Type",
-        options: [
-          {
-            value: "exam",
-            label: "Timed exam",
-            count: count(test => test.mode === "exam"),
-          },
-          {
-            value: "practice",
-            label: "Practice",
-            count: count(test => test.mode === "practice"),
-          },
-        ],
       },
       {
         key: "status",
@@ -218,18 +183,15 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
 
   const kindOf = (test: Test) => {
     const parts: string[] = [];
-    if (test.practiceType)
-      parts.push(practiceTypeInfo(test.practiceType)?.label ?? "Practice set");
-    else if (test.module === "reading")
+    if (test.module === "reading")
       parts.push(test.variant === "general" ? "General" : "Academic");
     else parts.push("Full test");
     if (test.format === "answer_sheet") parts.push("Answer sheet");
     return parts.filter(Boolean).join(" · ");
   };
+  // Every test is offered both ways; students pick timed exam or practice when they start.
   const modeOf = (test: Test) =>
-    test.mode === "exam"
-      ? `Timed exam${test.durationMinutes ? ` · ${test.durationMinutes} min` : ""}`
-      : "Practice";
+    `Timed ${test.durationMinutes ?? DEFAULT_DURATION_MINUTES[test.module]} min · Practice`;
 
   const publishSwitch = (test: Test) => (
     <div className="flex items-center gap-2">
@@ -495,7 +457,7 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
                 <thead className="border-b border-gray-200 text-gray-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">Test</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Modes</th>
                     <th className="px-4 py-3 font-medium">Questions</th>
                     <th className="px-4 py-3 font-medium">Attempts</th>
                     <th className="px-4 py-3 font-medium">Status</th>

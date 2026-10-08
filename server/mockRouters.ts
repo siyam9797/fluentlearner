@@ -18,7 +18,7 @@ import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
 import { APP_ROLES, canManageUsers } from "@shared/roles";
-import { choiceSelectionCount, practiceTypeInfo } from "@shared/mock";
+import { choiceSelectionCount } from "@shared/mock";
 import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
 const questionInput = z
@@ -58,33 +58,20 @@ const sectionInput = z.object({
   questions: z.array(questionInput),
 });
 
-const testInput = z
-  .object({
-    title: z.string().trim().min(1, "Title is required"),
-    description: z.string().nullish(),
-    module: z.enum(MOCK_MODULES),
-    variant: z.enum(["academic", "general"]).default("academic"),
-    mode: z.enum(["exam", "practice"]).default("exam"),
-    durationMinutes: z.number().int().min(1).max(300).nullish(),
-    maxAttempts: z.number().int().min(1).max(100).nullish(),
-    isPublished: z.boolean().default(false),
-    sortOrder: z.number().int().default(0),
-    format: z.enum(["full", "answer_sheet"]).default("full"),
-    series: z.string().trim().max(50).nullish(),
-    bookNumber: z.number().int().min(1).max(99).nullish(),
-    testNumber: z.number().int().min(1).max(20).nullish(),
-    /** PRACTICE_TYPES key; must belong to the same module */
-    practiceType: z.string().max(60).nullish(),
-  })
-  .refine(
-    test =>
-      !test.practiceType ||
-      practiceTypeInfo(test.practiceType)?.module === test.module,
-    {
-      message: "Choose a question type that belongs to this module",
-      path: ["practiceType"],
-    }
-  );
+const testInput = z.object({
+  title: z.string().trim().min(1, "Title is required"),
+  description: z.string().nullish(),
+  module: z.enum(MOCK_MODULES),
+  variant: z.enum(["academic", "general"]).default("academic"),
+  durationMinutes: z.number().int().min(1).max(300).nullish(),
+  maxAttempts: z.number().int().min(1).max(100).nullish(),
+  isPublished: z.boolean().default(false),
+  sortOrder: z.number().int().default(0),
+  format: z.enum(["full", "answer_sheet"]).default("full"),
+  series: z.string().trim().max(50).nullish(),
+  bookNumber: z.number().int().min(1).max(99).nullish(),
+  testNumber: z.number().int().min(1).max(20).nullish(),
+});
 
 const answerInput = z.object({
   questionId: z.number().int().positive(),
@@ -667,13 +654,16 @@ export const studentRouter = router({
       z.object({
         testId: z.number().int(),
         mode: z.enum(["exam", "practice"]).default("exam"),
+        /** PRACTICE_TYPES key: practise only this test's questions of that type */
+        practiceType: z.string().max(60).nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const attempt = await mock.startAttempt(
         input.testId,
         ctx.user.id,
-        input.mode
+        input.mode,
+        input.practiceType ?? null
       );
       return { attemptId: attempt.id };
     }),

@@ -88,6 +88,11 @@ type TestMode = "exam" | "practice";
 type StudentTest = Omit<ServerStudentTest, "mode" | "modes"> &
   ServerStudentTest["modes"][TestMode] & { mode: TestMode };
 
+type DrillSet = {
+  test: StudentTest;
+  drill: ServerStudentTest["drills"][string];
+};
+
 /** Every test can be taken as practice or as a timed exam; each mode tracks its own attempts. */
 function inMode(test: ServerStudentTest, mode: TestMode): StudentTest {
   const { modes, ...rest } = test;
@@ -246,20 +251,41 @@ function CambridgeLibrary({
   );
 }
 
-/** Practice sets grouped by official IELTS question type (tests tagged with practiceType). */
-function QuestionTypePractice({
-  tests,
-  actions,
-}: {
-  tests: StudentTest[];
-  actions: ReturnType<typeof useTestActions>;
-}) {
-  const { actionFor, starting } = actions;
+/**
+ * Practice one official IELTS question type at a time. Each published test that has questions of
+ * that type (from their builder question type, or their part for Writing/Speaking) offers a drill
+ * of just those questions.
+ */
+function QuestionTypePractice({ tests }: { tests: StudentTest[] }) {
+  const [, navigate] = useLocation();
+  const start = trpc.student.start.useMutation({
+    onSuccess: ({ attemptId }) => navigate(`/student/attempts/${attemptId}`),
+    onError: err => toast.error(err.message),
+  });
+  const starting = start.isPending;
   const [module, setModule] = useState<MockModule>("reading");
   const [openType, setOpenType] = useState<string | null>(null);
   const types = PRACTICE_TYPES[module];
   const setsFor = (key: string) =>
-    tests.filter(test => test.practiceType === key);
+    tests.flatMap(test => {
+      const drill = test.drills[key];
+      return drill ? [{ test, drill }] : [];
+    });
+  const actionFor = (key: string, { test, drill }: DrillSet) =>
+    drill.inProgressAttemptId
+      ? {
+          label: "Resume",
+          run: () => navigate(`/student/attempts/${drill.inProgressAttemptId}`),
+        }
+      : {
+          label: drill.attemptsUsed ? "Try again" : "Start",
+          run: () =>
+            start.mutate({
+              testId: test.id,
+              mode: "practice",
+              practiceType: key,
+            }),
+        };
   const openSets = openType ? setsFor(openType) : [];
   const openInfo = types.find(type => type.key === openType);
 
@@ -278,7 +304,9 @@ function QuestionTypePractice({
       >
         {MODULE_ORDER.map(item => {
           const Icon = MODULE_ICONS[item];
-          const count = tests.filter(test => test.module === item).length;
+          const count = tests.filter(
+            test => test.module === item && Object.keys(test.drills).length > 0
+          ).length;
           return (
             <button
               key={item}
@@ -311,7 +339,7 @@ function QuestionTypePractice({
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {types.map(type => {
           const sets = setsFor(type.key);
-          const done = sets.filter(test => test.attemptsUsed > 0).length;
+          const done = sets.filter(set => set.drill.attemptsUsed > 0).length;
           const active = openType === type.key;
           return (
             <button
@@ -332,7 +360,7 @@ function QuestionTypePractice({
               </span>
               <span className="mt-4 text-xs font-medium text-ink/50">
                 {sets.length
-                  ? `${sets.length} set${sets.length === 1 ? "" : "s"} · ${done} done`
+                  ? `${sets.length} test${sets.length === 1 ? "" : "s"} · ${done} done`
                   : "Coming soon"}
               </span>
               {sets.length > 0 && (
@@ -351,11 +379,13 @@ function QuestionTypePractice({
       {openInfo && openSets.length > 0 && (
         <div className="mt-4 rounded-[var(--radius-card)] bg-[var(--student-card)] ring-1 ring-ink/8">
           <p className="border-b border-ink/10 px-5 py-4 font-medium">
-            {openInfo.label} — practice sets
+            {openInfo.label} — practise from these tests
           </p>
           <ul>
-            {openSets.map((test, index) => {
-              const action = actionFor(test);
+            {openSets.map((set, index) => {
+              const { test, drill } = set;
+              const action = actionFor(openInfo.key, set);
+              const last = drill.lastAttempt;
               return (
                 <li
                   key={test.id}
@@ -367,23 +397,23 @@ function QuestionTypePractice({
                   <div className="min-w-0">
                     <p className="font-medium">{test.title}</p>
                     <p className="mt-0.5 text-sm text-ink/60">
-                      {test.questionCount} question
-                      {test.questionCount === 1 ? "" : "s"}
-                      {test.bestBand !== null && (
+                      {drill.questionCount} question
+                      {drill.questionCount === 1 ? "" : "s"}
+                      {last?.maxScore ? (
                         <>
                           {" "}
-                          · Best band{" "}
+                          · Last score{" "}
                           <strong className="text-ink">
-                            {formatBand(test.bestBand)}
+                            {last.rawScore}/{last.maxScore}
                           </strong>
                         </>
-                      )}
-                      {test.lastAttempt && !test.inProgressAttemptId && (
+                      ) : null}
+                      {last && !drill.inProgressAttemptId && (
                         <>
                           {" "}
                           ·{" "}
                           <Link
-                            href={`/student/attempts/${test.lastAttempt.id}`}
+                            href={`/student/attempts/${last.id}`}
                             className="underline"
                           >
                             Review last attempt
@@ -392,19 +422,17 @@ function QuestionTypePractice({
                       )}
                     </p>
                   </div>
-                  {action && (
-                    <button
-                      type="button"
-                      className="hv-btn hv-btn-dark"
-                      disabled={starting}
-                      onClick={action.run}
-                    >
-                      <span className="hv-btn-label">
-                        <span>{action.label}</span>
-                        <span aria-hidden="true">{action.label}</span>
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="hv-btn hv-btn-dark"
+                    disabled={starting}
+                    onClick={action.run}
+                  >
+                    <span className="hv-btn-label">
+                      <span>{action.label}</span>
+                      <span aria-hidden="true">{action.label}</span>
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -554,9 +582,7 @@ function TestsHome({ initialMode }: { initialMode?: "practice" | "exam" }) {
   const cambridge = allTests.filter(
     t => t.series === CAMBRIDGE.key && t.bookNumber && t.testNumber
   );
-  // Question-type sets have their own section, so keep them out of the general library.
-  const typedSets = allTests.filter(t => t.practiceType);
-  const tests = allTests.filter(t => !cambridge.includes(t) && !t.practiceType);
+  const tests = allTests.filter(t => !cambridge.includes(t));
   // Practice shows every full test; Mock tests offers the same tests as timed exams.
   const libraryTests = tests;
 
@@ -845,7 +871,7 @@ function TestsHome({ initialMode }: { initialMode?: "practice" | "exam" }) {
             <CambridgeLibrary tests={cambridge} actions={actions} />
           )}
           {libraryMode === "practice" && (
-            <QuestionTypePractice tests={typedSets} actions={actions} />
+            <QuestionTypePractice tests={allTests} />
           )}
           {libraryMode === "practice" && (
             <FullPracticeTests tests={libraryTests} actions={actions} />
@@ -967,7 +993,7 @@ function TestsHome({ initialMode }: { initialMode?: "practice" | "exam" }) {
           {!isLoading &&
             libraryTests.length === 0 &&
             !(libraryMode === "exam" && cambridge.length) &&
-            !(libraryMode === "practice" && typedSets.length) && (
+            !(libraryMode === "practice" && allTests.length) && (
               <div className="mt-8 rounded-[var(--radius-card)] border border-dashed border-ink/20 bg-white/60 p-10 text-center text-ink/60">
                 No{" "}
                 {libraryMode === "practice" ? "practice modules" : "mock tests"}{" "}

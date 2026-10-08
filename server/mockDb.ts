@@ -38,8 +38,13 @@ import {
   AUTO_MARKED_TYPES,
   answerScore,
   bandFromRawScore,
+  DEFAULT_DURATION_MINUTES,
   isAutoMarkedModule,
   overallFromCriteria,
+  practiceQuestionIds,
+  practiceTypeInfo,
+  practiceTypesInTest,
+  questionNumbers,
   type MockModule,
   type MockQuestionType,
 } from "@shared/mock";
@@ -92,7 +97,6 @@ export type TestInput = {
   description?: string | null;
   module: MockModule;
   variant: "academic" | "general";
-  mode: "exam" | "practice";
   durationMinutes?: number | null;
   maxAttempts?: number | null;
   isPublished: boolean;
@@ -101,7 +105,6 @@ export type TestInput = {
   series?: string | null;
   bookNumber?: number | null;
   testNumber?: number | null;
-  practiceType?: string | null;
 };
 
 export async function listTestsWithStats() {
@@ -180,7 +183,6 @@ export async function saveTestTree(
       description: test.description ?? null,
       module: test.module,
       variant: test.variant,
-      mode: test.mode,
       durationMinutes: test.durationMinutes ?? null,
       maxAttempts: test.maxAttempts ?? null,
       isPublished: test.isPublished,
@@ -189,7 +191,6 @@ export async function saveTestTree(
       series: test.series || null,
       bookNumber: test.series ? (test.bookNumber ?? null) : null,
       testNumber: test.series ? (test.testNumber ?? null) : null,
-      practiceType: test.practiceType || null,
     };
     if (id) {
       await tx.update(mockTests).set(testValues).where(eq(mockTests.id, id));
@@ -335,6 +336,13 @@ function isExpired(attempt: MockAttempt, now = Date.now()) {
   );
 }
 
+/** For a question-type drill, the ids of the questions it covers; null for a whole test. */
+function drillQuestionIds(tree: TestTree, attempt: MockAttempt) {
+  return attempt.practiceType
+    ? practiceQuestionIds(tree, attempt.practiceType)
+    : null;
+}
+
 /** Mark objective answers, compute the band, and close the attempt. */
 export async function finalizeAttempt(attemptId: number) {
   const database = await db();
@@ -344,15 +352,11 @@ export async function finalizeAttempt(attemptId: number) {
     .where(eq(mockAttempts.id, attemptId))
     .limit(1);
   if (!attempt || attempt.status !== "in_progress") return attempt;
-  const [test] = await database
-    .select()
-    .from(mockTests)
-    .where(eq(mockTests.id, attempt.testId))
-    .limit(1);
-  const questions = await database
-    .select()
-    .from(mockQuestions)
-    .where(eq(mockQuestions.testId, attempt.testId));
+  const test = await getTestTree(attempt.testId);
+  const drill = test && drillQuestionIds(test, attempt);
+  const questions = (test?.sections ?? [])
+    .flatMap(section => section.questions)
+    .filter(question => !drill || drill.has(question.id));
   const answers = await database
     .select()
     .from(mockAnswers)
@@ -395,8 +399,9 @@ export async function finalizeAttempt(attemptId: number) {
       submittedAt: now,
       rawScore: autoMarked ? raw : null,
       maxScore: autoMarked ? max : null,
+      // A question-type drill is too short for a band; it shows the raw score.
       band:
-        autoMarked && test
+        autoMarked && test && !drill
           ? bandFromRawScore(test.module, test.variant, raw, max).toFixed(1)
           : null,
       gradedAt: autoMarked ? now : null,
@@ -447,7 +452,9 @@ export async function getOwnedAttempt(attemptId: number, userId: number) {
 export async function startAttempt(
   testId: number,
   userId: number,
-  mode: "exam" | "practice"
+  mode: "exam" | "practice",
+  /** PRACTICE_TYPES key to drill just those questions (practice only) */
+  practiceType: string | null = null
 ) {
   const database = await db();
   const [test] = await database
@@ -461,6 +468,20 @@ export async function startAttempt(
       message: "This test is not available",
     });
 
+  if (practiceType) {
+    const tree = await getTestTree(testId);
+    if (
+      mode !== "practice" ||
+      practiceTypeInfo(practiceType)?.module !== test.module ||
+      !tree ||
+      !practiceQuestionIds(tree, practiceType).size
+    )
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This test has no questions of that type",
+      });
+  }
+
   const attempts = await database
     .select()
     .from(mockAttempts)
@@ -470,7 +491,10 @@ export async function startAttempt(
     .orderBy(desc(mockAttempts.startedAt));
 
   for (const attempt of attempts.filter(
-    a => a.status === "in_progress" && a.mode === mode
+    a =>
+      a.status === "in_progress" &&
+      a.mode === mode &&
+      (a.practiceType ?? null) === practiceType
   )) {
     const current = await loadAttempt(attempt.id);
     if (current?.status === "in_progress") return current; // resume
@@ -489,15 +513,16 @@ export async function startAttempt(
   }
 
   const now = new Date();
-  const timed = mode === "exam" && test.durationMinutes;
+  // Timed exams always have a clock; older tests saved without one use the real IELTS timing.
+  const minutes = test.durationMinutes ?? DEFAULT_DURATION_MINUTES[test.module];
   const [result] = await database.insert(mockAttempts).values({
     testId,
     userId,
     mode,
+    practiceType,
     startedAt: now,
-    deadlineAt: timed
-      ? new Date(now.getTime() + test.durationMinutes! * 60_000)
-      : null,
+    deadlineAt:
+      mode === "exam" ? new Date(now.getTime() + minutes * 60_000) : null,
   });
   const [created] = await database
     .select()
@@ -526,14 +551,14 @@ export async function saveAnswers(
       message: "Time is up for this attempt",
     });
   const database = await db();
-  const validIds = new Set(
-    (
-      await database
-        .select({ id: mockQuestions.id })
-        .from(mockQuestions)
-        .where(eq(mockQuestions.testId, attempt.testId))
-    ).map(q => q.id)
-  );
+  const tree = await getTestTree(attempt.testId);
+  const validIds =
+    (tree && drillQuestionIds(tree, attempt)) ??
+    new Set(
+      (tree?.sections ?? []).flatMap(section =>
+        section.questions.map(q => q.id)
+      )
+    );
   for (const answer of answers) {
     if (!validIds.has(answer.questionId)) continue;
     const values: { response?: string | null; audioUrl?: string | null } = {};
@@ -568,8 +593,12 @@ export async function getAttemptView(
   const finished = attempt.status !== "in_progress";
   const reveal = options.revealAnswers && finished;
 
+  // Numbers come from the whole paper, so a drill keeps them (and its completion layouts line up).
+  const numbers = questionNumbers(tree.sections);
+  const drill = drillQuestionIds(tree, attempt);
   const stripQuestion = (q: MockQuestion) => ({
     ...q,
+    number: numbers.get(q.id) ?? 0,
     answers: reveal ? q.answers : null,
     explanation: reveal ? q.explanation : null,
   });
@@ -579,10 +608,14 @@ export async function getAttemptView(
     serverNow: new Date(),
     test: {
       ...tree,
-      sections: tree.sections.map(section => ({
-        ...section,
-        questions: section.questions.map(stripQuestion),
-      })),
+      sections: tree.sections
+        .map(section => ({
+          ...section,
+          questions: section.questions
+            .filter(q => !drill || drill.has(q.id))
+            .map(stripQuestion),
+        }))
+        .filter(section => section.questions.length),
     },
     answers: answers.map(a => ({
       questionId: a.questionId,
@@ -606,10 +639,12 @@ export async function getPreviewView(testId: number) {
     userId: 0,
     status: "in_progress",
     mode: "exam",
+    practiceType: null,
     startedAt: now,
-    deadlineAt: tree.durationMinutes
-      ? new Date(now.getTime() + tree.durationMinutes * 60_000)
-      : null,
+    deadlineAt: new Date(
+      now.getTime() +
+        (tree.durationMinutes ?? DEFAULT_DURATION_MINUTES[tree.module]) * 60_000
+    ),
     submittedAt: null,
     rawScore: null,
     maxScore: null,
@@ -636,13 +671,28 @@ export async function listStudentTests(userId: number) {
     .from(mockAttempts)
     .where(eq(mockAttempts.userId, userId))
     .orderBy(desc(mockAttempts.startedAt));
-  const counts = await database
-    .select({ testId: mockQuestions.testId, n: sql<number>`count(*)` })
-    .from(mockQuestions)
-    .groupBy(mockQuestions.testId);
+  const sections = await database
+    .select({ id: mockSections.id, testId: mockSections.testId })
+    .from(mockSections)
+    .orderBy(asc(mockSections.sortOrder), asc(mockSections.id));
+  const questions = await database
+    .select({
+      id: mockQuestions.id,
+      sectionId: mockQuestions.sectionId,
+      type: mockQuestions.type,
+    })
+    .from(mockQuestions);
 
   return tests.map(test => {
-    const mine = attempts.filter(a => a.testId === test.id);
+    const tree = {
+      module: test.module,
+      sections: sections
+        .filter(section => section.testId === test.id)
+        .map(section => ({
+          questions: questions.filter(q => q.sectionId === section.id),
+        })),
+    };
+    const mine = attempts.filter(a => a.testId === test.id && !a.practiceType);
     const bands = mine.map(a => Number(a.band)).filter(Number.isFinite);
     // Students take any test as an exam or as practice; each mode keeps its own progress.
     const stateFor = (mode: "exam" | "practice") => {
@@ -660,12 +710,37 @@ export async function listStudentTests(userId: number) {
         lastAttempt: inMode[0] ?? null,
       };
     };
+    // Question-type drills on this test, keyed by PRACTICE_TYPES key.
+    const drills = Object.fromEntries(
+      practiceTypesInTest(tree).map(key => {
+        const tries = attempts.filter(
+          a => a.testId === test.id && a.practiceType === key
+        );
+        return [
+          key,
+          {
+            questionCount: practiceQuestionIds(tree, key).size,
+            attemptsUsed: tries.length,
+            inProgressAttemptId:
+              tries.find(a => a.status === "in_progress" && !isExpired(a))
+                ?.id ?? null,
+            lastAttempt: tries[0] ?? null,
+          },
+        ];
+      })
+    );
     const inProgress = mine.find(
       a => a.status === "in_progress" && !isExpired(a)
     );
     return {
       ...test,
-      questionCount: Number(counts.find(c => c.testId === test.id)?.n ?? 0),
+      durationMinutes:
+        test.durationMinutes ?? DEFAULT_DURATION_MINUTES[test.module],
+      questionCount: tree.sections.reduce(
+        (n, section) => n + section.questions.length,
+        0
+      ),
+      drills,
       attemptsUsed: mine.length,
       bestBand: bands.length ? Math.max(...bands) : null,
       inProgressAttemptId: inProgress?.id ?? null,
@@ -839,7 +914,6 @@ export async function listAttempts(filter: {
         id: mockTests.id,
         title: mockTests.title,
         module: mockTests.module,
-        mode: mockTests.mode,
       },
       student: { id: appUsers.id, name: appUsers.name, email: appUsers.email },
     })

@@ -88,7 +88,8 @@ class SessionService {
         lastSignedIn: now,
       };
     }
-    const user = await db.getAppUserById(session.userId);
+    const found = await db.getAppUserById(session.userId);
+    const user = found && (await db.ensureOwnerRole(found));
     if (!user || !user.isActive) throw ForbiddenError("User not found");
     const signedInAt = new Date();
     await db.updateAppUserLastSignedIn(user.id, signedInAt);
