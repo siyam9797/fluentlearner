@@ -1,5 +1,5 @@
 /**
- * v2 Enroll page — /v2/enroll
+ * v2 Enroll page — /enroll
  * Choose course → your details → pay with bKash (hosted checkout). bKash returns to
  * /api/payments/bkash/callback, which confirms the payment and redirects back here with ?payment=…
  */

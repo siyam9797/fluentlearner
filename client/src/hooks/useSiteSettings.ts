@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { SITE_STATS, CONTACT, BRAND } from "@/lib/siteConstants";
+import { OLD_SITE_SETTINGS } from "@/old-site/content";
 
 /**
  * Hook to get site settings from DB with fallback to hardcoded constants.
@@ -11,7 +12,18 @@ export function useSiteSettings() {
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     refetchOnWindowFocus: false,
   });
+  return siteSettingsFrom(data, isLoading);
+}
 
+/** The old (v1) site at /old: the same shape, from frozen values instead of the database. */
+export function useOldSiteSettings() {
+  return siteSettingsFrom(OLD_SITE_SETTINGS, false);
+}
+
+function siteSettingsFrom(
+  data: Record<string, string | null> | undefined,
+  isLoading: boolean
+) {
   const get = (key: string, fallback: string = ""): string => {
     if (data && data[key]) return data[key]!;
     return fallback;

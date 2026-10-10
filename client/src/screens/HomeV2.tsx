@@ -1,11 +1,12 @@
 /**
- * Home v2 — alternate landing page served at /home-2.
+ * Home v2 — the landing page served at "/". The original v1 landing page now lives at /old.
  * Layout modelled on the Drivora template (cream canvas, Inter Tight)
- * with FluentLearner content and brand red. The original landing page at "/" is unchanged.
+ * with FluentLearner content and brand red.
  */
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";
 import HvLayout from "@/components/home-v2/HvLayout";
 import HvHero from "@/components/home-v2/HvHero";
+import HvTicker from "@/components/home-v2/HvTicker";
 import HvNumbers from "@/components/home-v2/HvNumbers";
 import HvCourses from "@/components/home-v2/HvCourses";
 import HvBenefits from "@/components/home-v2/HvBenefits";
@@ -20,13 +21,13 @@ export default function HomeV2() {
   const { t, on } = useV2Content();
   return (
     <HvLayout>
-      {/* Canonical points at "/" so the two landing pages don't compete in search. */}
       <SEOHead
         {...PAGE_SEO.home}
         title={t("v2_home_seo_title")}
         description={t("v2_home_seo_description")}
       />
       <HvHero />
+      {on("v2_home_ticker_show") && <HvTicker />}
       {on("v2_home_numbers_show") && <HvNumbers />}
       {on("v2_home_courses_show") && <HvCourses />}
       {on("v2_home_benefits_show") && <HvBenefits />}

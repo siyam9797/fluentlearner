@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { CONTACT } from "@/lib/siteConstants";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 
 const getFaqs = (totalScorers: string, successRate: string) => [
   {
@@ -97,7 +97,7 @@ function FAQItem({ faq, index, isVisible }: { faq: FAQ; index: number; isVisible
 
 export default function FAQSection() {
   const { ref, isVisible } = useScrollAnimation(0.1);
-  const { totalScorers, successRate } = useSiteSettings();
+  const { totalScorers, successRate } = useOldSiteSettings();
   const faqs = getFaqs(
     totalScorers.toLocaleString("bn-BD"),
     successRate.toLocaleString("bn-BD"),

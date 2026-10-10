@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const paymentID = url.searchParams.get("paymentID");
   const status = url.searchParams.get("status") ?? "failure";
-  const target = new URL("/v2/enroll", requestOrigin(request));
+  const target = new URL("/enroll", requestOrigin(request));
 
   if (!isValidPaymentId(paymentID)) {
     target.searchParams.set("payment", "failure");

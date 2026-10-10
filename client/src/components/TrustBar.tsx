@@ -6,7 +6,7 @@
  */
 import { useScrollAnimation, useCountUp } from "@/hooks/useScrollAnimation";
 import { Users, Trophy, TrendingUp, Calendar, Shield } from "lucide-react";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 
 function formatCompactCount(value: number): string {
   if (value >= 1000 && value % 1000 === 0) return `${value / 1000}K`;
@@ -15,7 +15,7 @@ function formatCompactCount(value: number): string {
 
 export default function TrustBar() {
   const { ref, isVisible } = useScrollAnimation(0.3);
-  const ss = useSiteSettings();
+  const ss = useOldSiteSettings();
 
   const stats = [
     { icon: Users, value: ss.totalScorers, suffix: "+", label: "Successful Students", labelEn: "Successful Scorers" },

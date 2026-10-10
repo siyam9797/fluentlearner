@@ -8,6 +8,7 @@ import {
   type V2MenuItem,
 } from "./content";
 import { formatCompact } from "./primitives";
+import { toV2Href } from "./routes";
 
 type Settings = Record<string, string | null> | undefined;
 
@@ -219,7 +220,13 @@ export function useV2Content() {
       );
       const menu = menus.find(item => item.id === locations[location]);
       return menu
-        ? toTree(menu.items.map(item => ({ ...item, label: fill(item.label) })))
+        ? toTree(
+            menu.items.map(item => ({
+              ...item,
+              label: fill(item.label),
+              url: toV2Href(item.url),
+            }))
+          )
         : [];
     },
     /** wa.me link, optionally with the message stored under `messageKey`. */

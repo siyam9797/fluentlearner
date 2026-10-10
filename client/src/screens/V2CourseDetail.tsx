@@ -1,4 +1,4 @@
-/** v2 Course detail page — /v2/courses/:slug (slug or numeric id) */
+/** v2 Course detail page — /courses/:slug (slug or numeric id) */
 import { BookOpen, CalendarClock, Check, Clock, Users } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { trpc } from "@/lib/trpc";

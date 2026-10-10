@@ -2,13 +2,14 @@
  * FeaturedStoriesPreview — Shows featured success stories from DB on home page
  * Uses database-backed success stories.
  */
-import { trpc } from "@/lib/trpc";
+import { OLD_FEATURED_STORIES } from "@/old-site/content";
 import { SITE_STATS } from "@/lib/siteConstants";
 import { Trophy, ArrowRight, Star } from "lucide-react";
 import { useLocation } from "@/lib/router";
 
 export default function FeaturedStoriesPreview() {
-  const { data: featuredStories, isLoading } = trpc.successStories.featured.useQuery();
+  const featuredStories = OLD_FEATURED_STORIES;
+  const isLoading = false;
   const [, setLocation] = useLocation();
 
   if (isLoading) {
@@ -55,7 +56,7 @@ export default function FeaturedStoriesPreview() {
             <div
               key={story.id}
               className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
-              onClick={() => setLocation("/success-stories")}
+              onClick={() => setLocation("/old/success-stories")}
             >
               <img
                 src={story.imageUrl}
@@ -91,7 +92,7 @@ export default function FeaturedStoriesPreview() {
         {/* View All Button */}
         <div className="text-center mt-10">
           <button
-            onClick={() => setLocation("/success-stories")}
+            onClick={() => setLocation("/old/success-stories")}
             className="inline-flex items-center gap-2 px-8 py-3 border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-semibold transition-all duration-300"
           >
             View All Success Stories

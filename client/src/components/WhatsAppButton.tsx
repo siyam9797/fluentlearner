@@ -6,10 +6,13 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import WhatsAppIcon from "@/components/WhatsAppIcon";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings, useSiteSettings } from "@/hooks/useSiteSettings";
 
-export default function WhatsAppButton() {
-  const ss = useSiteSettings();
+/** `oldSite` uses the frozen /old site contact details instead of the live settings. */
+export default function WhatsAppButton({ oldSite = false }: { oldSite?: boolean }) {
+  const live = useSiteSettings();
+  const frozen = useOldSiteSettings();
+  const ss = oldSite ? frozen : live;
   const [visible, setVisible] = useState(false);
   const [tooltip, setTooltip] = useState(true);
 

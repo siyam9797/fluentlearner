@@ -1,4 +1,4 @@
-/** v2 About page — /v2/about */
+/** v2 About page — /about */
 import { Compass, Target } from "lucide-react";
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";
 import HvLayout, { HvPageHeader } from "@/components/home-v2/HvLayout";

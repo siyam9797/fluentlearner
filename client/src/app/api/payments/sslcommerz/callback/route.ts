@@ -50,7 +50,7 @@ async function handle(request: Request) {
     return new Response("OK");
   }
 
-  const target = new URL("/v2/enroll", requestOrigin(request));
+  const target = new URL("/enroll", requestOrigin(request));
   if (!isValidPaymentId(tranId)) {
     target.searchParams.set("payment", "failure");
     return redirect(target);

@@ -9,8 +9,8 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Shield, ArrowRight, Phone, CheckCircle, Sparkles } from "lucide-react";
 import { useLocation } from "@/lib/router";
 import { CONTACT, PRICING } from "@/lib/siteConstants";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
-import { trpc } from "@/lib/trpc";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
+import { OLD_FEATURED_COURSES } from "@/old-site/content";
 
 export default function CTASection() {
   const { ref, isVisible } = useScrollAnimation(0.1);
@@ -24,8 +24,8 @@ export default function CTASection() {
     ctaSupportValue,
     ctaPriceLabel,
     ctaOfferLabel,
-  } = useSiteSettings();
-  const { data: featuredCourses } = trpc.courses.featured.useQuery();
+  } = useOldSiteSettings();
+  const featuredCourses = OLD_FEATURED_COURSES;
   const featuredVipCourse = featuredCourses?.find((course) => course.category === "ielts") ?? featuredCourses?.[0];
   const vipPrice = featuredVipCourse?.price || PRICING.VIP_1M;
   const vipOriginalPrice = featuredVipCourse ? featuredVipCourse.originalPrice : PRICING.VIP_ORIGINAL;

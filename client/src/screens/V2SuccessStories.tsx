@@ -1,4 +1,4 @@
-/** v2 Success Stories page — /v2/success-stories */
+/** v2 Success Stories page — /success-stories */
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";

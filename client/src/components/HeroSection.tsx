@@ -10,11 +10,11 @@ import { useCountUp } from "@/hooks/useScrollAnimation";
 import { Award, Users, TrendingUp, ChevronDown, Star, ArrowRight } from "lucide-react";
 import { useLocation } from "@/lib/router";
 import { SITE_STATS } from "@/lib/siteConstants";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 
 export default function HeroSection() {
   const [loaded, setLoaded] = useState(false);
-  const ss = useSiteSettings();
+  const ss = useOldSiteSettings();
   const scorers = useCountUp(ss.totalScorers, 2500, loaded);
   const avgScore = useCountUp(ss.totalScorers > 0 ? Math.round(parseFloat(ss.avgBandScore) * 10 || SITE_STATS.AVG_BAND_SCORE_RAW) : SITE_STATS.AVG_BAND_SCORE_RAW, 2000, loaded);
   const successRate = useCountUp(ss.successRate, 2200, loaded);

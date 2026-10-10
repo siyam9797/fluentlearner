@@ -1,4 +1,4 @@
-/** v2 How It Works page — /v2/how-it-works */
+/** v2 How It Works page — /how-it-works */
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";
 import { useV2Content } from "@/components/home-v2/useV2Content";
 import { cn } from "@/lib/utils";

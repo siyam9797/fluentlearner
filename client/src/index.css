@@ -52,7 +52,7 @@
   --color-brand-charcoal: oklch(0.3 0.01 25);
   --font-display: "Poppins", "Segoe UI", sans-serif;
   --font-body: "Source Sans 3", "Segoe UI", sans-serif;
-  /* Home v2 (/home-2) palette */
+  /* Home v2 (current site) palette */
   --color-ink: #1f1f1f;
   --color-cream: #f8f7ec;
   --color-sand: #e7e5dc;
@@ -742,7 +742,7 @@
   }
 
   /* ============================================
-     Home v2 (/home-2)
+     Home v2 (current site)
      ============================================ */
   /* Always reserve the scrollbar's width on v2 pages, so moving between short and long
      pages (or opening a lightbox that locks scrolling) doesn't shift the layout sideways. */
@@ -959,7 +959,26 @@
     opacity: 1;
     transform: none;
   }
+  /* Achievements ticker: two copies of the track slide left by one copy's width */
+  .hv-ticker-track {
+    animation: hv-ticker var(--hv-ticker-duration, 60s) linear infinite;
+  }
+  .hv-ticker:hover .hv-ticker-track {
+    animation-play-state: paused;
+  }
+  .hv-ticker-reverse {
+    animation-direction: reverse;
+  }
+  @keyframes hv-ticker {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .hv-ticker-track {
+      animation: none;
+    }
     .hv-reveal {
       opacity: 1;
       transform: none;

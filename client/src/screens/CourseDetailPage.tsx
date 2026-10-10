@@ -11,7 +11,7 @@
  * 7. Course FAQ accordion
  * 8. Enrollment CTA
  */
-import { trpc } from "@/lib/trpc";
+import { findOldCourse } from "@/old-site/content";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -42,25 +42,13 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default function CourseDetailPage() {
-  const [, params] = useRoute("/courses/:slug");
+  const [, params] = useRoute("/old/courses/:slug");
   const [, navigate] = useLocation();
   const slug = params?.slug || "";
 
-  // Try slug first, fall back to ID-based lookup
-  const isNumericId = /^\d+$/.test(slug);
-  
-  const { data: courseBySlug, isLoading: slugLoading } = trpc.courses.getBySlug.useQuery(
-    { slug },
-    { enabled: !isNumericId && !!slug }
-  );
-  
-  const { data: courseById, isLoading: idLoading } = trpc.courses.getById.useQuery(
-    { id: parseInt(slug) },
-    { enabled: isNumericId && !!slug }
-  );
-
-  const course = isNumericId ? courseById : courseBySlug;
-  const isLoading = isNumericId ? idLoading : slugLoading;
+  // Slug or numeric id, looked up in the frozen course list
+  const course = findOldCourse(slug);
+  const isLoading = false;
 
   const [openCurriculumIndex, setOpenCurriculumIndex] = useState<number | null>(0);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -110,7 +98,7 @@ export default function CourseDetailPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Course Not Found</h2>
             <p className="text-gray-500 mb-6">This course is unavailable or has been removed.</p>
             <button
-              onClick={() => navigate("/courses")}
+              onClick={() => navigate("/old/courses")}
               className="inline-flex items-center gap-2 bg-brand-red text-white px-6 py-3 rounded-lg font-semibold hover:bg-brand-red-dark transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -139,12 +127,12 @@ export default function CourseDetailPage() {
       <div className="bg-gray-50 border-b">
         <div className="container py-3">
           <nav className="flex items-center gap-2 text-sm text-gray-500">
-            <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }} className="flex items-center gap-1 hover:text-brand-red transition-colors">
+            <a href="/old" onClick={(e) => { e.preventDefault(); navigate("/old"); }} className="flex items-center gap-1 hover:text-brand-red transition-colors">
               <Home className="h-3.5 w-3.5" />
               Home
             </a>
             <ChevronRight className="h-3.5 w-3.5" />
-            <a href="/courses" onClick={(e) => { e.preventDefault(); navigate("/courses"); }} className="hover:text-brand-red transition-colors">
+            <a href="/old/courses" onClick={(e) => { e.preventDefault(); navigate("/old/courses"); }} className="hover:text-brand-red transition-colors">
               Courses
             </a>
             <ChevronRight className="h-3.5 w-3.5" />
@@ -577,7 +565,7 @@ export default function CourseDetailPage() {
       </section>
 
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton oldSite />
     </div>
   );
 }

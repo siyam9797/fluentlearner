@@ -5,22 +5,22 @@
  */
 import { useState, useEffect } from "react";
 import { Menu, X, Phone, MessageCircle } from "lucide-react";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 import { useLocation } from "@/lib/router";
 
 const navLinks = [
-  { label: "Home", href: "/" },
-  { label: "Courses", href: "/courses" },
-  { label: "About", href: "/#about" },
-  { label: "Success Stories", href: "/success-stories" },
-  { label: "Contact", href: "/#contact" },
+  { label: "Home", href: "/old" },
+  { label: "Courses", href: "/old/courses" },
+  { label: "About", href: "/old#about" },
+  { label: "Success Stories", href: "/old/success-stories" },
+  { label: "Contact", href: "/old#contact" },
 ];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  const ss = useSiteSettings();
+  const ss = useOldSiteSettings();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 40);
@@ -32,16 +32,16 @@ export default function Navbar() {
     e.preventDefault();
     setMobileOpen(false);
 
-    // If it's a hash link on the home page (e.g., /#about)
-    if (href.startsWith("/#")) {
-      const hash = href.substring(1); // Get #about
-      if (location === "/") {
+    // If it's a hash link on the home page (e.g., /old#about)
+    if (href.startsWith("/old#")) {
+      const hash = href.slice("/old".length); // Get #about
+      if (location === "/old") {
         // Already on home page, just scroll
         const el = document.querySelector(hash);
         if (el) el.scrollIntoView({ behavior: "smooth" });
       } else {
         // Navigate to home first, then scroll
-        setLocation("/");
+        setLocation("/old");
         setTimeout(() => {
           const el = document.querySelector(hash);
           if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -91,7 +91,7 @@ export default function Navbar() {
         <div className="container flex items-center justify-between h-16 lg:h-18">
           {/* Logo */}
           <a
-            href="/"
+            href="/old"
             onClick={(e) => handleNavClick(e, "/")}
             className="flex items-center gap-2.5 group"
           >
@@ -107,12 +107,12 @@ export default function Navbar() {
           {/* Desktop Nav Links */}
           <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => {
-              // Exact match: Home = "/", Courses = "/courses", etc.
-              // Hash links like "/#about" and "/#contact" are only active when on "/" AND scrolled to that section
+              // Exact match: Home = "/old", Courses = "/old/courses", etc.
+              // Hash links like "/old#about" and "/old#contact" are only active when on "/old" AND scrolled to that section
               // For simplicity, hash links are never shown as "active" in nav — only page routes
               const basePath = link.href.split("#")[0] || "/";
-              const isHashLink = link.href.includes("#") && link.href !== "/";
-              const isActive = isHashLink ? false : (basePath === "/" ? location === "/" : location === basePath || location.startsWith(basePath + "/"));
+              const isHashLink = link.href.includes("#");
+              const isActive = isHashLink ? false : (basePath === "/old" ? location === "/old" : location === basePath || location.startsWith(basePath + "/"));
               return (
                 <a
                   key={link.href}

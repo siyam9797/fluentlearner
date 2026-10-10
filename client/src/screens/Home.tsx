@@ -2,7 +2,7 @@
  * Home Page — Fluent Learner Landing Page
  * FluentLearner Red+White Brand Theme
  * Restructured: Hero → TrustBar → SuccessTicker → Featured Courses Preview → About →
- * Featured Success Stories Preview → Testimonials → ComparisonTable → FAQ → CTA → UrgencyBanner → Footer
+ * Featured Success Stories Preview → Testimonials → ComparisonTable → FAQ → CTA → Footer
  */
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";
 import Navbar from "@/components/Navbar";
@@ -14,7 +14,6 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import ComparisonTable from "@/components/ComparisonTable";
 import FAQSection from "@/components/FAQSection";
 import CTASection from "@/components/CTASection";
-import UrgencyBanner from "@/components/UrgencyBanner";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import FeaturedCoursesPreview from "@/components/FeaturedCoursesPreview";
@@ -36,10 +35,9 @@ export default function Home() {
         <ComparisonTable />
         <FAQSection />
         <CTASection />
-        <UrgencyBanner />
       </main>
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton oldSite />
     </div>
   );
 }

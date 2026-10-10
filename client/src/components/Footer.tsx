@@ -2,44 +2,44 @@
  * Footer — FluentLearner Red+White Brand Theme
  * Multi-column footer with dark background and red accents.
  * Updated with proper page links for multi-page site.
- * Smooth scroll support for hash links (/#about, /#contact).
+ * Smooth scroll support for hash links (/old#about, /old#contact).
  */
 import { Phone, Mail, MapPin, MessageCircle } from "lucide-react";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 import { useLocation } from "@/lib/router";
 
 const quickLinks = [
-  { label: "Home", href: "/" },
-  { label: "Courses", href: "/courses" },
-  { label: "About Us", href: "/#about" },
-  { label: "Success Stories", href: "/success-stories" },
-  { label: "Contact", href: "/#contact" },
+  { label: "Home", href: "/old" },
+  { label: "Courses", href: "/old/courses" },
+  { label: "About Us", href: "/old#about" },
+  { label: "Success Stories", href: "/old/success-stories" },
+  { label: "Contact", href: "/old#contact" },
   // { label: "Certificate Verify", href: "/verify" }, // Hidden until feature is ready
 ];
 
 const courseLinks = [
-  { label: "IELTS Complete Preparation", href: "/courses" },
-  { label: "Spoken English Mastery", href: "/courses" },
-  { label: "IELTS VIP Batch", href: "/courses" },
-  { label: "Study Abroad Guidance", href: "/courses" },
+  { label: "IELTS Complete Preparation", href: "/old/courses" },
+  { label: "Spoken English Mastery", href: "/old/courses" },
+  { label: "IELTS VIP Batch", href: "/old/courses" },
+  { label: "Study Abroad Guidance", href: "/old/courses" },
 ];
 
 export default function Footer() {
-  const ss = useSiteSettings();
+  const ss = useOldSiteSettings();
   const [location, setLocation] = useLocation();
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
 
-    if (href.startsWith("/#")) {
-      const hash = href.substring(1); // Get #about or #contact
-      if (location === "/") {
+    if (href.startsWith("/old#")) {
+      const hash = href.slice("/old".length); // Get #about or #contact
+      if (location === "/old") {
         // Already on home page, just scroll
         const el = document.querySelector(hash);
         if (el) el.scrollIntoView({ behavior: "smooth" });
       } else {
         // Navigate to home first, then scroll
-        setLocation("/");
+        setLocation("/old");
         setTimeout(() => {
           const el = document.querySelector(hash);
           if (el) el.scrollIntoView({ behavior: "smooth" });

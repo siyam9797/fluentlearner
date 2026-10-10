@@ -3,7 +3,7 @@ import { ChevronDown, Menu, X } from "lucide-react";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { HvButton } from "./primitives";
-import { V2, toV2Href } from "./routes";
+import { V2 } from "./routes";
 import { useV2Content } from "./useV2Content";
 import type { V2MenuItem } from "./content";
 import SiteLogo from "@/components/SiteLogo";
@@ -21,7 +21,7 @@ export function MenuLink({
   const content = children ?? item.label;
   if (!item.url || item.url === "#")
     return <span className={className}>{content}</span>;
-  const href = toV2Href(item.url);
+  const href = item.url;
   if (item.newTab || /^(https?:|mailto:|tel:)/.test(href)) {
     return (
       <a

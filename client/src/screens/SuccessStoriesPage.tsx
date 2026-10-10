@@ -1,4 +1,4 @@
-import { trpc } from "@/lib/trpc";
+import { OLD_STORIES } from "@/old-site/content";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -40,7 +40,8 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default function SuccessStoriesPage() {
-  const { data: stories, isLoading } = trpc.successStories.list.useQuery();
+  const stories = OLD_STORIES;
+  const isLoading = false;
   const [activeFilter, setActiveFilter] = useState("all");
   const [selectedStory, setSelectedStory] = useState<number | null>(null);
 
@@ -333,7 +334,7 @@ export default function SuccessStoriesPage() {
       </section>
 
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton oldSite />
     </div>
   );
 }

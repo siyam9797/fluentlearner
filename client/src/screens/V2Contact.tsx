@@ -1,4 +1,4 @@
-/** v2 Contact page — /v2/contact */
+/** v2 Contact page — /contact */
 import { useState, type FormEvent } from "react";
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";

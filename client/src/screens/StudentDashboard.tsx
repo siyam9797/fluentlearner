@@ -2049,7 +2049,7 @@ function StudentProfilePage() {
               <p className="mt-6 border-y border-ink/10 py-6 text-ink/60">
                 You haven't enrolled in a course yet.{" "}
                 <Link
-                  href="/v2/courses"
+                  href="/courses"
                   className="font-medium text-brand-red hover:underline"
                 >
                   Browse courses

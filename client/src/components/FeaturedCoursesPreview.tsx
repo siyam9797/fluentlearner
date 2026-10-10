@@ -2,7 +2,7 @@
  * FeaturedCoursesPreview — Shows featured courses from DB on home page
  * Falls back to static courses if DB is empty
  */
-import { trpc } from "@/lib/trpc";
+import { OLD_FEATURED_COURSES } from "@/old-site/content";
 
 import { BookOpen, Clock, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
 import { useLocation } from "@/lib/router";
@@ -54,7 +54,8 @@ const staticCourses = [
 ];
 
 export default function FeaturedCoursesPreview() {
-  const { data: featuredCourses, isLoading } = trpc.courses.featured.useQuery();
+  const featuredCourses = OLD_FEATURED_COURSES;
+  const isLoading = false;
   const [, setLocation] = useLocation();
 
   // Use DB courses if available, otherwise static
@@ -136,7 +137,7 @@ export default function FeaturedCoursesPreview() {
                   <h3
                     className="text-lg font-bold text-gray-900 group-hover:text-brand-red transition-colors mb-1 cursor-pointer"
                     style={{ fontFamily: "var(--font-display)" }}
-                    onClick={() => { if (course.slug) setLocation(`/courses/${course.slug}`); }}
+                    onClick={() => { if (course.slug) setLocation(`/old/courses/${course.slug}`); }}
                   >
                     {course.nameEn || course.name}
                   </h3>
@@ -178,7 +179,7 @@ export default function FeaturedCoursesPreview() {
                   <div className="mt-4 flex gap-2">
                     {course.slug && (
                       <button
-                        onClick={() => setLocation(`/courses/${course.slug}`)}
+                        onClick={() => setLocation(`/old/courses/${course.slug}`)}
                         className="flex-1 flex items-center justify-center gap-1 border border-brand-red/30 text-brand-red hover:bg-brand-red/5 py-2.5 rounded-lg text-sm font-medium transition-all"
                       >
                         View Details
@@ -200,7 +201,7 @@ export default function FeaturedCoursesPreview() {
         {/* View All Button */}
         <div className="text-center mt-10">
           <button
-            onClick={() => setLocation("/courses")}
+            onClick={() => setLocation("/old/courses")}
             className="inline-flex items-center gap-2 px-8 py-3 border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-semibold transition-all duration-300"
           >
             View All Courses

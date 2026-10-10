@@ -4,7 +4,7 @@
  */
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { GraduationCap, Globe, HeartHandshake, Lightbulb, Award } from "lucide-react";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useOldSiteSettings } from "@/hooks/useSiteSettings";
 
 const highlights = [
   {
@@ -31,7 +31,7 @@ const highlights = [
 
 export default function AboutSection() {
   const { ref, isVisible } = useScrollAnimation(0.1);
-  const ss = useSiteSettings();
+  const ss = useOldSiteSettings();
 
   return (
     <section id="about" className="relative py-20 lg:py-28 bg-brand-cream overflow-hidden" ref={ref}>

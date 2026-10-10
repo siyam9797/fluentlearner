@@ -1,4 +1,4 @@
-import { trpc } from "@/lib/trpc";
+import { OLD_COURSES } from "@/old-site/content";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -37,7 +37,8 @@ const levelLabels: Record<string, string> = {
 };
 
 export default function CoursesPage() {
-  const { data: courses, isLoading } = trpc.courses.list.useQuery();
+  const courses = OLD_COURSES;
+  const isLoading = false;
   const [activeFilter, setActiveFilter] = useState("all");
   const [, navigate] = useLocation();
 
@@ -191,7 +192,7 @@ export default function CoursesPage() {
                       <h3
                         className="text-lg font-bold text-gray-900 group-hover:text-brand-red transition-colors cursor-pointer"
                         style={{ fontFamily: "var(--font-display)" }}
-                        onClick={(e) => { e.stopPropagation(); if (course.slug) navigate(`/courses/${course.slug}`); }}
+                        onClick={(e) => { e.stopPropagation(); if (course.slug) navigate(`/old/courses/${course.slug}`); }}
                       >
                         {course.nameEn || course.name}
                       </h3>
@@ -251,7 +252,7 @@ export default function CoursesPage() {
                       <div className="flex items-center gap-2">
                         {course.slug && (
                           <button
-                            onClick={() => navigate(`/courses/${course.slug}`)}
+                            onClick={() => navigate(`/old/courses/${course.slug}`)}
                             className="flex items-center gap-1 text-brand-red border border-brand-red/30 hover:bg-brand-red/5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
                           >
                             View Details
@@ -297,7 +298,7 @@ export default function CoursesPage() {
       </section>
 
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton oldSite />
     </div>
   );
 }

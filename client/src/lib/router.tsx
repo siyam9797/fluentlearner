@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
 
 export function useLocation(): [string, (to: string) => void] {
@@ -19,13 +19,18 @@ export function useRoute<T extends Record<string, string> = Record<string, strin
   pattern: string,
 ): [boolean, T | null] {
   const pathname = usePathname() ?? "/";
-  const params = useParams<T>();
   const patternParts = pattern.split("/").filter(Boolean);
   const pathParts = pathname.split("/").filter(Boolean);
   const matches = patternParts.length === pathParts.length && patternParts.every((part, index) =>
     part.startsWith(":") || part === pathParts[index]
   );
-  return [matches, matches ? params : null];
+  if (!matches) return [false, null];
+  // The app is one catch-all page, so Next's params don't carry ":name" segments; read them from the path.
+  const params: Record<string, string> = {};
+  patternParts.forEach((part, index) => {
+    if (part.startsWith(":")) params[part.slice(1)] = decodeURIComponent(pathParts[index]);
+  });
+  return [true, params as T];
 }
 
 type LinkProps = Omit<ComponentProps<typeof NextLink>, "href"> & {

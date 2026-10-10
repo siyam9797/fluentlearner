@@ -1,4 +1,4 @@
-/** v2 Courses page — /v2/courses */
+/** v2 Courses page — /courses */
 import { useMemo, useState } from "react";
 import SEOHead, { PAGE_SEO } from "@/components/SEOHead";
 import { useV2Content } from "@/components/home-v2/useV2Content";

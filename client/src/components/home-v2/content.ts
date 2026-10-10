@@ -171,7 +171,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Menus",
     title: "Menus",
     description: "Create menus and choose where they appear.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       {
         key: "v2_menus",
@@ -216,7 +216,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Header buttons",
     description:
       "Button beside the menu (and at the bottom of the mobile menu). It opens the enroll page.",
-    preview: "/home-2",
+    preview: "/",
     fields: [text("v2_nav_enroll_text", "Header button", "Enroll Now")],
   },
   {
@@ -225,7 +225,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Contact details",
     description:
       "Phone, email, WhatsApp and address shown in the footer, contact page and every WhatsApp button.",
-    preview: "/v2/contact",
+    preview: "/contact",
     fields: [
       text("v2_contact_phone", "Phone number", CONTACT.PHONE_DISPLAY, {
         legacyKey: "contact_phone",
@@ -253,7 +253,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Social media",
     description:
       "Links in the footer and on the contact page. Leave Instagram blank to hide it.",
-    preview: "/v2/contact",
+    preview: "/contact",
     fields: [
       url("v2_social_facebook", "Facebook page URL", BRAND.FACEBOOK_URL, {
         legacyKey: "social_facebook",
@@ -272,7 +272,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Statistics",
     description:
       "Figures used in counters and anywhere a {token} appears in text.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       text(
         "v2_stat_total_scorers",
@@ -308,7 +308,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Site-wide",
     title: "Founder",
     description: "Mentor profile used on the home and about pages.",
-    preview: "/v2/about",
+    preview: "/about",
     fields: [
       text("v2_founder_name", "Name", BRAND.FOUNDER, {
         legacyKey: "founder_name",
@@ -333,7 +333,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Benefits block",
     description:
       "Dark “Why our coaching” block shown on Home, About, Courses and How It Works.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       text(
         "v2_benefits_title",
@@ -377,7 +377,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Testimonials block",
     description:
       "Quote carousel on Home and Success Stories. Quotes come from success stories marked as featured.",
-    preview: "/home-2",
+    preview: "/",
     fields: [text("v2_testimonials_label", "Label", "Testimonials")],
   },
   {
@@ -385,7 +385,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Site-wide",
     title: "Closing call to action",
     description: "“Ready to start” block at the bottom of every page.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       text(
         "v2_cta_title",
@@ -413,7 +413,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Site-wide",
     title: "Footer",
     description: "Tagline, column headings and copyright line.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       text(
         "v2_footer_tagline",
@@ -441,7 +441,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "Hero",
     description: "Top banner of the home page.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       text("v2_home_hero_title", "Title", "Your Path to IELTS Success", {
         legacyKey: "hero_title",
@@ -484,12 +484,70 @@ export const V2_SECTIONS: V2Section[] = [
     ],
   },
   {
+    id: "home-ticker",
+    page: "Home",
+    title: "Recent achievements",
+    description:
+      "Two rows of student scores scrolling in opposite directions, under the hero banner.",
+    preview: "/",
+    fields: [
+      show("v2_home_ticker_show"),
+      text("v2_home_ticker_label", "Label", "Recent Achievements"),
+      text(
+        "v2_home_ticker_title",
+        "Heading",
+        "Our students' success is our inspiration"
+      ),
+      area(
+        "v2_home_ticker_description",
+        "Description",
+        "{scorers}+ students have reached their target band with FluentLearner. Here are some of the latest results.",
+        { help: TOKEN_HELP }
+      ),
+      {
+        key: "v2_home_ticker_items",
+        label: "Achievements",
+        type: "list",
+        itemLabel: "Achievement",
+        itemFields: [
+          { name: "name", label: "Student name" },
+          { name: "band", label: "Band score" },
+          { name: "module", label: "Module (e.g. Overall, Reading)" },
+          { name: "highlight", label: "Highlight (type yes)" },
+        ],
+        default: [
+          ["Dr Milon Chowdhury", "8.0", "Overall", "yes"],
+          ["Sajal Chaklader", "8.0", "Overall", "yes"],
+          ["Dr Afroza", "9.0", "Listening", "yes"],
+          ["Jian", "8.5", "Reading", ""],
+          ["Lailun Tonny", "8.5", "Reading", ""],
+          ["Ataur Rahman", "8.5", "Listening", ""],
+          ["Jannatul Ferdous Binti", "8.5", "Reading", ""],
+          ["Orko Rahman", "7.0", "Overall", ""],
+          ["Suprova Das Keya", "7.0", "Overall", ""],
+          ["Golam Imran", "7.0", "Overall", ""],
+          ["Sharmin Mishu", "7.0", "Overall", ""],
+          ["Nusrat Kabir", "7.0+", "Overall", ""],
+          ["Raihan Rahmatullah", "7.5", "Speaking", ""],
+          ["MD Safi", "8.5", "Listening", ""],
+          ["Mohana Kabir", "8.0", "Listening", ""],
+          ["Shakibur Rahman Joy", "8.0", "Reading", ""],
+        ].map(([name, band, module, highlight]) => ({
+          name,
+          band,
+          module,
+          highlight,
+        })),
+      },
+    ],
+  },
+  {
     id: "home-numbers",
     page: "Home",
     title: "Numbers",
     description:
       "Counters under the hero. Values come from Site-wide → Statistics. Also shown on the About page.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       show("v2_home_numbers_show"),
       area(
@@ -510,7 +568,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Courses",
     description:
       "First four active courses. Manage the courses themselves under Learning → Courses.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       show("v2_home_courses_show"),
       text(
@@ -526,7 +584,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "Benefits",
     description: "Content is edited under Site-wide → Benefits block.",
-    preview: "/home-2",
+    preview: "/",
     fields: [show("v2_home_benefits_show")],
   },
   {
@@ -534,7 +592,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "About",
     description: "Red block with reasons to choose FluentLearner.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       show("v2_home_about_show"),
       text("v2_home_about_title_before", "Heading before number", "Trusted by"),
@@ -582,8 +640,8 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "Success stories",
     description:
-      "First three featured stories. Manage stories under Website → Success Stories.",
-    preview: "/home-2",
+      "Grid of six result photos from featured stories, topped up with bundled results. Manage stories under Website → Success Stories.",
+    preview: "/",
     fields: [
       show("v2_home_stories_show"),
       text(
@@ -604,7 +662,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "Steps",
     description: "Three-step path to the exam.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       show("v2_home_steps_show"),
       area(
@@ -644,7 +702,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Home",
     title: "Testimonials & call to action",
     description: "Content is edited under Site-wide.",
-    preview: "/home-2",
+    preview: "/",
     fields: [
       show("v2_home_testimonials_show", "Show testimonials"),
       show("v2_home_cta_show", "Show closing call to action"),
@@ -653,7 +711,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "home",
     "Home",
-    "/home-2",
+    "/",
     "FluentLearner - IELTS Coaching Platform (1-to-1 Mentorship)",
     "Expert-led IELTS preparation with one-to-one mentorship. Join 10,000+ successful scorers across Bangladesh. Verified results & real proof."
   ),
@@ -664,7 +722,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "About",
     title: "Page header",
     description: "Title block and banner at the top of the about page.",
-    preview: "/v2/about",
+    preview: "/about",
     fields: [
       text(
         "v2_about_header_title",
@@ -687,7 +745,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "About",
     title: "Our story",
     description: "Story block under the banner.",
-    preview: "/v2/about",
+    preview: "/about",
     fields: [
       text("v2_about_story_label", "Label", "Our story"),
       text("v2_about_story_title", "Heading", "More than a coaching centre"),
@@ -711,7 +769,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "About",
     title: "Mission & vision",
     description: "Two cards under the numbers.",
-    preview: "/v2/about",
+    preview: "/about",
     fields: [
       text("v2_about_mission_title", "Mission heading", "Our mission"),
       area(
@@ -734,7 +792,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "About",
     title: "Founder",
     description: "Name, photo and biography come from Site-wide → Founder.",
-    preview: "/v2/about",
+    preview: "/about",
     fields: [
       text("v2_about_founder_label", "Label", "Meet the founder"),
       text("v2_about_founder_primary", "First button", "Explore Courses"),
@@ -746,7 +804,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "about",
     "About",
-    "/v2/about",
+    "/about",
     "About FluentLearner - Founder & 1-to-1 Mentorship Model",
     "Learn about our unique 1-to-1 mentorship approach that has helped 10,000+ students achieve their target IELTS band scores."
   ),
@@ -757,7 +815,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Courses",
     title: "Page header",
     description: "The course list itself is managed under Learning → Courses.",
-    preview: "/v2/courses",
+    preview: "/courses",
     fields: [
       text(
         "v2_courses_header_title",
@@ -777,7 +835,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Courses",
     title: "Advice box",
     description: "Dark box under the course list.",
-    preview: "/v2/courses",
+    preview: "/courses",
     fields: [
       text(
         "v2_courses_advice_title",
@@ -803,7 +861,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "courses",
     "Courses",
-    "/v2/courses",
+    "/courses",
     "Our Courses - FluentLearner | IELTS VIP, Speaking & Grammar",
     "Choose from IELTS VIP Course (1-to-1), Basic Grammar & Spoken English, and IELTS Speaking Premium."
   ),
@@ -815,7 +873,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Labels",
     description:
       "Headings and buttons on every course page. Course content is edited per course under Learning → Courses.",
-    preview: "/v2/courses",
+    preview: "/courses",
     fields: [
       text("v2_course_about_title", "About heading", "About this course"),
       text("v2_course_outcomes_title", "Outcomes heading", "What you'll learn"),
@@ -840,7 +898,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Course not found",
     description:
       "Shown when a course link is broken or the course was removed.",
-    preview: "/v2/courses/not-a-course",
+    preview: "/courses/not-a-course",
     fields: [
       text("v2_course_missing_title", "Title", "This course isn't available"),
       area(
@@ -859,7 +917,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Page header",
     description:
       "The stories themselves are managed under Website → Success Stories.",
-    preview: "/v2/success-stories",
+    preview: "/success-stories",
     fields: [
       text(
         "v2_stories_header_title",
@@ -891,7 +949,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "stories",
     "Success Stories",
-    "/v2/success-stories",
+    "/success-stories",
     "Success Stories - Verified IELTS Results | FluentLearner",
     "Real student results with verified IELTS band scores. From Band 7.0 to 8.5 — see how FluentLearner students achieved their dreams."
   ),
@@ -902,7 +960,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "How It Works",
     title: "Page header",
     description: "Title block at the top of the page.",
-    preview: "/v2/how-it-works",
+    preview: "/how-it-works",
     fields: [
       text(
         "v2_process_header_title",
@@ -928,7 +986,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "How It Works",
     title: "Stages",
     description: "Numbered stages from first contact to exam day.",
-    preview: "/v2/how-it-works",
+    preview: "/how-it-works",
     fields: [
       text("v2_process_label", "Label", "The process"),
       text("v2_process_title", "Heading", "What to expect, stage by stage"),
@@ -986,7 +1044,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "How It Works",
     title: "FAQ",
     description: "General questions and answers.",
-    preview: "/v2/how-it-works",
+    preview: "/how-it-works",
     fields: [
       text("v2_faq_label", "Label", "FAQ"),
       text("v2_faq_title", "Heading", "Questions students ask us most"),
@@ -1056,7 +1114,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "process",
     "How It Works",
-    "/v2/how-it-works",
+    "/how-it-works",
     "How It Works | FluentLearner",
     "From a free consultation to exam day — see how FluentLearner's one-to-one IELTS mentoring works, step by step."
   ),
@@ -1068,7 +1126,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Page header",
     description:
       "Contact details themselves are under Site-wide → Contact details.",
-    preview: "/v2/contact",
+    preview: "/contact",
     fields: [
       text("v2_contact_header_title", "Title", "Let's plan your IELTS success"),
       area(
@@ -1083,7 +1141,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Contact",
     title: "Channel cards",
     description: "Label and note on each contact card.",
-    preview: "/v2/contact",
+    preview: "/contact",
     fields: [
       text("v2_contact_whatsapp_label", "WhatsApp label", "WhatsApp"),
       text(
@@ -1110,7 +1168,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Message form",
     description:
       "The form opens WhatsApp with the visitor's message filled in.",
-    preview: "/v2/contact",
+    preview: "/contact",
     fields: [
       text("v2_contact_form_label", "Label", "Send a message"),
       text("v2_contact_form_title", "Heading", "Tell us about your goal"),
@@ -1134,7 +1192,7 @@ export const V2_SECTIONS: V2Section[] = [
     title: "Page header",
     description:
       "Title block and step names. Courses and payment methods are managed under Learning → Courses and Management → Payments.",
-    preview: "/v2/enroll",
+    preview: "/enroll",
     fields: [
       text("v2_enroll_header_title", "Title", "Enroll in your course"),
       area(
@@ -1152,7 +1210,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Enroll",
     title: "Payment step",
     description: "The final step, where students pay with bKash.",
-    preview: "/v2/enroll",
+    preview: "/enroll",
     fields: [
       area(
         "v2_enroll_details_note",
@@ -1187,7 +1245,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Enroll",
     title: "Help box",
     description: "Box under the order summary.",
-    preview: "/v2/enroll",
+    preview: "/enroll",
     fields: [
       text("v2_enroll_help_title", "Heading", "Need help enrolling?"),
       area(
@@ -1208,7 +1266,7 @@ export const V2_SECTIONS: V2Section[] = [
     page: "Enroll",
     title: "Confirmation",
     description: "Shown after the enrollment is submitted.",
-    preview: "/v2/enroll",
+    preview: "/enroll",
     fields: [
       text("v2_enroll_success_title", "Title", "Application received"),
       area(
@@ -1228,7 +1286,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "enroll",
     "Enroll",
-    "/v2/enroll",
+    "/enroll",
     "Enroll | FluentLearner",
     "Enroll in a FluentLearner IELTS or spoken English course in three quick steps."
   ),
@@ -1236,7 +1294,7 @@ export const V2_SECTIONS: V2Section[] = [
   seoSection(
     "contact",
     "Contact",
-    "/v2/contact",
+    "/contact",
     "Contact & Enroll - WhatsApp | FluentLearner",
     "Contact FluentLearner via WhatsApp or email. Enroll now for the next IELTS batch."
   ),

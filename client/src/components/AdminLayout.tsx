@@ -36,7 +36,6 @@ import {
   ClipboardCheck,
   CreditCard,
   ExternalLink,
-  FileText,
   FolderOpen,
   Globe2,
   GraduationCap,
@@ -199,7 +198,6 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         icon: Trophy,
       },
       { label: "Media", href: "/admin/media", icon: ImageIcon },
-      { label: "Site Content", href: "/admin/site-settings", icon: FileText },
     ],
   },
 ];

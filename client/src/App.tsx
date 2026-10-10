@@ -16,13 +16,11 @@ import V2Enroll from "./screens/V2Enroll";
 import CoursesPage from "./screens/CoursesPage";
 import CourseDetailPage from "./screens/CourseDetailPage";
 import SuccessStoriesPage from "./screens/SuccessStoriesPage";
-import EnrollPage from "./screens/EnrollPage";
 import AdminDashboard from "./screens/AdminDashboard";
 import AdminCourses from "./screens/AdminCourses";
 import AdminSuccessStories from "./screens/AdminSuccessStories";
 import AdminEnrollments from "./screens/AdminEnrollments";
 import AdminBatches from "./screens/AdminBatches";
-import AdminSiteSettings from "./screens/AdminSiteSettings";
 import AdminWebsite from "./screens/AdminWebsite";
 import AdminSettings from "./screens/AdminSettings";
 import AdminInstructors from "./screens/AdminInstructors";
@@ -49,21 +47,21 @@ import StudentAttempt, {
 
 function Router() {
   const pathname = usePathname() ?? "/";
-  if (pathname === "/") return <Home />;
-  if (pathname === "/home-2") return <HomeV2 />;
-  // v2 redesign — runs beside the original pages until it replaces them
-  if (pathname === "/v2/courses") return <V2Courses />;
-  if (pathname.startsWith("/v2/courses/"))
+  // Current site (v2)
+  if (pathname === "/") return <HomeV2 />;
+  if (pathname === "/courses") return <V2Courses />;
+  if (pathname.startsWith("/courses/"))
     return <V2CourseDetail key={pathname} />;
-  if (pathname === "/v2/about") return <V2About />;
-  if (pathname === "/v2/success-stories") return <V2SuccessStories />;
-  if (pathname === "/v2/how-it-works") return <V2HowItWorks />;
-  if (pathname === "/v2/contact") return <V2Contact />;
-  if (pathname === "/v2/enroll") return <V2Enroll />;
-  if (pathname === "/courses") return <CoursesPage />;
-  if (pathname.startsWith("/courses/")) return <CourseDetailPage />;
-  if (pathname === "/success-stories") return <SuccessStoriesPage />;
-  if (pathname === "/enroll") return <EnrollPage />;
+  if (pathname === "/about") return <V2About />;
+  if (pathname === "/success-stories") return <V2SuccessStories />;
+  if (pathname === "/how-it-works") return <V2HowItWorks />;
+  if (pathname === "/contact") return <V2Contact />;
+  if (pathname === "/enroll") return <V2Enroll />;
+  // Old site (v1), kept under /old
+  if (pathname === "/old") return <Home />;
+  if (pathname === "/old/courses") return <CoursesPage />;
+  if (pathname.startsWith("/old/courses/")) return <CourseDetailPage />;
+  if (pathname === "/old/success-stories") return <SuccessStoriesPage />;
   // Student mock test area
   if (
     [
@@ -148,8 +146,6 @@ function Router() {
           )}
         />
       );
-    else if (pathname === "/admin/site-settings")
-      screen = <AdminSiteSettings />;
     else if (
       pathname === "/admin/website" ||
       pathname.startsWith("/admin/website/")

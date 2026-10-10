@@ -510,7 +510,7 @@ export default function AdminWebsite() {
               />
             )}
             <a
-              href={editingPage?.url ?? "/home-2"}
+              href={editingPage?.url ?? "/"}
               target="_blank"
               rel="noopener noreferrer"
               className="admin-button admin-button-secondary"
