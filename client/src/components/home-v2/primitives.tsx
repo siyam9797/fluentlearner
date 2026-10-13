@@ -401,10 +401,12 @@ export function BannerImage({
   src,
   alt,
   className,
+  priority = false,
 }: {
   src: string;
   alt: string;
   className?: string;
+  priority?: boolean;
 }) {
   const [fit, setFit] = useState<"cover" | "contain">("cover");
   const measure = (img: HTMLImageElement | null) => {
@@ -425,6 +427,7 @@ export function BannerImage({
       <img
         src={src}
         alt={alt}
+        fetchPriority={priority ? "high" : undefined}
         // The ref covers images that finished loading before hydration, when onLoad never fires.
         ref={measure}
         onLoad={(e: SyntheticEvent<HTMLImageElement>) =>

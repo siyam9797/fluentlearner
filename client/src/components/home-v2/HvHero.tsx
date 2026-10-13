@@ -147,6 +147,7 @@ export default function HvHero() {
         <BannerImage
           src={ss.t("v2_home_hero_image") || ss.founderPhoto}
           alt={`${ss.founderName}, ${ss.founderTitle}`}
+          priority
           className="mt-14 h-[380px] sm:h-[450px] lg:mt-20 lg:h-[600px]"
         />
       )}
