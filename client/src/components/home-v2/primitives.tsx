@@ -399,11 +399,13 @@ export function formatCompact(value: number): string {
  */
 export function BannerImage({
   src,
+  mobileSrc,
   alt,
   className,
   priority = false,
 }: {
   src: string;
+  mobileSrc?: string;
   alt: string;
   className?: string;
   priority?: boolean;
@@ -416,30 +418,39 @@ export function BannerImage({
 
   return (
     <div className={cn("relative overflow-hidden bg-sand", className)}>
-      {fit === "contain" && (
+      <picture
+        aria-hidden="true"
+        className={cn(
+          "absolute inset-0 block h-full w-full sm:hidden",
+          fit === "contain" && "sm:block"
+        )}
+      >
+        {mobileSrc && <source media="(max-width: 639px)" srcSet={mobileSrc} />}
         <img
           src={src}
           alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full scale-125 object-cover opacity-70 blur-2xl"
+          className="h-full w-full scale-125 object-cover opacity-70 blur-2xl"
         />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        fetchPriority={priority ? "high" : undefined}
-        // The ref covers images that finished loading before hydration, when onLoad never fires.
-        ref={measure}
-        onLoad={(e: SyntheticEvent<HTMLImageElement>) =>
-          measure(e.currentTarget)
-        }
-        className={cn(
-          "relative h-full w-full",
-          fit === "cover"
-            ? "object-cover object-[50%_40%]"
-            : "object-contain object-bottom"
-        )}
-      />
+      </picture>
+      <picture className="relative block h-full w-full">
+        {mobileSrc && <source media="(max-width: 639px)" srcSet={mobileSrc} />}
+        <img
+          src={src}
+          alt={alt}
+          fetchPriority={priority ? "high" : undefined}
+          // The ref covers images that finished loading before hydration, when onLoad never fires.
+          ref={measure}
+          onLoad={(e: SyntheticEvent<HTMLImageElement>) =>
+            measure(e.currentTarget)
+          }
+          className={cn(
+            "h-full w-full object-contain object-center",
+            fit === "cover"
+              ? "sm:object-cover sm:object-[50%_40%]"
+              : "sm:object-contain sm:object-bottom"
+          )}
+        />
+      </picture>
     </div>
   );
 }

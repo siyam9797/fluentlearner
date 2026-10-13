@@ -479,7 +479,10 @@ export const V2_SECTIONS: V2Section[] = [
       ),
       image("v2_home_hero_image", "Banner image", "", {
         legacyKey: "hero_image",
-        help: "Leave blank to use the founder photo.",
+        help: "Wide desktop image (about 3:1). Leave blank to use the founder photo.",
+      }),
+      image("v2_home_hero_mobile_image", "Mobile banner image", "", {
+        help: "Optional portrait image for phones (4:5 or 9:16). Leave blank to show the full desktop banner without cropping.",
       }),
     ],
   },
