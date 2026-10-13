@@ -160,7 +160,7 @@ export default function V2Enroll() {
     () => courses.find(item => item.id === courseId) ?? null,
     [courses, courseId]
   );
-  const courseTitle = course ? course.nameEn || course.name : "";
+  const courseTitle = course?.name ?? "";
   const amount = priceAmount(course?.price);
   const bkashReady = available?.bkash ?? false;
   const otherReady = available?.sslcommerz ?? false;
@@ -552,8 +552,13 @@ export default function V2Enroll() {
                                 )}
                               </p>
                               <h3 className="mt-2 text-[22px] lg:text-2xl">
-                                {item.nameEn || item.name}
+                                {item.name}
                               </h3>
+                              {item.nameEn && item.nameEn !== item.name && (
+                                <p className="mt-1 text-ink/70">
+                                  {item.nameEn}
+                                </p>
+                              )}
                               {item.shortDescription && (
                                 <p className="mt-1 text-ink/70">
                                   {item.shortDescription}

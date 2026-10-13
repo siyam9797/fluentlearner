@@ -209,7 +209,7 @@ export default function AdminMenuEditor({
   };
 
   const courseOptions = courses.map(course => ({
-    label: course.nameEn || course.name,
+    label: course.name,
     url: V2.course(course.slug || course.id),
   }));
   const typeOf = (url: string) =>

@@ -30,7 +30,9 @@ export default async function Page({
     rows?.map(course => ({
       id: course.id,
       slug: course.slug,
-      title: course.nameEn || course.name,
+      title: course.name,
+      subtitle:
+        course.nameEn && course.nameEn !== course.name ? course.nameEn : null,
       description: course.shortDescription,
       label: CATEGORY_LABELS[course.category] ?? "Course",
       category: course.category,

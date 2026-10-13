@@ -492,10 +492,7 @@ export default function AdminCourses({
   const handleSave = () => {
     if (!editingCourse) return;
     let slug = editingCourse.slug;
-    if (!slug && editingCourse.nameEn)
-      slug = generateSlug(editingCourse.nameEn);
-    else if (!slug && editingCourse.name)
-      slug = generateSlug(editingCourse.name);
+    if (!slug && editingCourse.name) slug = generateSlug(editingCourse.name);
 
     const data = {
       ...editingCourse,
@@ -920,7 +917,7 @@ export default function AdminCourses({
                             <div className="grid gap-4 sm:grid-cols-2">
                               <Field
                                 label="Course name *"
-                                hint="Used in the admin and the old website."
+                                hint="Main course title in the admin and on the website."
                               >
                                 <Input
                                   value={editingCourse.name}
@@ -931,8 +928,8 @@ export default function AdminCourses({
                                 />
                               </Field>
                               <Field
-                                label="Name shown on website"
-                                hint="Optional. Leave blank to use the course name."
+                                label="Secondary website name"
+                                hint="Optional. Shown below the main course title on the website."
                               >
                                 <Input
                                   value={editingCourse.nameEn}
@@ -1093,7 +1090,7 @@ export default function AdminCourses({
                                 onChange={e =>
                                   patchCourse({ enrollMessage: e.target.value })
                                 }
-                                placeholder={`I would like to learn more about the "${editingCourse.nameEn || editingCourse.name || "course"}" course.`}
+                                placeholder={`I would like to learn more about the "${editingCourse.name || "course"}" course.`}
                               />
                             </Field>
                           </div>

@@ -53,7 +53,7 @@ export default function V2CourseDetail() {
   const [pathname] = useLocation();
   const ss = useV2Content();
   const { t } = ss;
-  const slug = decodeURIComponent(pathname.split("/")[3] ?? "");
+  const slug = decodeURIComponent(pathname.split("/")[2] ?? "");
   const isId = /^\d+$/.test(slug);
 
   const bySlug = trpc.courses.getBySlug.useQuery(
@@ -100,7 +100,7 @@ export default function V2CourseDetail() {
     );
   }
 
-  const title = course.nameEn || course.name;
+  const title = course.name;
   const features = course.features ?? [];
   const outcomes = course.learningOutcomes ?? [];
   const curriculum = course.curriculum ?? [];
@@ -144,7 +144,13 @@ export default function V2CourseDetail() {
       <HvPageHeader
         crumbs={[{ label: "Courses", href: V2.courses }, { label: title }]}
         title={title}
-        description={course.shortDescription}
+        description={
+          course.nameEn && course.nameEn !== title
+            ? [course.nameEn, course.shortDescription]
+                .filter(Boolean)
+                .join(" — ")
+            : course.shortDescription
+        }
       >
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-brand-red px-4 py-1.5 text-sm font-medium text-white">

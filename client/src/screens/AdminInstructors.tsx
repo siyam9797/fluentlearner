@@ -56,10 +56,7 @@ export default function AdminInstructors({
     for (const course of courses) {
       const name = course.instructorName?.trim();
       if (!name) continue;
-      byName.set(name, [
-        ...(byName.get(name) ?? []),
-        course.nameEn || course.name,
-      ]);
+      byName.set(name, [...(byName.get(name) ?? []), course.name]);
     }
     return (instructor: Instructor) => byName.get(instructor.name.trim()) ?? [];
   }, [courses]);

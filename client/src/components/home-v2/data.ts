@@ -4,6 +4,7 @@ export type CourseCard = {
   id: number;
   slug?: string | null;
   title: string;
+  subtitle: string | null;
   description: string | null;
   label: string;
   /** DB category key, used for filtering */

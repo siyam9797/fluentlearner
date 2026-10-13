@@ -61,6 +61,7 @@ export function CourseItem({
           <h3 className="text-2xl lg:text-[28px] transition-colors group-hover:text-brand-red">
             {course.title}
           </h3>
+          {course.subtitle && <p className="text-ink/70">{course.subtitle}</p>}
           {course.description && (
             <p className="line-clamp-2">{course.description}</p>
           )}
