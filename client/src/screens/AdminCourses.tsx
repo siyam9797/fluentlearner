@@ -274,7 +274,7 @@ export default function AdminCourses({
   const { data: courses, isLoading } = trpc.courses.adminList.useQuery();
   const createMutation = trpc.courses.create.useMutation({
     onSuccess: async ({ id }) => {
-      await utils.courses.adminList.invalidate();
+      await utils.courses.invalidate();
       toast.success("Course created. Add the remaining details below.");
       // Continue on the full editor so curriculum, instructor and FAQ can be filled in.
       navigate(`/admin/courses/${id}/edit`);
@@ -282,8 +282,8 @@ export default function AdminCourses({
     onError: err => toast.error(err.message),
   });
   const updateMutation = trpc.courses.update.useMutation({
-    onSuccess: () => {
-      utils.courses.adminList.invalidate();
+    onSuccess: async () => {
+      await utils.courses.invalidate();
       toast.success("Course updated successfully!");
       setDialogOpen(false);
       navigate("/admin/courses");
@@ -291,8 +291,8 @@ export default function AdminCourses({
     onError: err => toast.error(err.message),
   });
   const deleteMutation = trpc.courses.delete.useMutation({
-    onSuccess: () => {
-      utils.courses.adminList.invalidate();
+    onSuccess: async () => {
+      await utils.courses.invalidate();
       toast.success("Course deleted successfully!");
     },
     onError: err => toast.error(err.message),

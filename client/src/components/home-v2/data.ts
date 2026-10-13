@@ -1,8 +1,4 @@
-/**
- * Static fallback content for /home-2.
- * Shown whenever the database returns nothing (e.g. local dev without seed data).
- */
-import { PRICING } from "@/lib/siteConstants";
+/** Shared card shapes and labels for the public website. */
 
 export type CourseCard = {
   id: number;
@@ -16,53 +12,6 @@ export type CourseCard = {
   duration: string | null;
   imageUrl: string | null;
 };
-
-export const FALLBACK_COURSES: CourseCard[] = [
-  {
-    id: -1,
-    title: "IELTS VIP Course — Plan A",
-    description:
-      "One month of intensive one-to-one IELTS mentoring across all four modules",
-    label: "IELTS",
-    category: "ielts",
-    price: PRICING.VIP_1M,
-    duration: "1 month",
-    imageUrl: null,
-  },
-  {
-    id: -2,
-    title: "IELTS VIP Course — Plan B",
-    description:
-      "Two months of structured preparation with mock tests and detailed writing feedback",
-    label: "IELTS",
-    category: "ielts",
-    price: PRICING.VIP_2M,
-    duration: "2 months",
-    imageUrl: null,
-  },
-  {
-    id: -3,
-    title: "Basic Grammar & Spoken English",
-    description:
-      "Build a solid grammar foundation and speak English with everyday confidence",
-    label: "Spoken English",
-    category: "spoken",
-    price: PRICING.GRAMMAR,
-    duration: null,
-    imageUrl: null,
-  },
-  {
-    id: -4,
-    title: "IELTS Speaking Premium",
-    description:
-      "Focused speaking practice with a mentor to lift fluency, pronunciation and band score",
-    label: "Speaking",
-    category: "ielts",
-    price: PRICING.SPEAKING,
-    duration: null,
-    imageUrl: null,
-  },
-];
 
 export const CATEGORY_LABELS: Record<string, string> = {
   ielts: "IELTS",

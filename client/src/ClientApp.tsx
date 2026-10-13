@@ -7,6 +7,7 @@ import superjson from "superjson";
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import App from "@/App";
+import { PublicDataProvider, type PublicData } from "@/contexts/PublicDataContext";
 
 function makeQueryClient() {
   const client = new QueryClient();
@@ -24,7 +25,7 @@ function makeQueryClient() {
   return client;
 }
 
-export default function ClientApp() {
+export default function ClientApp(initialData: PublicData) {
   const [queryClient] = useState(makeQueryClient);
   const [trpcClient] = useState(() => trpc.createClient({
     links: [httpBatchLink({
@@ -36,7 +37,9 @@ export default function ClientApp() {
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}><App /></QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <PublicDataProvider value={initialData}><App /></PublicDataProvider>
+      </QueryClientProvider>
     </trpc.Provider>
   );
 }

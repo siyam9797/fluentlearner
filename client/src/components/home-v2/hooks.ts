@@ -1,18 +1,20 @@
 import { trpc } from "@/lib/trpc";
 import { useV2Content } from "./useV2Content";
+import { usePublicData } from "@/contexts/PublicDataContext";
 import {
   CATEGORY_LABELS,
-  FALLBACK_COURSES,
   FALLBACK_STORIES,
   type CourseCard,
   type StoryCard,
 } from "./data";
 
 export function useCourseCards(): CourseCard[] {
+  const { courses: initialCourses } = usePublicData();
   const { data } = trpc.courses.list.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: 60 * 1000,
   });
-  if (!data?.length) return FALLBACK_COURSES;
+  if (!data) return initialCourses ?? [];
   return data.map(course => ({
     id: course.id,
     slug: course.slug,

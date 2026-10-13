@@ -141,11 +141,15 @@ export default function HvHero() {
         </div>
       </div>
 
-      <BannerImage
-        src={ss.t("v2_home_hero_image") || ss.founderPhoto}
-        alt={`${ss.founderName}, ${ss.founderTitle}`}
-        className="mt-14 h-[380px] sm:h-[450px] lg:mt-20 lg:h-[600px]"
-      />
+      {ss.isLoading ? (
+        <div className="mt-14 h-[380px] bg-sand sm:h-[450px] lg:mt-20 lg:h-[600px]" />
+      ) : (
+        <BannerImage
+          src={ss.t("v2_home_hero_image") || ss.founderPhoto}
+          alt={`${ss.founderName}, ${ss.founderTitle}`}
+          className="mt-14 h-[380px] sm:h-[450px] lg:mt-20 lg:h-[600px]"
+        />
+      )}
     </section>
   );
 }

@@ -1,6 +1,5 @@
 import {
   BKASH_BASE_URLS,
-  BKASH_SECRET_KEYS,
   BKASH_SETTINGS,
   BkashError,
   bkashSource,
@@ -12,7 +11,6 @@ import {
 import { canManageUsers } from "@shared/roles";
 import {
   SSLCOMMERZ_BASE_URLS,
-  SSLCOMMERZ_SECRET_KEYS,
   SSLCOMMERZ_SETTINGS,
   SslcommerzError,
   checkSslcommerzCredentials,
@@ -39,6 +37,7 @@ import {
 } from "./_core/trpc";
 import Anthropic from "@anthropic-ai/sdk";
 import { AI_API_KEY_SETTING, checkAiApiKey, savedAiApiKey } from "./aiGrading";
+import { getPublicSiteSettings, SECRET_SETTING_KEYS } from "./publicSiteSettings";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -197,13 +196,6 @@ const enrollmentInput = z.object({
   paymentAmount: z.string().min(1, "Enter the payment amount"),
   paymentScreenshotUrl: z.string().optional().nullable(),
 });
-
-/** Settings that hold keys or payment credentials: never sent to the browser, never saved by siteSettings.update. */
-const SECRET_SETTING_KEYS = new Set([
-  AI_API_KEY_SETTING,
-  ...BKASH_SECRET_KEYS,
-  ...SSLCOMMERZ_SECRET_KEYS,
-]);
 
 /** What the v2 enroll page collects before sending the student to a payment gateway. */
 const checkoutInput = z.object({
@@ -726,17 +718,7 @@ export const appRouter = router({
   // ============================================
   siteSettings: router({
     /** Public: get all site settings (for frontend rendering) */
-    getAll: publicProcedure.query(async () => {
-      const settings = (await getAllSiteSettings()).filter(
-        s => !SECRET_SETTING_KEYS.has(s.settingKey)
-      );
-      // Convert array to key-value map for easy frontend consumption
-      const map: Record<string, string | null> = {};
-      for (const s of settings) {
-        map[s.settingKey] = s.settingValue;
-      }
-      return map;
-    }),
+    getAll: publicProcedure.query(() => getPublicSiteSettings()),
 
     /** Public: get all site settings with metadata (for admin UI) */
     getAllWithMeta: adminProcedure.query(async () => {

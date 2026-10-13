@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { usePublicData } from "@/contexts/PublicDataContext";
 import { SITE_STATS } from "@/lib/siteConstants";
 import {
   V2_FIELDS,
@@ -157,15 +158,17 @@ export function lines(value: string | undefined): string[] {
  * Usage: const c = useV2Content(); c.t("v2_home_hero_title")
  */
 export function useV2Content() {
+  const { settings: initialSettings } = usePublicData();
   const { data, isLoading } = trpc.siteSettings.getAll.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     refetchOnWindowFocus: false,
   });
+  const settings = data ?? initialSettings ?? undefined;
 
   const raw = (key: string): string => {
     const field = V2_FIELDS[key];
     if (!field) throw new Error(`Unknown v2 content key: ${key}`);
-    return resolveValue(data, field);
+    return resolveValue(settings, field);
   };
 
   const totalScorers = parseNumber(
@@ -197,7 +200,7 @@ export function useV2Content() {
   const whatsappNumber = raw("v2_contact_whatsapp").replace(/\D/g, "");
 
   return {
-    isLoading,
+    isLoading: isLoading && !initialSettings,
     /** Text with {tokens} filled in. */
     t,
     /** Toggle fields: is the section switched on? */
