@@ -2,16 +2,19 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DecorSquare } from "./primitives";
-import { useStoryCards } from "./hooks";
+import { useStoryCardsState } from "./hooks";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
 
 export default function HvTestimonials() {
   const { t } = useV2Content();
-  const fromDb = useStoryCards().filter(story => story.quote);
+  const { stories, ready } = useStoryCardsState();
+  const fromDb = stories.filter(story => story.quote);
   const slides = fromDb.length
     ? fromDb
-    : FALLBACK_STORIES.filter(story => story.quote);
+    : ready
+      ? FALLBACK_STORIES.filter(story => story.quote)
+      : [];
   const [index, setIndex] = useState(0);
   const count = slides.length;
   if (!count) return null;

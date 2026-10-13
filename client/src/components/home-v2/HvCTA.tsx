@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { HvButton, Reveal } from "./primitives";
-import { useStoryCards } from "./hooks";
+import { useStoryCardsState } from "./hooks";
 import { V2 } from "./routes";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
@@ -51,11 +51,11 @@ function useNextBatch() {
 
 export default function HvCTA() {
   const ss = useV2Content();
-  const stories = useStoryCards();
+  const { stories, ready } = useStoryCardsState();
   const next = useNextBatch();
 
   // Always fill the strip with seven photos, topping up from the bundled results.
-  const photos = [...stories, ...FALLBACK_STORIES]
+  const photos = (ready ? [...stories, ...FALLBACK_STORIES] : [])
     .map(story => story.imageUrl)
     .filter((src, i, all) => all.indexOf(src) === i)
     .slice(0, FAN.length);
@@ -76,21 +76,27 @@ export default function HvCTA() {
           className="flex items-center justify-center gap-1.5"
           aria-hidden="true"
         >
-          {photos.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt=""
-              loading="lazy"
-              className={cn(
-                "h-[110px] w-[80px] flex-none rounded-[3px] object-cover shadow-[0_3px_8px_rgba(31,31,31,0.2)] sm:h-[150px] sm:w-[120px]",
-                (i === 0 || i === FAN.length - 1) && "hidden sm:block"
-              )}
-              style={{
-                transform: `rotate(${FAN[i][0]}deg) translateY(${FAN[i][1]}px)`,
-              }}
-            />
-          ))}
+          {(ready ? photos : FAN.map(() => "")).map((src, i) => {
+            const className = cn(
+              "h-[110px] w-[80px] flex-none rounded-[3px] bg-sand object-cover shadow-[0_3px_8px_rgba(31,31,31,0.2)] sm:h-[150px] sm:w-[120px]",
+              (i === 0 || i === FAN.length - 1) && "hidden sm:block"
+            );
+            const style = {
+              transform: `rotate(${FAN[i][0]}deg) translateY(${FAN[i][1]}px)`,
+            };
+            return src ? (
+              <img
+                key={src}
+                src={src}
+                alt=""
+                loading="lazy"
+                className={className}
+                style={style}
+              />
+            ) : (
+              <div key={i} className={className} style={style} />
+            );
+          })}
         </div>
 
         <Reveal className="mt-16 flex flex-col items-center gap-8 text-center lg:mt-20">

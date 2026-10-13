@@ -1,7 +1,7 @@
 import { Link } from "@/lib/router";
 import { HvButton, Reveal } from "./primitives";
 import { V2 } from "./routes";
-import { useStoryCards } from "./hooks";
+import { useStoryCardsState } from "./hooks";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
 
@@ -10,14 +10,16 @@ const GRID_SIZE = 6;
 /** Grid of result photos: two columns on phones, three from desktop. */
 export default function HvStories() {
   const { t } = useV2Content();
-  const featured = useStoryCards();
+  const { stories: featured, ready } = useStoryCardsState();
   // Top up from the bundled results so the grid is always full.
-  const stories = [...featured, ...FALLBACK_STORIES]
-    .filter(
-      (story, i, all) =>
-        all.findIndex(other => other.imageUrl === story.imageUrl) === i
-    )
-    .slice(0, GRID_SIZE);
+  const stories = ready
+    ? [...featured, ...FALLBACK_STORIES]
+        .filter(
+          (story, i, all) =>
+            all.findIndex(other => other.imageUrl === story.imageUrl) === i
+        )
+        .slice(0, GRID_SIZE)
+    : [];
 
   return (
     <section className="py-20 lg:py-32">
@@ -41,6 +43,13 @@ export default function HvStories() {
         </Reveal>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+          {!ready &&
+            Array.from({ length: GRID_SIZE }, (_, i) => (
+              <div
+                key={i}
+                className="aspect-square rounded-[var(--radius-card)] bg-sand"
+              />
+            ))}
           {stories.map((story, i) => (
             <Reveal key={story.id} delay={(i % 3) * 100}>
               <Link

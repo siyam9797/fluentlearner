@@ -1,15 +1,19 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { CourseCard } from "@/components/home-v2/data";
+import type { CourseCard, StoryCard } from "@/components/home-v2/data";
 
 export type PublicData = {
   courses: CourseCard[] | null;
+  featuredStories: StoryCard[] | null;
+  allStories: StoryCard[] | null;
   settings: Record<string, string | null> | null;
 };
 
 const PublicDataContext = createContext<PublicData>({
   courses: null,
+  featuredStories: null,
+  allStories: null,
   settings: null,
 });
 

@@ -79,8 +79,8 @@ export default function AdminSuccessStories({
   const utils = trpc.useUtils();
   const { data: stories, isLoading } = trpc.successStories.adminList.useQuery();
   const createMutation = trpc.successStories.create.useMutation({
-    onSuccess: () => {
-      utils.successStories.adminList.invalidate();
+    onSuccess: async () => {
+      await utils.successStories.invalidate();
       toast.success("Success story created!");
       setDialogOpen(false);
       navigate("/admin/success-stories");
@@ -88,8 +88,8 @@ export default function AdminSuccessStories({
     onError: err => toast.error(err.message),
   });
   const updateMutation = trpc.successStories.update.useMutation({
-    onSuccess: () => {
-      utils.successStories.adminList.invalidate();
+    onSuccess: async () => {
+      await utils.successStories.invalidate();
       toast.success("Updated successfully!");
       setDialogOpen(false);
       navigate("/admin/success-stories");
@@ -97,8 +97,8 @@ export default function AdminSuccessStories({
     onError: err => toast.error(err.message),
   });
   const deleteMutation = trpc.successStories.delete.useMutation({
-    onSuccess: () => {
-      utils.successStories.adminList.invalidate();
+    onSuccess: async () => {
+      await utils.successStories.invalidate();
       toast.success("Deleted successfully!");
     },
     onError: err => toast.error(err.message),

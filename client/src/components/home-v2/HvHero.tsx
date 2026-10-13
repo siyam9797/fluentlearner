@@ -99,7 +99,7 @@ export default function HvHero() {
               </HvButton>
               <div className="flex items-center gap-3">
                 <div className="flex pl-2.5">
-                  {stories.slice(0, 3).map((story, i) => (
+                  {(ss.isLoading ? [] : stories.slice(0, 3)).map((story, i) => (
                     <StudentAvatar
                       key={story.id}
                       name={story.name}

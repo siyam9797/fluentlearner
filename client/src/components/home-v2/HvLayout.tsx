@@ -42,6 +42,7 @@ export function HvPageHeader({
   children,
   image,
   imageAlt = "",
+  imageLoading = false,
 }: {
   title: ReactNode;
   description?: ReactNode;
@@ -50,6 +51,7 @@ export function HvPageHeader({
   children?: ReactNode;
   image?: string;
   imageAlt?: string;
+  imageLoading?: boolean;
 }) {
   const enter =
     "animate-in fade-in slide-in-from-bottom-6 duration-700 fill-mode-both motion-reduce:animate-none";
@@ -111,7 +113,9 @@ export function HvPageHeader({
         </div>
       </div>
 
-      {image ? (
+      {imageLoading ? (
+        <div className="mt-14 h-[300px] bg-sand sm:h-[380px] lg:mt-20 lg:h-[480px]" />
+      ) : image ? (
         <BannerImage
           src={image}
           alt={imageAlt}

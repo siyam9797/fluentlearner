@@ -172,7 +172,7 @@ export function Pill({
   position = "50% 30%",
   zoom = "cover",
 }: {
-  src: string;
+  src?: string;
   position?: string;
   zoom?: string;
 }) {
@@ -181,7 +181,7 @@ export function Pill({
       aria-hidden="true"
       className="hv-pill"
       style={{
-        backgroundImage: `url("${src}")`,
+        backgroundImage: src ? `url("${src}")` : undefined,
         backgroundPosition: position,
         backgroundSize: zoom,
       }}
@@ -366,7 +366,11 @@ export function PillText({
         <span key={i}>
           {i > 0 && (
             <Pill
-              src={pills[(offset + i - 1) % pills.length]}
+              src={
+                pills.length
+                  ? pills[(offset + i - 1) % pills.length]
+                  : undefined
+              }
               position={positions[i - 1] ?? "50% 50%"}
             />
           )}

@@ -29,6 +29,7 @@ export default function V2About() {
         description={t("v2_about_header_description")}
         image={t("v2_about_header_image") || ss.founderPhoto}
         imageAlt={`${ss.founderName} at the FluentLearner studio`}
+        imageLoading={ss.isLoading}
       />
 
       {/* Story */}
@@ -101,12 +102,16 @@ export default function V2About() {
       {/* Founder */}
       <section className="pb-20 lg:pb-32">
         <div className="mx-auto grid max-w-[1262px] items-center gap-10 px-5 sm:px-8 lg:grid-cols-2 lg:gap-20">
-          <Reveal className="overflow-hidden rounded-[var(--radius-card)]">
-            <img
-              src={ss.founderPhoto}
-              alt={`${ss.founderName}, ${ss.founderTitle}`}
-              className="aspect-[4/5] w-full object-cover object-[50%_20%] sm:aspect-[4/3] lg:aspect-[4/5]"
-            />
+          <Reveal className="overflow-hidden rounded-[var(--radius-card)] bg-sand">
+            <div className="aspect-[4/5] w-full sm:aspect-[4/3] lg:aspect-[4/5]">
+              {!ss.isLoading && (
+                <img
+                  src={ss.founderPhoto}
+                  alt={`${ss.founderName}, ${ss.founderTitle}`}
+                  className="h-full w-full object-cover object-[50%_20%]"
+                />
+              )}
+            </div>
           </Reveal>
           <Reveal delay={120}>
             <p className="mb-4 flex items-center gap-2 text-lg">

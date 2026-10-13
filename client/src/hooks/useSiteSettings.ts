@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { SITE_STATS, CONTACT, BRAND } from "@/lib/siteConstants";
 import { OLD_SITE_SETTINGS } from "@/old-site/content";
+import { usePublicData } from "@/contexts/PublicDataContext";
 
 /**
  * Hook to get site settings from DB with fallback to hardcoded constants.
@@ -8,11 +9,15 @@ import { OLD_SITE_SETTINGS } from "@/old-site/content";
  *        const heroTitle = get("hero_title", "Default Title");
  */
 export function useSiteSettings() {
+  const { settings: initialSettings } = usePublicData();
   const { data, isLoading } = trpc.siteSettings.getAll.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 0,
     refetchOnWindowFocus: false,
   });
-  return siteSettingsFrom(data, isLoading);
+  return siteSettingsFrom(
+    data ?? initialSettings ?? undefined,
+    isLoading && !initialSettings
+  );
 }
 
 /** The old (v1) site at /old: the same shape, from frozen values instead of the database. */
@@ -31,8 +36,7 @@ function siteSettingsFrom(
 
   const getNumber = (key: string, fallback: number): number => {
     if (data && data[key]) {
-      const raw = data[key]!
-        .trim()
+      const raw = data[key]!.trim()
         .replace(/,/g, "")
         .replace(/[+%]+$/, "")
         .trim();
@@ -52,8 +56,14 @@ function siteSettingsFrom(
 
     // Hero
     heroTitle: get("hero_title", "Your Path to IELTS Success"),
-    heroSubtitle: get("hero_subtitle", "Your trusted partner for IELTS success"),
-    heroDescription: get("hero_description", "Expert-led IELTS preparation with one-to-one mentorship — trusted by 10K+ successful scorers across Bangladesh."),
+    heroSubtitle: get(
+      "hero_subtitle",
+      "Your trusted partner for IELTS success"
+    ),
+    heroDescription: get(
+      "hero_description",
+      "Expert-led IELTS preparation with one-to-one mentorship — trusted by 10K+ successful scorers across Bangladesh."
+    ),
     heroImage: get("hero_image", ""),
     heroCtaText: get("hero_cta_text", "Enroll Now"),
     heroCtaLink: get("hero_cta_link", "/enroll"),
@@ -62,9 +72,15 @@ function siteSettingsFrom(
     totalScorers: getNumber("stat_total_scorers", SITE_STATS.TOTAL_SCORERS),
     successRate: getNumber("stat_success_rate", SITE_STATS.SUCCESS_RATE),
     avgBandScore: get("stat_avg_band", SITE_STATS.AVG_BAND_SCORE),
-    yearsExperience: getNumber("stat_years_experience", SITE_STATS.YEARS_EXPERIENCE),
+    yearsExperience: getNumber(
+      "stat_years_experience",
+      SITE_STATS.YEARS_EXPERIENCE
+    ),
     courseType: get("stat_course_type", "Online & Offline"),
-    facebookFollowers: get("stat_facebook_followers", SITE_STATS.FACEBOOK_FOLLOWERS),
+    facebookFollowers: get(
+      "stat_facebook_followers",
+      SITE_STATS.FACEBOOK_FOLLOWERS
+    ),
 
     // CTA commitment card
     ctaCommitmentTitle: get("cta_commitment_title", "Our Commitment"),
@@ -98,7 +114,13 @@ function siteSettingsFrom(
     socialInstagram: get("social_instagram", ""),
 
     // Footer
-    footerText: get("footer_text", `© ${new Date().getFullYear()} FluentLearner. All rights reserved.`),
-    footerTagline: get("footer_tagline", "Your trusted partner for IELTS success"),
+    footerText: get(
+      "footer_text",
+      `© ${new Date().getFullYear()} FluentLearner. All rights reserved.`
+    ),
+    footerTagline: get(
+      "footer_tagline",
+      "Your trusted partner for IELTS success"
+    ),
   };
 }
