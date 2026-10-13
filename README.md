@@ -98,6 +98,19 @@ The `production.env` file must be kept private and contain the required runtime 
 
 Without Docker, run `npm ci`, `npm run check`, `npm test`, `npm run build`, then `npm start` with the same runtime variables. `next start` runs from the project tree; the Docker image uses the smaller standalone server bundle.
 
+### Deploy from GitHub to a VPS
+
+`compose.production.yml` runs the app, MySQL 8.4, and Caddy on one VPS. MySQL data, uploads, and TLS certificates use Docker volumes. The MySQL image prepares the numbered Drizzle SQL files for a fresh database import. Caddy obtains and renews HTTPS certificates when the domain points to the VPS and ports 80 and 443 are reachable. The app and database are not published directly to the internet.
+
+1. Install Docker Engine with the Compose plugin on the VPS. Point your domain's DNS A record at the VPS and allow inbound TCP ports 80 and 443.
+2. Clone the repository: `git clone https://github.com/siyam9797/fluentlearner.git && cd fluentlearner`.
+3. Run `cp .env.production.example .env.production` and `cp app.production.env.example app.production.env`. Replace every placeholder. Set `SITE_DOMAIN` to the bare domain and `PUBLIC_SITE_URL` to its `https://` URL. Use the same `MYSQL_PASSWORD` inside `DATABASE_URL`; hex passwords avoid URL encoding problems. Generate independent random passwords and a JWT secret with `openssl rand -hex 32`. Keep both files private with `chmod 600 .env.production app.production.env`.
+4. Start the stack: `docker compose --env-file .env.production -f compose.production.yml up -d --build`. On a **new** MySQL volume, the numbered SQL files run once in order. They do not rerun on later starts.
+5. Check `docker compose --env-file .env.production -f compose.production.yml ps` and `curl -fsS https://<your-domain>/api/health`. If the health check fails, inspect `docker compose --env-file .env.production -f compose.production.yml logs --tail=100 db app caddy`.
+6. Seed the first Super Admin once. Export `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the VPS shell, then run `docker compose --env-file .env.production -f compose.production.yml run --rm -e ADMIN_EMAIL -e ADMIN_PASSWORD -e ADMIN_ROLE=super_admin app node server/scripts/seed-admin.mjs`. Unset both shell variables afterward. Sign in at `https://<your-domain>/admin`.
+
+For later releases, run `git pull --ff-only origin main` on the VPS, apply any new numbered SQL migrations to MySQL after a backup, then run the same `docker compose ... up -d --build` command. Back up the MySQL database and the `uploads_data` volume separately. Do not run `docker compose down -v` on production: `-v` deletes the data volumes.
+
 ### Production access
 
 | Access | Where | Requirement |

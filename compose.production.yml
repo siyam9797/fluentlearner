@@ -1,0 +1,54 @@
+name: fluentlearner
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.mysql
+    image: fluentlearner-mysql:local
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: fluentlearner
+      MYSQL_USER: fluentlearner
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env.production}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env.production}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql --host=127.0.0.1 --user=fluentlearner --password=\"$$MYSQL_PASSWORD\" --silent --execute='SELECT 1' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  app:
+    build: .
+    image: fluentlearner:local
+    restart: unless-stopped
+    env_file: ./app.production.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/data/uploads
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  mysql_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:

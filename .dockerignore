@@ -1,6 +1,7 @@
 .git
 .env*
 !.env.example
+app.production.env
 node_modules
 client/.next
 client/public/uploads

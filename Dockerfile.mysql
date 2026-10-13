@@ -1,0 +1,4 @@
+FROM mysql:8.4
+
+COPY server/database/*.sql /docker-entrypoint-initdb.d/
+RUN sed -i 's/--> statement-breakpoint//g' /docker-entrypoint-initdb.d/*.sql
