@@ -10,6 +10,7 @@ import HvCTA from "@/components/home-v2/HvCTA";
 import { DecorSquare, HvButton, Reveal } from "@/components/home-v2/primitives";
 import { CATEGORY_LABELS } from "@/components/home-v2/data";
 import { V2 } from "@/components/home-v2/routes";
+import { usePublicData } from "@/contexts/PublicDataContext";
 
 const LEVEL_LABELS: Record<string, string> = {
   beginner: "Beginner",
@@ -51,9 +52,10 @@ function CheckList({ items }: { items: string[] }) {
 
 export default function V2CourseDetail() {
   const [pathname] = useLocation();
+  const { courseDetail: initialCourse } = usePublicData();
   const ss = useV2Content();
   const { t } = ss;
-  const slug = decodeURIComponent(pathname.split("/")[2] ?? "");
+  const slug = decodeURIComponent(pathname.split("/").filter(Boolean)[1] ?? "");
   const isId = /^\d+$/.test(slug);
 
   const bySlug = trpc.courses.getBySlug.useQuery(
@@ -64,9 +66,15 @@ export default function V2CourseDetail() {
     { id: Number(slug) },
     { enabled: isId }
   );
-  const { data: course, isLoading } = isId ? byId : bySlug;
+  const query = isId ? byId : bySlug;
+  const prefetchedCourse =
+    initialCourse &&
+    (isId ? initialCourse.id === Number(slug) : initialCourse.slug === slug)
+      ? initialCourse
+      : null;
+  const course = query.isSuccess ? query.data : prefetchedCourse;
 
-  if (isLoading) {
+  if (!course && (query.isPending || query.isFetching)) {
     return (
       <HvLayout>
         <div

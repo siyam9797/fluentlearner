@@ -2,9 +2,11 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { CourseCard, StoryCard } from "@/components/home-v2/data";
+import type { Course } from "@server/database/schema";
 
 export type PublicData = {
   courses: CourseCard[] | null;
+  courseDetail: Course | null;
   featuredStories: StoryCard[] | null;
   allStories: StoryCard[] | null;
   settings: Record<string, string | null> | null;
@@ -12,6 +14,7 @@ export type PublicData = {
 
 const PublicDataContext = createContext<PublicData>({
   courses: null,
+  courseDetail: null,
   featuredStories: null,
   allStories: null,
   settings: null,

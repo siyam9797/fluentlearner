@@ -239,7 +239,7 @@ export async function getCourseById(id: number) {
   const result = await db
     .select()
     .from(courses)
-    .where(eq(courses.id, id))
+    .where(and(eq(courses.id, id), eq(courses.isActive, true)))
     .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }

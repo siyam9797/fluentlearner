@@ -16,7 +16,8 @@ export default async function Page({
 }: {
   params: Promise<{ path?: string[] }>;
 }) {
-  const firstSegment = (await params).path?.[0];
+  const path = (await params).path ?? [];
+  const firstSegment = path[0];
   const publicPage = firstSegment !== "admin" && firstSegment !== "student";
   const [rows, settings, storyRows, featuredRows] = publicPage
     ? await Promise.all([
@@ -40,6 +41,15 @@ export default async function Page({
       duration: course.duration,
       imageUrl: course.imageUrl,
     })) ?? null;
+  const courseKey = path[0] === "courses" && path.length === 2 ? path[1] : null;
+  const courseDetail =
+    courseKey && rows
+      ? (rows.find(course =>
+          /^\d+$/.test(courseKey)
+            ? course.id === Number(courseKey)
+            : course.slug === courseKey
+        ) ?? null)
+      : null;
   const allStories: StoryCard[] | null =
     storyRows?.map(story => ({
       id: story.id,
@@ -64,6 +74,7 @@ export default async function Page({
   return (
     <ClientApp
       courses={courses}
+      courseDetail={courseDetail}
       featuredStories={featuredStories}
       allStories={allStories}
       settings={settings}
