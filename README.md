@@ -75,11 +75,40 @@ Override these defaults in `.env` with `STUDENT_EMAIL`, `STUDENT_PASSWORD`, `STU
 
 ### Database-backed accounts
 
-`npm run seed:admin` creates or updates the administrator defined by `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME` in `.env`. Additional student accounts can be created from **Admin → Users**. Database-backed accounts use the `/admin` or `/student` login screen according to their role.
+`npm run seed:admin` creates or updates the administrator defined by `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, and `ADMIN_ROLE` in `.env`. Use `ADMIN_ROLE=super_admin` for the initial owner. Additional accounts can be created from **Admin → Users**. Database-backed accounts use the `/admin` or `/student` login screen according to their role.
 
 ## Production
 
-Run `npm run build` and `npm start`. The Next.js config produces a standalone server bundle. User uploads are written to `UPLOAD_DIR`; mount that directory on persistent storage in production.
+The production deployment needs a writable MySQL database, a persistent upload volume, a public HTTPS domain, and a Node.js 22 host. Set `DATABASE_URL`, a long random `JWT_SECRET`, `PUBLIC_SITE_URL` (for example `https://example.com`), `UPLOAD_DIR`, and `PUBLIC_UPLOAD_URL=/uploads` as runtime environment variables. Never deploy the local `.env` file or its demo passwords.
+
+Apply `server/database/0000_*.sql` through the latest numbered SQL file in order to a **new** database. For an existing database, apply only migrations that have not already run. Back up the database first. The SQL migrations have been applied manually in the past; `npm run db:push` is **not** a safe production upgrade path. Create the initial Super Admin once with `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_ROLE=super_admin`, and `npm run seed:admin` from a trusted environment that can reach the production database. The seed command updates the password on every run, so do not run it on each deployment. Remove the seed credentials from the running app after the account is created.
+
+### Docker deployment
+
+Build with `docker build -t fluentlearner .`. Run the image with the required environment variables and mount persistent storage at `/data/uploads` (the image sets `UPLOAD_DIR=/data/uploads`). For example, after providing `DATABASE_URL`, `JWT_SECRET`, and `PUBLIC_SITE_URL` through your deployment platform's secret manager:
+
+```sh
+docker run -d --name fluentlearner -p 3000:3000 \
+  --env-file production.env \
+  --mount type=volume,src=fluentlearner-uploads,dst=/data/uploads \
+  fluentlearner
+```
+
+The `production.env` file must be kept private and contain the required runtime variables. Terminate TLS at a reverse proxy, point the domain to the service, and route all paths to port 3000. Check `GET /api/health` for database connectivity. Uploaded files are served at `/uploads/*` from the mounted volume. Back up both MySQL and the upload volume. Run one app instance unless all instances share the same upload storage; the local filesystem is unsuitable for ephemeral serverless hosting.
+
+Without Docker, run `npm ci`, `npm run check`, `npm test`, `npm run build`, then `npm start` with the same runtime variables. `next start` runs from the project tree; the Docker image uses the smaller standalone server bundle.
+
+### Production access
+
+| Access | Where | Requirement |
+| --- | --- | --- |
+| Public website, courses, enrollment | `https://<your-domain>/`, `/courses`, `/enroll` | No account |
+| Student portal | `https://<your-domain>/student` | Database-backed student account |
+| Admin dashboard | `https://<your-domain>/admin` | Database-backed Admin or Super Admin account |
+| Health check | `https://<your-domain>/api/health` | No account; returns 503 if MySQL is unavailable |
+| Application API | `https://<your-domain>/api/trpc` | Procedure-specific access controls |
+
+The local `admin@localhost.test` login is disabled with `NODE_ENV=production`. There is no default production password. The Super Admin password is the one you set during the one-time seed. Production operations also need access to the DNS/TLS provider, the app host, the MySQL database, and the persistent upload volume. Payment gateways, the notification webhook, Maps, and AI grading need their own credentials only when those features are enabled.
 
 The Google Maps key and notification webhook are optional. The application works without either integration.
 
@@ -87,7 +116,8 @@ The Google Maps key and notification webhook are optional. The application works
 
 | Feature                              | Environment variables                                                                                        | Without it                                         |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| bKash online payment on `/v2/enroll` | `BKASH_BASE_URL`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `PUBLIC_SITE_URL` | The enroll page offers WhatsApp enrollment instead |
+| bKash online payment on `/enroll` | `BKASH_BASE_URL`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `PUBLIC_SITE_URL` | The enroll page offers WhatsApp enrollment instead |
+| SSLCommerz online payment | `SSLCOMMERZ_MODE=live`, `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `PUBLIC_SITE_URL` (or configure the store in Admin → Settings) | Other payment methods remain available |
 | AI marking of Writing & Speaking     | `ANTHROPIC_API_KEY` (pay-as-you-go key from console.anthropic.com)                                           | Attempts wait for mentor marking                   |
 
 Use the bKash sandbox base URL (`https://tokenized.sandbox.bka.sh/v1.2.0-beta`) while developing and the live one (`https://tokenized.pay.bka.sh/v1.2.0-beta`) in production.

@@ -114,6 +114,7 @@ temp/
 
 # User uploaded files
 uploads/
+!client/src/app/uploads/
 
 # Local DB backups written by `npm run sync:live`
 .local-backups/

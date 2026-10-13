@@ -81,7 +81,6 @@ import {
   bulkUpsertSiteSettings,
   upsertSiteSetting,
   getAppUserByEmail,
-  ensureOwnerRole,
   updateAppUserLastSignedIn,
 } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
@@ -277,7 +276,7 @@ export const appRouter = router({
         });
 
         const found = await getAppUserByEmail(input.email);
-        const appUser = found && (await ensureOwnerRole(found));
+        const appUser = found;
         if (!appUser || !appUser.isActive) {
           throw invalidCredentials;
         }

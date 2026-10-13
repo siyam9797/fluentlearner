@@ -1,0 +1,11 @@
+.git
+.env*
+!.env.example
+node_modules
+client/.next
+client/public/uploads
+uploads
+.local-backups
+coverage
+*.log
+*.tsbuildinfo
