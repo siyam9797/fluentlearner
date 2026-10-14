@@ -7,38 +7,57 @@ import superjson from "superjson";
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import App from "@/App";
-import { PublicDataProvider, type PublicData } from "@/contexts/PublicDataContext";
+import {
+  PublicDataProvider,
+  type PublicData,
+} from "@/contexts/PublicDataContext";
+import MetaPageView from "@/components/MetaPageView";
 
 function makeQueryClient() {
   const client = new QueryClient();
   const redirect = (error: unknown) => {
-    if (error instanceof TRPCClientError && error.message === UNAUTHED_ERR_MSG) {
-      window.location.href = window.location.pathname.startsWith("/student") ? "/student" : "/admin";
+    if (
+      error instanceof TRPCClientError &&
+      error.message === UNAUTHED_ERR_MSG
+    ) {
+      window.location.href = window.location.pathname.startsWith("/student")
+        ? "/student"
+        : "/admin";
     }
   };
   client.getQueryCache().subscribe(event => {
-    if (event.type === "updated" && event.action.type === "error") redirect(event.query.state.error);
+    if (event.type === "updated" && event.action.type === "error")
+      redirect(event.query.state.error);
   });
   client.getMutationCache().subscribe(event => {
-    if (event.type === "updated" && event.action.type === "error") redirect(event.mutation.state.error);
+    if (event.type === "updated" && event.action.type === "error")
+      redirect(event.mutation.state.error);
   });
   return client;
 }
 
 export default function ClientApp(initialData: PublicData) {
   const [queryClient] = useState(makeQueryClient);
-  const [trpcClient] = useState(() => trpc.createClient({
-    links: [httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      fetch: (input, init) => fetch(input, { ...init, credentials: "include" }),
-    })],
-  }));
+  const [trpcClient] = useState(() =>
+    trpc.createClient({
+      links: [
+        httpBatchLink({
+          url: "/api/trpc",
+          transformer: superjson,
+          fetch: (input, init) =>
+            fetch(input, { ...init, credentials: "include" }),
+        }),
+      ],
+    })
+  );
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <PublicDataProvider value={initialData}><App /></PublicDataProvider>
+        <PublicDataProvider value={initialData}>
+          <MetaPageView config={initialData.metaConfig} />
+          <App />
+        </PublicDataProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

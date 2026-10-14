@@ -1,6 +1,7 @@
 export const APP_ROLES = [
   "super_admin",
   "admin",
+  "marketing",
   "staff",
   "mentor",
   "student",
@@ -30,10 +31,20 @@ export const ROLE_DEFINITIONS: Record<
     label: "Admin",
     description: "Project owner access for day-to-day business management.",
     permissions: [
-      "Manage staff, mentors, and students",
+      "Create accounts in any role",
       "Manage courses and batches",
       "Manage enrollments and payments",
       "Manage website content",
+    ],
+  },
+  marketing: {
+    label: "Marketing",
+    description:
+      "Manage Meta ad tracking without access to business or student records.",
+    permissions: [
+      "Manage Meta Pixel settings",
+      "Manage Conversions API settings",
+      "View the public website",
     ],
   },
   staff: {
@@ -42,6 +53,7 @@ export const ROLE_DEFINITIONS: Record<
     permissions: [
       "Review enrollments",
       "Manage students",
+      "Create student accounts",
       "View courses and batches",
       "Manage learning resources",
     ],
@@ -79,6 +91,15 @@ export function canAccessAdminDashboard(role: string | null | undefined) {
   return DASHBOARD_ROLES.includes(role as AppRole);
 }
 
+/** Marketing can enter the portal, but cannot use the general admin API. */
+export function canAccessAdminPortal(role: string | null | undefined) {
+  return role === "marketing" || canAccessAdminDashboard(role);
+}
+
+export function canManageMarketing(role: string | null | undefined) {
+  return role === "marketing" || canManageUsers(role);
+}
+
 /** Students, plus the Super Admin, who can open both dashboards. */
 export function canAccessStudentDashboard(role: string | null | undefined) {
   return role === "student" || role === "super_admin";
@@ -86,4 +107,18 @@ export function canAccessStudentDashboard(role: string | null | undefined) {
 
 export function canManageUsers(role: string | null | undefined) {
   return role === "super_admin" || role === "admin";
+}
+
+export function canCreateUsers(role: string | null | undefined) {
+  return canManageUsers(role) || role === "staff";
+}
+
+export function canCreateUserWithRole(
+  creatorRole: string | null | undefined,
+  newRole: AppRole
+) {
+  return (
+    canManageUsers(creatorRole) ||
+    (creatorRole === "staff" && newRole === "student")
+  );
 }

@@ -19,6 +19,7 @@ import { and, eq, like, or } from "drizzle-orm";
 import { getDb } from "./db";
 import { appUsers, enrollments, courses } from "./database/schema";
 import { notifyOwner } from "./_core/notification";
+import { sendMetaPurchase } from "./metaConversions";
 import { randomBytes, randomInt } from "node:crypto";
 import { hashPassword } from "./_core/password";
 import {
@@ -319,6 +320,12 @@ async function confirmCheckout(
   } catch (error) {
     console.warn("[Payments] Failed to notify owner:", error);
   }
+  await sendMetaPurchase({
+    enrollmentId: row.id,
+    email: row.studentEmail,
+    mobile: row.studentMobile,
+    amount: paid.amount || row.paymentAmount,
+  });
   return { ok: true as const, enrollmentId: row.id, loginUserId, password };
 }
 
@@ -435,6 +442,7 @@ export async function onlinePaymentSummary(paymentID: string) {
   const database = await db();
   const [row] = await database
     .select({
+      id: enrollments.id,
       status: enrollments.status,
       studentName: enrollments.studentName,
       studentEmail: enrollments.studentEmail,
@@ -459,6 +467,7 @@ export async function onlinePaymentSummary(paymentID: string) {
     .limit(1);
   if (!row || row.status !== "verified") return null;
   return {
+    enrollmentId: row.id,
     studentName: row.studentName,
     course: row.courseNameEn || row.courseName || "",
     amount: row.paymentAmount,

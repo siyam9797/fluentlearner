@@ -3,7 +3,7 @@
  * Choose course → your details → pay with bKash (hosted checkout). bKash returns to
  * /api/payments/bkash/callback, which confirms the payment and redirects back here with ?payment=…
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Check,
@@ -25,6 +25,9 @@ import { DecorSquare, HvButton, Reveal } from "@/components/home-v2/primitives";
 import { CATEGORY_LABELS } from "@/components/home-v2/data";
 import { V2 } from "@/components/home-v2/routes";
 import { useV2Content } from "@/components/home-v2/useV2Content";
+import { purchaseEventId } from "@shared/meta";
+import { usePublicData } from "@/contexts/PublicDataContext";
+import { trackMetaPurchase } from "@/components/MetaPageView";
 
 const fieldClass =
   "w-full rounded-[var(--radius-control)] border border-ink/20 bg-white/60 px-4 py-3.5 text-base outline-none transition-colors placeholder:text-ink/40 focus:border-ink focus:bg-white";
@@ -124,6 +127,7 @@ function FieldRow({
 }
 
 export default function V2Enroll() {
+  const { metaConfig } = usePublicData();
   const c = useV2Content();
   const { t } = c;
   const params = new URLSearchParams(useSearch());
@@ -174,6 +178,21 @@ export default function V2Enroll() {
   useEffect(() => {
     if (summary.data) writeDraft(null);
   }, [summary.data]);
+
+  const trackedPurchase = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      !metaConfig.enabled ||
+      !summary.data ||
+      trackedPurchase.current === summary.data.enrollmentId
+    )
+      return;
+    trackMetaPurchase({
+      value: Number(summary.data.amount),
+      eventId: purchaseEventId(summary.data.enrollmentId),
+    });
+    trackedPurchase.current = summary.data.enrollmentId;
+  }, [metaConfig.enabled, summary.data]);
 
   // A preset course that doesn't exist sends the visitor back to choosing one.
   useEffect(() => {

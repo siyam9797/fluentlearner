@@ -43,19 +43,21 @@ Optional content seeds:
 
 Migrations `0009` onwards were applied by hand, so Drizzle's migration history is out of sync and **`npm run db:push` fails** on an existing database. Apply each new `server/database/NNNN_*.sql` file yourself (for example with `mysql < server/database/0014_ai_evaluation.sql`), locally and on production, and add its entry to `server/database/meta/_journal.json`.
 
+Migration `0021_marketing_role.sql` adds the Marketing role. Apply it before creating a Marketing account. Super Admin and Admin can then assign the role under **Admin → Users**. Marketing accounts can access **Admin → Settings → Marketing** and their own profile; other admin APIs remain restricted.
+
 ## Local access
 
-After starting the development server with `npm run dev`, use these local entry points:
+After starting the development server with `npm run dev` (port 3001), use these local entry points:
 
 | Area            | URL                              | Access                                                               |
 | --------------- | -------------------------------- | -------------------------------------------------------------------- |
-| Public website  | `http://localhost:3000`          | No login required                                                    |
-| Course catalog  | `http://localhost:3000/courses`  | No login required                                                    |
-| Enrollment form | `http://localhost:3000/enroll`   | No login required                                                    |
-| v2 website      | `http://localhost:3000/home-2`   | Redesign preview (`/v2/*` pages), runs beside the current site       |
-| Student portal  | `http://localhost:3000/student`  | Use the local student credentials below                              |
-| Admin dashboard | `http://localhost:3000/admin`    | Use the local administrator credentials below                        |
-| tRPC API        | `http://localhost:3000/api/trpc` | Application endpoint; individual procedures are called by the client |
+| Public website  | `http://localhost:3001`          | No login required                                                    |
+| Course catalog  | `http://localhost:3001/courses`  | No login required                                                    |
+| Enrollment form | `http://localhost:3001/enroll`   | No login required                                                    |
+| v2 website      | `http://localhost:3001/home-2`   | Redesign preview (`/v2/*` pages), runs beside the current site       |
+| Student portal  | `http://localhost:3001/student`  | Use the local student credentials below                              |
+| Admin dashboard | `http://localhost:3001/admin`    | Use the local administrator credentials below                        |
+| tRPC API        | `http://localhost:3001/api/trpc` | Application endpoint; individual procedures are called by the client |
 
 ### Local administrator
 
@@ -66,7 +68,7 @@ The development-only administrator works without running `npm run seed:admin`. O
 
 ### Local student
 
-Run `npm run seed:student`, then sign in at `http://localhost:3000/student` with:
+Run `npm run seed:student`, then sign in at `http://localhost:3001/student` with:
 
 - Email: `student@localhost.test`
 - Password: `student12345`
@@ -78,6 +80,12 @@ Override these defaults in `.env` with `STUDENT_EMAIL`, `STUDENT_PASSWORD`, `STU
 `npm run seed:admin` creates or updates the administrator defined by `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, and `ADMIN_ROLE` in `.env`. Use `ADMIN_ROLE=super_admin` for the initial owner. Additional accounts can be created from **Admin → Users**. Database-backed accounts use the `/admin` or `/student` login screen according to their role.
 
 ## Production
+
+### Meta ad tracking
+
+Manage Meta tracking in **Admin → Settings → Marketing**. You can turn the browser Pixel and server Conversions API on or off independently, change the Dataset ID, replace or remove the private access token, and set or clear a test event code. The default Dataset ID is `1664861398363916`. Public pages send Pixel `PageView` events while enabled. A `Purchase` event is sent from the browser and/or server only after an online payment is confirmed. Both use the same event ID so Meta can deduplicate them. The server sends the paid amount in BDT and hashed customer email and phone number.
+
+The token can be entered in Marketing settings. `META_CAPI_ACCESS_TOKEN` in the private runtime environment (`app.production.env` for Compose) is a fallback until a token is saved or removed in Settings. `META_TEST_EVENT_CODE` is an optional fallback for testing. Clear the test code in Settings before using the production site. Never put the access token in a `NEXT_PUBLIC_` variable or commit it. Reload public pages after changing settings.
 
 The production deployment needs a writable MySQL database, a persistent upload volume, a public HTTPS domain, and a Node.js 22 host. Set `DATABASE_URL`, a long random `JWT_SECRET`, `PUBLIC_SITE_URL` (for example `https://example.com`), `UPLOAD_DIR`, and `PUBLIC_UPLOAD_URL=/uploads` as runtime environment variables. Never deploy the local `.env` file or its demo passwords.
 

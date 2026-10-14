@@ -403,12 +403,14 @@ export function BannerImage({
   alt,
   className,
   priority = false,
+  forceCover = false,
 }: {
   src: string;
   mobileSrc?: string;
   alt: string;
   className?: string;
   priority?: boolean;
+  forceCover?: boolean;
 }) {
   const [fit, setFit] = useState<"cover" | "contain">("cover");
   const measure = (img: HTMLImageElement | null) => {
@@ -418,20 +420,24 @@ export function BannerImage({
 
   return (
     <div className={cn("relative overflow-hidden bg-sand", className)}>
-      <picture
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-0 block h-full w-full sm:hidden",
-          fit === "contain" && "sm:block"
-        )}
-      >
-        {mobileSrc && <source media="(max-width: 639px)" srcSet={mobileSrc} />}
-        <img
-          src={src}
-          alt=""
-          className="h-full w-full scale-125 object-cover opacity-70 blur-2xl"
-        />
-      </picture>
+      {!forceCover && (
+        <picture
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-0 block h-full w-full sm:hidden",
+            fit === "contain" && "sm:block"
+          )}
+        >
+          {mobileSrc && (
+            <source media="(max-width: 639px)" srcSet={mobileSrc} />
+          )}
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full scale-125 object-cover opacity-70 blur-2xl"
+          />
+        </picture>
+      )}
       <picture className="relative block h-full w-full">
         {mobileSrc && <source media="(max-width: 639px)" srcSet={mobileSrc} />}
         <img
@@ -444,10 +450,15 @@ export function BannerImage({
             measure(e.currentTarget)
           }
           className={cn(
-            "h-full w-full object-contain object-center",
-            fit === "cover"
-              ? "sm:object-cover sm:object-[50%_40%]"
-              : "sm:object-contain sm:object-bottom"
+            "h-full w-full",
+            forceCover
+              ? "object-cover object-[50%_40%]"
+              : cn(
+                  "object-contain object-center",
+                  fit === "cover"
+                    ? "sm:object-cover sm:object-[50%_40%]"
+                    : "sm:object-contain sm:object-bottom"
+                )
           )}
         />
       </picture>

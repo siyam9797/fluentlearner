@@ -14,6 +14,7 @@ import {
 export const USER_ROLES = [
   "super_admin",
   "admin",
+  "marketing",
   "staff",
   "mentor",
   "student",

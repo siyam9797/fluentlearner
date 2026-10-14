@@ -25,6 +25,7 @@ import {
 const roleTone: Record<AppRole, string> = {
   super_admin: "info",
   admin: "warning",
+  marketing: "info",
   staff: "",
   mentor: "info",
   student: "inactive",

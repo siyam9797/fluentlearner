@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "next dev client",
+    "dev": "next dev client -p 3001",
     "build": "next build client --webpack",
     "start": "next start client",
     "check": "next typegen client && tsc --noEmit",
@@ -54,6 +54,7 @@
     "next-themes": "^0.4.6",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "sharp": "^0.35.5",
     "sonner": "^2.0.7",
     "superjson": "^1.13.3",
     "tailwind-merge": "^3.3.1",

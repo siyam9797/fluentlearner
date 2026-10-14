@@ -32,12 +32,17 @@ import { systemRouter } from "./_core/systemRouter";
 import {
   publicProcedure,
   adminProcedure,
+  marketingProcedure,
   superAdminProcedure,
   router,
 } from "./_core/trpc";
 import Anthropic from "@anthropic-ai/sdk";
 import { AI_API_KEY_SETTING, checkAiApiKey, savedAiApiKey } from "./aiGrading";
-import { getPublicSiteSettings, SECRET_SETTING_KEYS } from "./publicSiteSettings";
+import {
+  getPublicSiteSettings,
+  SECRET_SETTING_KEYS,
+} from "./publicSiteSettings";
+import { getMetaSettings, META_SETTING_KEYS } from "./metaSettings";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -745,6 +750,75 @@ export const appRouter = router({
         await bulkUpsertSiteSettings(
           input.filter(s => !SECRET_SETTING_KEYS.has(s.key))
         );
+        return { success: true };
+      }),
+  }),
+
+  // Meta Pixel and Conversions API. The access token is never returned to the browser.
+  metaSettings: router({
+    status: marketingProcedure.query(async () => {
+      const settings = await getMetaSettings();
+      return {
+        enabled: settings.enabled,
+        datasetId: settings.datasetId,
+        capiEnabled: settings.capiEnabled,
+        hasAccessToken: !!settings.accessToken,
+        tokenSource: settings.tokenSource,
+        tokenHint: settings.accessToken
+          ? `…${settings.accessToken.slice(-4)}`
+          : null,
+        testEventCode: settings.testEventCode,
+      };
+    }),
+    save: marketingProcedure
+      .input(
+        z.object({
+          enabled: z.boolean(),
+          datasetId: z
+            .string()
+            .trim()
+            .regex(/^\d{5,30}$/, "Enter a valid Dataset ID"),
+          capiEnabled: z.boolean(),
+          accessToken: z.string().trim().max(1000),
+          clearAccessToken: z.boolean(),
+          testEventCode: z.string().trim().max(100),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const save = (key: string, value: string, label: string) =>
+          upsertSiteSetting(key, value, "secret", "marketing", label);
+        await save(
+          META_SETTING_KEYS.enabled,
+          String(input.enabled),
+          "Meta Pixel enabled"
+        );
+        await save(
+          META_SETTING_KEYS.datasetId,
+          input.datasetId,
+          "Meta Dataset ID"
+        );
+        await save(
+          META_SETTING_KEYS.capiEnabled,
+          String(input.capiEnabled),
+          "Meta Conversions API enabled"
+        );
+        await save(
+          META_SETTING_KEYS.testEventCode,
+          input.testEventCode,
+          "Meta test event code"
+        );
+        if (input.clearAccessToken)
+          await save(
+            META_SETTING_KEYS.accessToken,
+            "",
+            "Meta Conversions API access token"
+          );
+        else if (input.accessToken)
+          await save(
+            META_SETTING_KEYS.accessToken,
+            input.accessToken,
+            "Meta Conversions API access token"
+          );
         return { success: true };
       }),
   }),

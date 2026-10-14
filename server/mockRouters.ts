@@ -17,7 +17,11 @@ import { hashPassword, verifyPassword } from "./_core/password";
 import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
-import { APP_ROLES, canManageUsers } from "@shared/roles";
+import {
+  APP_ROLES,
+  canCreateUserWithRole,
+  canManageUsers,
+} from "@shared/roles";
 import { choiceSelectionCount } from "@shared/mock";
 import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
@@ -334,14 +338,10 @@ export const usersRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      requireUserManager(ctx.user.role);
-      if (
-        ctx.user.role !== "super_admin" &&
-        ["super_admin", "admin"].includes(input.role)
-      ) {
+      if (!canCreateUserWithRole(ctx.user.role, input.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Super Admin can create administrator accounts",
+          message: "You cannot create an account with this role",
         });
       }
       if (await getAppUserByEmail(input.email)) {
@@ -483,7 +483,7 @@ export const learningResourcesRouter = router({
         ...result,
         fileName: input.filename,
         mimeType: input.contentType,
-        fileSize: buffer.length,
+        fileSize: result.size,
       };
     }),
   vocabularyList: adminProcedure.query(() => mock.listVocabulary()),

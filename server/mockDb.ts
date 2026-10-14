@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import type { AppRole } from "@shared/roles";
 import {
   appUsers,
   batches,
@@ -1033,7 +1034,7 @@ export async function updateUser(
   values: {
     name?: string | null;
     email?: string;
-    role?: "super_admin" | "admin" | "staff" | "mentor" | "student";
+    role?: AppRole;
     isActive?: boolean;
     passwordHash?: string;
   }

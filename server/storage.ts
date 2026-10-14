@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ENV } from "./_core/env";
+import { optimizeUploadedImage } from "./imageOptimizer";
 
 function safeKey(relKey: string) {
   const key = relKey
@@ -17,15 +18,20 @@ export async function storagePut(
   relKey: string,
   data: Buffer | Uint8Array | string,
   _contentType = "application/octet-stream"
-): Promise<{ key: string; url: string }> {
+): Promise<{ key: string; url: string; size: number }> {
   const key = safeKey(relKey);
   const root = path.resolve(ENV.uploadDir);
   const target = path.resolve(root, key);
   if (!target.startsWith(`${root}${path.sep}`))
     throw new Error("Invalid upload path");
   await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.writeFile(target, data);
-  return { key, url: `${ENV.publicUploadUrl.replace(/\/$/, "")}/${key}` };
+  const stored = await optimizeUploadedImage(data, path.extname(key).slice(1));
+  await fs.writeFile(target, stored);
+  return {
+    key,
+    url: `${ENV.publicUploadUrl.replace(/\/$/, "")}/${key}`,
+    size: Buffer.byteLength(stored),
+  };
 }
 
 /** "My Photo (1).JPG" → { base: "My-Photo-1", ext: "jpg" }; keeps names readable and URL-safe. */
@@ -57,8 +63,9 @@ export async function storagePutNamed(
   filename: string,
   data: Buffer | Uint8Array | string,
   fallbackExt = "bin"
-): Promise<{ key: string; url: string }> {
+): Promise<{ key: string; url: string; size: number }> {
   const { base, ext } = cleanFileName(filename, fallbackExt);
+  const stored = await optimizeUploadedImage(data, ext);
   const root = path.resolve(ENV.uploadDir);
   for (let attempt = 0; attempt < 1000; attempt++) {
     const name = attempt === 0 ? `${base}.${ext}` : `${base}-${attempt}.${ext}`;
@@ -69,8 +76,12 @@ export async function storagePutNamed(
     await fs.mkdir(path.dirname(target), { recursive: true });
     try {
       // "wx" fails if the file exists, so two uploads can never overwrite each other.
-      await fs.writeFile(target, data, { flag: "wx" });
-      return { key, url: `${ENV.publicUploadUrl.replace(/\/$/, "")}/${key}` };
+      await fs.writeFile(target, stored, { flag: "wx" });
+      return {
+        key,
+        url: `${ENV.publicUploadUrl.replace(/\/$/, "")}/${key}`,
+        size: Buffer.byteLength(stored),
+      };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }

@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { Link } from "@/lib/router";
 import {
   APP_ROLES,
+  canCreateUsers,
   canManageUsers,
   ROLE_DEFINITIONS,
   type AppRole,
@@ -25,7 +26,9 @@ function randomPassword() {
 export default function AdminUserCreate() {
   const { user, loading } = useAuth();
   const utils = trpc.useUtils();
+  const mayCreateUsers = canCreateUsers(user?.role);
   const mayManageUsers = canManageUsers(user?.role);
+  const staffOnly = user?.role === "staff";
   const [form, setForm] = useState<{
     name: string;
     email: string;
@@ -38,11 +41,7 @@ export default function AdminUserCreate() {
     role: AppRole;
   } | null>(null);
 
-  const assignableRoles = APP_ROLES.filter(
-    role =>
-      user?.role === "super_admin" ||
-      (role !== "super_admin" && role !== "admin")
-  );
+  const assignableRoles = mayManageUsers ? APP_ROLES : (["student"] as const);
   const create = trpc.users.create.useMutation({
     onSuccess: () => {
       setCreated({
@@ -58,7 +57,7 @@ export default function AdminUserCreate() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    create.mutate(form);
+    create.mutate(staffOnly ? { ...form, role: "student" } : form);
   };
 
   const copyCredentials = async () => {
@@ -80,7 +79,7 @@ export default function AdminUserCreate() {
     });
   };
 
-  if (!loading && !mayManageUsers) {
+  if (!loading && !mayCreateUsers) {
     return (
       <div className="grid min-h-[70vh] place-items-center px-6 text-center">
         <div>
@@ -88,7 +87,7 @@ export default function AdminUserCreate() {
             User management access required
           </h1>
           <p className="mt-2 text-sm text-[var(--admin-body)]">
-            Only Super Admin and Admin accounts can create users.
+            Only Super Admin, Admin, and Staff accounts can create users.
           </p>
         </div>
       </div>
@@ -98,8 +97,10 @@ export default function AdminUserCreate() {
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
       <AdminPageHeader
-        title="New user"
-        parent={{ label: "Users", href: "/admin/users" }}
+        title={staffOnly ? "Add student" : "New user"}
+        parent={
+          staffOnly ? undefined : { label: "Users", href: "/admin/users" }
+        }
       />
 
       {created ? (
@@ -150,10 +151,10 @@ export default function AdminUserCreate() {
               Create another
             </button>
             <Link
-              href="/admin/users"
+              href={staffOnly ? "/admin" : "/admin/users"}
               className="admin-button admin-button-secondary"
             >
-              Back to users
+              {staffOnly ? "Back to dashboard" : "Back to users"}
             </Link>
           </div>
         </section>
@@ -164,7 +165,9 @@ export default function AdminUserCreate() {
               Account information
             </h2>
             <p className="mt-1 text-sm text-[var(--admin-body)]">
-              Enter the user details and assign their platform role.
+              {staffOnly
+                ? "Enter the student details to create their account."
+                : "Enter the user details and assign their platform role."}
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
@@ -198,21 +201,25 @@ export default function AdminUserCreate() {
             </label>
             <label className="text-sm font-medium text-[var(--admin-heading)]">
               Role
-              <AdminSelect
-                value={form.role}
-                onChange={event =>
-                  setForm(current => ({
-                    ...current,
-                    role: event.target.value as AppRole,
-                  }))
-                }
-              >
-                {assignableRoles.map(role => (
-                  <option key={role} value={role}>
-                    {ROLE_DEFINITIONS[role].label}
-                  </option>
-                ))}
-              </AdminSelect>
+              {staffOnly ? (
+                <div className={`${inputClass} flex items-center`}>Student</div>
+              ) : (
+                <AdminSelect
+                  value={form.role}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      role: event.target.value as AppRole,
+                    }))
+                  }
+                >
+                  {assignableRoles.map(role => (
+                    <option key={role} value={role}>
+                      {ROLE_DEFINITIONS[role].label}
+                    </option>
+                  ))}
+                </AdminSelect>
+              )}
               <span className="mt-2 block text-xs font-normal leading-5 text-[var(--admin-body)]">
                 {ROLE_DEFINITIONS[form.role].description}
               </span>
@@ -258,10 +265,10 @@ export default function AdminUserCreate() {
               ) : (
                 <Check className="h-4 w-4" />
               )}
-              Create user
+              {staffOnly ? "Create student" : "Create user"}
             </button>
             <Link
-              href="/admin/users"
+              href={staffOnly ? "/admin" : "/admin/users"}
               className="admin-button admin-button-secondary"
             >
               Cancel

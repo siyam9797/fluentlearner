@@ -7,6 +7,7 @@ import { hashPassword } from "./password";
 import type { TrpcContext } from "./context";
 import {
   canAccessAdminDashboard,
+  canManageMarketing,
   canAccessStudentDashboard,
 } from "@shared/roles";
 
@@ -48,6 +49,20 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
+  })
+);
+
+/** Meta tracking settings for Marketing, Admin, and Super Admin only. */
+export const marketingProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user || !canManageMarketing(ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Marketing access required",
+      });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
   })
 );
 

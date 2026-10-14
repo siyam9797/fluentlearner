@@ -10,6 +10,8 @@ import {
   getFeaturedSuccessStories,
 } from "@server/db";
 import { getPublicSiteSettings } from "@server/publicSiteSettings";
+import { getPublicMetaConfig } from "@server/metaSettings";
+import { META_DATASET_ID } from "@shared/meta";
 
 export default async function Page({
   params,
@@ -19,6 +21,12 @@ export default async function Page({
   const path = (await params).path ?? [];
   const firstSegment = path[0];
   const publicPage = firstSegment !== "admin" && firstSegment !== "student";
+  const metaConfig = publicPage
+    ? await getPublicMetaConfig().catch(() => ({
+        enabled: false,
+        datasetId: META_DATASET_ID,
+      }))
+    : { enabled: false, datasetId: META_DATASET_ID };
   const [rows, settings, storyRows, featuredRows] = publicPage
     ? await Promise.all([
         getActiveCourses().catch(() => null),
@@ -78,6 +86,7 @@ export default async function Page({
       featuredStories={featuredStories}
       allStories={allStories}
       settings={settings}
+      metaConfig={metaConfig}
     />
   );
 }

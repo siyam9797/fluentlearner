@@ -4,12 +4,13 @@ import { ChangeEvent, useEffect, useState } from "react";
 import {
   CreditCard,
   LockKeyhole,
+  Megaphone,
   Monitor,
   Palette,
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { canManageUsers } from "@shared/roles";
+import { canManageMarketing, canManageUsers } from "@shared/roles";
 import AdminSelect from "@/components/AdminSelect";
 import { trpc } from "@/lib/trpc";
 import { fileToBase64 } from "@/lib/fileToBase64";
@@ -22,8 +23,187 @@ import {
 } from "@/lib/adminAppearance";
 import AdminImageUploader from "@/components/AdminImageUploader";
 import { Switch } from "@/components/ui/switch";
+import { META_DATASET_ID } from "@shared/meta";
 
-type SettingsTab = "branding" | "appearance" | "payments" | "security" | "ai";
+type SettingsTab =
+  "branding" | "appearance" | "payments" | "marketing" | "security" | "ai";
+
+function MetaTrackingSettings() {
+  const utils = trpc.useUtils();
+  const status = trpc.metaSettings.status.useQuery();
+  const [form, setForm] = useState({
+    enabled: true,
+    datasetId: META_DATASET_ID,
+    capiEnabled: true,
+    accessToken: "",
+    clearAccessToken: false,
+    testEventCode: "",
+  });
+  useEffect(() => {
+    if (!status.data) return;
+    setForm(current => ({
+      ...current,
+      enabled: status.data.enabled,
+      datasetId: status.data.datasetId,
+      capiEnabled: status.data.capiEnabled,
+      testEventCode: status.data.testEventCode,
+    }));
+  }, [status.data]);
+  const save = trpc.metaSettings.save.useMutation({
+    onSuccess: async () => {
+      setForm(current => ({
+        ...current,
+        accessToken: "",
+        clearAccessToken: false,
+      }));
+      await utils.metaSettings.status.invalidate();
+      toast.success(
+        "Meta tracking settings saved. Reload the public site to see changes."
+      );
+    },
+    onError: error => toast.error(error.message),
+  });
+  const field =
+    "mt-2 h-11 w-full border border-[#d9d9d9] px-3.5 text-sm outline-none focus:border-[#c76f42]";
+  return (
+    <section>
+      <h2 className="font-display text-xl font-bold text-[#30363d]">
+        Meta Pixel & Conversions API
+      </h2>
+      <p className="mb-8 mt-1 text-sm text-[#747d87]">
+        Track public page views and confirmed online purchases for Meta ads.
+      </p>
+      {status.isLoading ? (
+        <p className="text-sm text-[#747d87]">Loading tracking settings…</p>
+      ) : status.error ? (
+        <p className="text-sm text-brand-red">{status.error.message}</p>
+      ) : (
+        <form
+          className="space-y-7"
+          onSubmit={event => {
+            event.preventDefault();
+            save.mutate(form);
+          }}
+        >
+          <label className="flex items-center justify-between gap-4 text-sm text-[#30363d]">
+            <span>
+              <strong className="block font-medium">Meta Pixel</strong>
+              <span className="mt-1 block text-xs text-[#747d87]">
+                Sends PageView and Purchase events from visitors&apos; browsers.
+              </span>
+            </span>
+            <Switch
+              checked={form.enabled}
+              onCheckedChange={enabled =>
+                setForm(current => ({ ...current, enabled }))
+              }
+            />
+          </label>
+          <label className="block text-xs font-medium text-[#30363d]">
+            Dataset ID
+            <input
+              inputMode="numeric"
+              value={form.datasetId}
+              onChange={event =>
+                setForm(current => ({
+                  ...current,
+                  datasetId: event.target.value,
+                }))
+              }
+              className={field}
+            />
+          </label>
+          <div className="border-t border-[#dedede] pt-7">
+            <label className="flex items-center justify-between gap-4 text-sm text-[#30363d]">
+              <span>
+                <strong className="block font-medium">Conversions API</strong>
+                <span className="mt-1 block text-xs text-[#747d87]">
+                  Sends confirmed purchases from the server. Requires an access
+                  token.
+                </span>
+              </span>
+              <Switch
+                checked={form.capiEnabled}
+                onCheckedChange={capiEnabled =>
+                  setForm(current => ({ ...current, capiEnabled }))
+                }
+              />
+            </label>
+            <p className="mt-3 text-xs text-[#747d87]">
+              {status.data?.hasAccessToken
+                ? `Token saved (${status.data.tokenSource}${status.data.tokenHint ? `, ${status.data.tokenHint}` : ""}). Leave the field blank to keep it.`
+                : "No access token is saved."}
+            </p>
+            <label className="mt-5 block text-xs font-medium text-[#30363d]">
+              {status.data?.hasAccessToken
+                ? "Replace access token"
+                : "Access token"}
+              <input
+                type="password"
+                value={form.accessToken}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    accessToken: event.target.value,
+                    clearAccessToken: false,
+                  }))
+                }
+                autoComplete="off"
+                spellCheck={false}
+                className={`${field} font-mono`}
+              />
+            </label>
+            {status.data?.hasAccessToken && (
+              <label className="mt-3 flex items-center gap-2 text-xs text-[#30363d]">
+                <input
+                  type="checkbox"
+                  checked={form.clearAccessToken}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      clearAccessToken: event.target.checked,
+                      accessToken: "",
+                    }))
+                  }
+                />
+                Remove the current token when saving
+              </label>
+            )}
+          </div>
+          <label className="block text-xs font-medium text-[#30363d]">
+            Test event code
+            <input
+              value={form.testEventCode}
+              onChange={event =>
+                setForm(current => ({
+                  ...current,
+                  testEventCode: event.target.value,
+                }))
+              }
+              placeholder="Leave blank for real events"
+              autoComplete="off"
+              spellCheck={false}
+              className={field}
+            />
+            <span className="mt-2 block font-normal text-[#747d87]">
+              Use this only while checking Events Manager → Test Events. Clear
+              it before running ads.
+            </span>
+          </label>
+          <button
+            type="submit"
+            disabled={
+              save.isPending || !/^\d{5,30}$/.test(form.datasetId.trim())
+            }
+            className="admin-button admin-button-primary min-w-42"
+          >
+            {save.isPending ? "Saving…" : "Save Meta tracking"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
 
 /** Admin / Super Admin: bKash checkout credentials for online payment on the v2 enroll page. */
 function OnlinePaymentSettings() {
@@ -763,11 +943,19 @@ export default function AdminSiteSettings() {
     ...(canManageUsers(user?.role)
       ? [{ id: "payments" as const, label: "Online payment", icon: CreditCard }]
       : []),
+    ...(canManageMarketing(user?.role)
+      ? [{ id: "marketing" as const, label: "Marketing", icon: Megaphone }]
+      : []),
     { id: "security" as const, label: "Security", icon: LockKeyhole },
     ...(user?.role === "super_admin"
       ? [{ id: "ai" as const, label: "AI marking", icon: Sparkles }]
       : []),
   ];
+  const visibleTabs =
+    user?.role === "marketing"
+      ? tabs.filter(item => item.id === "marketing")
+      : tabs;
+  const activeTab = user?.role === "marketing" ? "marketing" : tab;
 
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
@@ -777,13 +965,13 @@ export default function AdminSiteSettings() {
       />
       <div className="grid gap-10 md:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
         <nav className="space-y-1 md:sticky md:top-8 md:self-start">
-          {tabs.map(item => {
+          {visibleTabs.map(item => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={() => setTab(item.id)}
-                className={`flex h-11 w-full items-center gap-3 text-left text-sm transition-colors ${tab === item.id ? "text-[#c76f42]" : "text-[#6c7580] hover:text-[#30363d]"}`}
+                className={`flex h-11 w-full items-center gap-3 text-left text-sm transition-colors ${activeTab === item.id ? "text-[#c76f42]" : "text-[#6c7580] hover:text-[#30363d]"}`}
               >
                 <Icon className="h-4 w-4 stroke-[1.4]" />
                 {item.label}
@@ -792,18 +980,20 @@ export default function AdminSiteSettings() {
           })}
         </nav>
         <main className="min-w-0">
-          {tab === "payments" ? (
+          {activeTab === "payments" ? (
             <div className="space-y-16">
               <OnlinePaymentSettings />
               <SslcommerzSettings />
             </div>
-          ) : tab === "ai" ? (
+          ) : activeTab === "marketing" ? (
+            <MetaTrackingSettings />
+          ) : activeTab === "ai" ? (
             <AiSettings />
           ) : settings.isLoading ? (
             <p className="py-16 text-center text-sm text-[#747d87]">
               Loading settings…
             </p>
-          ) : tab === "branding" ? (
+          ) : activeTab === "branding" ? (
             <div className="space-y-14">
               <section>
                 <h2 className="font-display text-xl font-bold text-[#30363d]">
@@ -889,7 +1079,7 @@ export default function AdminSiteSettings() {
                 </div>
               </section>
             </div>
-          ) : tab === "appearance" ? (
+          ) : activeTab === "appearance" ? (
             <section>
               <div className="flex items-start justify-between gap-6">
                 <div>

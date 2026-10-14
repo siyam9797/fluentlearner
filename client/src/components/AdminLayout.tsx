@@ -24,7 +24,7 @@ import {
   type AdminMode,
 } from "@/lib/adminAppearance";
 import {
-  canAccessAdminDashboard,
+  canAccessAdminPortal,
   canManageUsers,
   ROLE_DEFINITIONS,
   type AppRole,
@@ -44,6 +44,7 @@ import {
   Layers,
   LayoutTemplate,
   LogOut,
+  Megaphone,
   Menu,
   Moon,
   Sun,
@@ -51,6 +52,7 @@ import {
   Shield,
   Trophy,
   UserRound,
+  UserPlus,
   Users,
 } from "lucide-react";
 
@@ -60,6 +62,7 @@ type NavigationItem = {
   icon: typeof Home;
   also?: string[];
   userManagement?: boolean;
+  staffOnly?: boolean;
   /** Shown to the Super Admin only. */
   superAdminOnly?: boolean;
   /** Sub-menu shown under the item while one of its pages is open. */
@@ -163,6 +166,12 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         icon: GraduationCap,
         also: ["/admin/students"],
         userManagement: true,
+      },
+      {
+        label: "Add student",
+        href: "/admin/users/new",
+        icon: UserPlus,
+        staffOnly: true,
       },
       {
         label: "Roles",
@@ -294,7 +303,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { data: appearanceSettings } = trpc.siteSettings.getAll.useQuery(
     undefined,
     {
-      enabled: !!user && canAccessAdminDashboard(user.role),
+      enabled: !!user && canAccessAdminPortal(user.role),
     }
   );
 
@@ -318,6 +327,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => setMenuOverrides({}), [location]);
+
+  useEffect(() => {
+    if (
+      user?.role === "marketing" &&
+      location !== "/admin/settings" &&
+      location !== "/admin/profile"
+    )
+      navigate("/admin/settings");
+  }, [location, user?.role]);
 
   useEffect(() => {
     if (appearanceSettings)
@@ -347,10 +365,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </div>
     );
   if (!user) return <Login />;
-  if (!canAccessAdminDashboard(user.role))
+  if (!canAccessAdminPortal(user.role))
     return (
       <div className="min-h-screen grid place-items-center">
         Administrator access is required.
+      </div>
+    );
+  if (
+    user.role === "marketing" &&
+    location !== "/admin/settings" &&
+    location !== "/admin/profile"
+  )
+    return (
+      <div className="min-h-screen grid place-items-center text-sm">
+        Opening Marketing settings…
       </div>
     );
 
@@ -433,17 +461,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     "--ring": palette.primary,
   } as AdminThemeStyle;
 
+  const visibleNavigationGroups: { label: string; items: NavigationItem[] }[] =
+    user.role === "marketing"
+      ? [
+          {
+            label: "Marketing",
+            items: [
+              {
+                label: "Meta tracking",
+                href: "/admin/settings",
+                icon: Megaphone,
+              },
+            ],
+          },
+        ]
+      : navigationGroups;
+
   const sidebar = (
     <aside className="admin-sidebar flex h-full w-[260px] flex-col bg-[var(--admin-background)] px-3 py-3">
       <button
-        onClick={() => go("/admin")}
+        onClick={() =>
+          go(user.role === "marketing" ? "/admin/settings" : "/admin")
+        }
         className="px-1 text-left"
         aria-label="Dashboard"
       >
         <SiteLogo on={darkMode ? "dark" : "light"} className="h-9 w-auto" />
       </button>
       <nav className="-mr-3 mt-7 min-h-0 flex-1 space-y-4 overflow-y-auto pr-3">
-        {navigationGroups.map(group => (
+        {visibleNavigationGroups.map(group => (
           <section
             key={group.label}
             aria-labelledby={`admin-nav-${group.label.toLowerCase()}`}
@@ -459,7 +505,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 .filter(
                   item =>
                     (!item.userManagement || canManageUsers(user.role)) &&
-                    (!item.superAdminOnly || user.role === "super_admin")
+                    (!item.superAdminOnly || user.role === "super_admin") &&
+                    (!item.staffOnly || user.role === "staff")
                 )
                 .map(item => {
                   const active = [item.href, ...(item.also ?? [])].some(
