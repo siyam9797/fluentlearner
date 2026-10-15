@@ -24,9 +24,10 @@ export default async function Page({
   const metaConfig = publicPage
     ? await getPublicMetaConfig().catch(() => ({
         enabled: false,
+        capiEnabled: false,
         datasetId: META_DATASET_ID,
       }))
-    : { enabled: false, datasetId: META_DATASET_ID };
+    : { enabled: false, capiEnabled: false, datasetId: META_DATASET_ID };
   const [rows, settings, storyRows, featuredRows] = publicPage
     ? await Promise.all([
         getActiveCourses().catch(() => null),

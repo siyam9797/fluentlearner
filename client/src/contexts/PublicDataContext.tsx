@@ -20,7 +20,7 @@ const PublicDataContext = createContext<PublicData>({
   featuredStories: null,
   allStories: null,
   settings: null,
-  metaConfig: { enabled: false, datasetId: "" },
+  metaConfig: { enabled: false, capiEnabled: false, datasetId: "" },
 });
 
 export function PublicDataProvider({

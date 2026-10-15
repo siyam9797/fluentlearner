@@ -118,8 +118,8 @@ function MetaTrackingSettings() {
               <span>
                 <strong className="block font-medium">Conversions API</strong>
                 <span className="mt-1 block text-xs text-[#747d87]">
-                  Sends confirmed purchases from the server. Requires an access
-                  token.
+                  Sends public page views and confirmed purchases from the
+                  server. Requires an access token.
                 </span>
               </span>
               <Switch

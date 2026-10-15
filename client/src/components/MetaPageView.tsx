@@ -66,12 +66,28 @@ export default function MetaPageView({ config }: { config: PublicMetaConfig }) {
   }, [config.enabled, config.datasetId]);
 
   useEffect(() => {
-    if (!config.enabled || !pathname || pathname === lastPath.current) return;
+    if (
+      (!config.enabled && !config.capiEnabled) ||
+      !pathname ||
+      pathname === lastPath.current
+    )
+      return;
     lastPath.current = pathname;
     if (!pathname.startsWith("/admin") && !pathname.startsWith("/student")) {
-      window.fbq?.("track", "PageView");
+      const eventId = crypto.randomUUID();
+      if (config.enabled) {
+        window.fbq?.("track", "PageView", {}, { eventID: eventId });
+      }
+      if (config.capiEnabled) {
+        void fetch("/api/meta/pageview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId, path: pathname }),
+          keepalive: true,
+        }).catch(() => {});
+      }
     }
-  }, [config.enabled, pathname]);
+  }, [config.enabled, config.capiEnabled, pathname]);
 
   return null;
 }

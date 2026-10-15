@@ -40,5 +40,9 @@ export async function getMetaSettings() {
 
 export async function getPublicMetaConfig() {
   const settings = await getMetaSettings();
-  return { enabled: settings.enabled, datasetId: settings.datasetId };
+  return {
+    enabled: settings.enabled,
+    capiEnabled: settings.capiEnabled && !!settings.accessToken,
+    datasetId: settings.datasetId,
+  };
 }
