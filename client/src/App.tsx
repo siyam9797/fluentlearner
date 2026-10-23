@@ -1,49 +1,71 @@
+import dynamic from "next/dynamic";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/screens/NotFound";
 import { usePathname } from "next/navigation";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./screens/Home";
 import HomeV2 from "./screens/HomeV2";
-import V2Courses from "./screens/V2Courses";
-import V2CourseDetail from "./screens/V2CourseDetail";
-import V2About from "./screens/V2About";
-import V2SuccessStories from "./screens/V2SuccessStories";
-import V2HowItWorks from "./screens/V2HowItWorks";
-import V2Contact from "./screens/V2Contact";
-import V2Enroll from "./screens/V2Enroll";
-import CoursesPage from "./screens/CoursesPage";
-import CourseDetailPage from "./screens/CourseDetailPage";
-import SuccessStoriesPage from "./screens/SuccessStoriesPage";
-import AdminDashboard from "./screens/AdminDashboard";
-import AdminCourses from "./screens/AdminCourses";
-import AdminSuccessStories from "./screens/AdminSuccessStories";
-import AdminEnrollments from "./screens/AdminEnrollments";
-import AdminBatches from "./screens/AdminBatches";
-import AdminWebsite from "./screens/AdminWebsite";
-import AdminSettings from "./screens/AdminSettings";
-import AdminInstructors from "./screens/AdminInstructors";
-import AdminPaymentSettings from "./screens/AdminPaymentSettings";
-import AdminProfile from "./screens/AdminProfile";
-import AdminLayout from "./components/AdminLayout";
-import AdminMockTests, { isMockModule } from "./screens/AdminMockTests";
 import type { MockModule } from "@shared/mock";
-import AdminMockTestEditor from "./screens/AdminMockTestEditor";
-import AdminCambridgeLibrary from "./screens/AdminCambridgeLibrary";
-import AdminMockResults from "./screens/AdminMockResults";
-import AdminUsers from "./screens/AdminUsers";
-import AdminUserCreate from "./screens/AdminUserCreate";
-import AdminUserEdit from "./screens/AdminUserEdit";
-import AdminRoles from "./screens/AdminRoles";
-import AdminResources from "./screens/AdminResources";
-import AdminResourceForm from "./screens/AdminResourceForm";
-import AdminMedia from "./screens/AdminMedia";
-import AdminEnrollmentDetail from "./screens/AdminEnrollmentDetail";
-import StudentDashboard from "./screens/StudentDashboard";
-import StudentAttempt, {
-  StudentAttemptPreview,
-} from "./screens/StudentAttempt";
+
+// Every screen except the home page loads on demand, so visitors to the public site
+// don't download the admin and student apps.
+const Home = dynamic(() => import("./screens/Home"));
+const V2Courses = dynamic(() => import("./screens/V2Courses"));
+const V2CourseDetail = dynamic(() => import("./screens/V2CourseDetail"));
+const V2About = dynamic(() => import("./screens/V2About"));
+const V2SuccessStories = dynamic(() => import("./screens/V2SuccessStories"));
+const V2HowItWorks = dynamic(() => import("./screens/V2HowItWorks"));
+const V2Contact = dynamic(() => import("./screens/V2Contact"));
+const V2Enroll = dynamic(() => import("./screens/V2Enroll"));
+const CoursesPage = dynamic(() => import("./screens/CoursesPage"));
+const CourseDetailPage = dynamic(() => import("./screens/CourseDetailPage"));
+const SuccessStoriesPage = dynamic(
+  () => import("./screens/SuccessStoriesPage")
+);
+const AdminDashboard = dynamic(() => import("./screens/AdminDashboard"));
+const AdminCourses = dynamic(() => import("./screens/AdminCourses"));
+const AdminSuccessStories = dynamic(
+  () => import("./screens/AdminSuccessStories")
+);
+const AdminEnrollments = dynamic(() => import("./screens/AdminEnrollments"));
+const AdminBatches = dynamic(() => import("./screens/AdminBatches"));
+const AdminWebsite = dynamic(() => import("./screens/AdminWebsite"));
+const AdminSettings = dynamic(() => import("./screens/AdminSettings"));
+const AdminInstructors = dynamic(() => import("./screens/AdminInstructors"));
+const AdminPaymentSettings = dynamic(
+  () => import("./screens/AdminPaymentSettings")
+);
+const AdminProfile = dynamic(() => import("./screens/AdminProfile"));
+const AdminLayout = dynamic(() => import("./components/AdminLayout"));
+const AdminMockTests = dynamic(() => import("./screens/AdminMockTests"));
+const AdminMockTestEditor = dynamic(
+  () => import("./screens/AdminMockTestEditor")
+);
+const AdminCambridgeLibrary = dynamic(
+  () => import("./screens/AdminCambridgeLibrary")
+);
+const AdminMockResults = dynamic(() => import("./screens/AdminMockResults"));
+const AdminUsers = dynamic(() => import("./screens/AdminUsers"));
+const AdminUserCreate = dynamic(() => import("./screens/AdminUserCreate"));
+const AdminUserEdit = dynamic(() => import("./screens/AdminUserEdit"));
+const AdminRoles = dynamic(() => import("./screens/AdminRoles"));
+const AdminResources = dynamic(() => import("./screens/AdminResources"));
+const AdminResourceForm = dynamic(() => import("./screens/AdminResourceForm"));
+const AdminMedia = dynamic(() => import("./screens/AdminMedia"));
+const AdminEnrollmentDetail = dynamic(
+  () => import("./screens/AdminEnrollmentDetail")
+);
+const StudentDashboard = dynamic(() => import("./screens/StudentDashboard"));
+const StudentAttempt = dynamic(() => import("./screens/StudentAttempt"));
+const StudentAttemptPreview = dynamic(() =>
+  import("./screens/StudentAttempt").then(m => m.StudentAttemptPreview)
+);
+
+// Kept here (not imported from AdminMockTests) so that screen stays in its own bundle.
+const MOCK_MODULES: string[] = ["listening", "reading", "writing", "speaking"];
+const isMockModule = (value: string): value is MockModule =>
+  MOCK_MODULES.includes(value);
 
 function Router() {
   const pathname = usePathname() ?? "/";

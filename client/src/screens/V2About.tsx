@@ -8,6 +8,7 @@ import HvCTA from "@/components/home-v2/HvCTA";
 import { DecorSquare, HvButton, Reveal } from "@/components/home-v2/primitives";
 import { useV2Content } from "@/components/home-v2/useV2Content";
 import { V2 } from "@/components/home-v2/routes";
+import { responsiveImage } from "@/lib/image";
 
 export default function V2About() {
   const ss = useV2Content();
@@ -106,7 +107,11 @@ export default function V2About() {
             <div className="aspect-[4/5] w-full sm:aspect-[4/3] lg:aspect-[4/5]">
               {!ss.isLoading && (
                 <img
-                  src={ss.founderPhoto}
+                  {...responsiveImage(
+                    ss.founderPhoto,
+                    "(min-width: 1262px) 600px, (min-width: 1024px) 50vw, 100vw",
+                    1200
+                  )}
                   alt={`${ss.founderName}, ${ss.founderTitle}`}
                   className="h-full w-full object-cover object-[50%_20%]"
                 />

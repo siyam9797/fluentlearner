@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { useV2Content } from "./useV2Content";
 import { HvButton, Reveal, formatCompact } from "./primitives";
+import { responsiveImage } from "@/lib/image";
 
 export default function HvAbout() {
   const ss = useV2Content();
@@ -61,7 +62,11 @@ export default function HvAbout() {
       <div className="relative mt-12 h-[400px] w-full bg-sand md:absolute md:inset-y-0 md:right-0 md:mt-0 md:h-full md:w-[40%] lg:w-1/2">
         {!ss.isLoading && (
           <img
-            src={ss.t("v2_home_about_image") || ss.founderPhoto}
+            {...responsiveImage(
+              ss.t("v2_home_about_image") || ss.founderPhoto,
+              "(min-width: 1024px) 50vw, (min-width: 768px) 40vw, 100vw"
+            )}
+            loading="lazy"
             alt={`${ss.founderName} at the FluentLearner studio`}
             className="absolute inset-0 h-full w-full object-cover object-[50%_20%]"
           />

@@ -26,6 +26,9 @@ export default function SiteLogo({
     <img
       src={src}
       alt={alt}
+      // Matches the bundled logo's shape; CSS (h-10 w-auto) still sizes it.
+      width={215}
+      height={40}
       className={className}
       style={isLoading ? { visibility: "hidden" } : undefined}
     />

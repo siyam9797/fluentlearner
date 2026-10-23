@@ -5,6 +5,7 @@ import { DecorSquare } from "./primitives";
 import { useStoryCardsState } from "./hooks";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
+import { responsiveImage } from "@/lib/image";
 
 export default function HvTestimonials() {
   const { t } = useV2Content();
@@ -84,7 +85,11 @@ export default function HvTestimonials() {
             {slides.map((slide, i) => (
               <img
                 key={slide.id}
-                src={slide.imageUrl}
+                {...responsiveImage(
+                  slide.imageUrl,
+                  "(min-width: 768px) 50vw, 100vw",
+                  1200
+                )}
                 alt={i === index % count ? `${slide.name}'s IELTS result` : ""}
                 loading="lazy"
                 className={cn(

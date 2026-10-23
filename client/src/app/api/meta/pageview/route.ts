@@ -3,11 +3,37 @@ import { sendMetaPageView } from "@server/metaConversions";
 
 export const runtime = "nodejs";
 
+/**
+ * Only our own pages may report page views. Behind a proxy the app's own URL can
+ * differ from the public one, so accept the browser's same-origin marker, the
+ * configured site URL, or an Origin matching the host the request was sent to.
+ */
+function isSameSite(request: NextRequest) {
+  if (request.headers.get("sec-fetch-site") === "same-origin") return true;
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return false;
+  }
+  const allowed = [
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim(),
+    request.headers.get("host"),
+    request.nextUrl.host,
+  ];
+  try {
+    if (process.env.PUBLIC_SITE_URL)
+      allowed.push(new URL(process.env.PUBLIC_SITE_URL).host);
+  } catch {
+    // Ignore a malformed PUBLIC_SITE_URL; the other checks still apply.
+  }
+  return allowed.includes(originHost);
+}
+
 export async function POST(request: NextRequest) {
-  const siteOrigin = process.env.PUBLIC_SITE_URL
-    ? new URL(process.env.PUBLIC_SITE_URL).origin
-    : request.nextUrl.origin;
-  if (request.headers.get("origin") !== siteOrigin) {
+  if (!isSameSite(request)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
 

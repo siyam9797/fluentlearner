@@ -6,6 +6,7 @@ import { useStoryCardsState } from "./hooks";
 import { V2 } from "./routes";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
+import { optimizedSrc } from "@/lib/image";
 
 // Fan layout for the photo strip: [rotation, vertical offset]
 const FAN: [number, number][] = [
@@ -87,7 +88,7 @@ export default function HvCTA() {
             return src ? (
               <img
                 key={src}
-                src={src}
+                src={optimizedSrc(src, 256)}
                 alt=""
                 loading="lazy"
                 className={className}

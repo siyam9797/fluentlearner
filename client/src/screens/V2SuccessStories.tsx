@@ -17,6 +17,7 @@ import {
   STORY_CATEGORY_LABELS,
   type StoryCard,
 } from "@/components/home-v2/data";
+import { responsiveImage } from "@/lib/image";
 
 function Lightbox({
   stories,
@@ -62,7 +63,11 @@ function Lightbox({
         onClick={e => e.stopPropagation()}
       >
         <img
-          src={story.imageUrl}
+          {...responsiveImage(
+            story.imageUrl,
+            "(min-width: 768px) 600px, 100vw",
+            1200
+          )}
           alt={`${story.name}'s IELTS result`}
           className="max-h-[70vh] w-full rounded-[var(--radius-card)] object-contain md:w-3/5"
         />
@@ -156,7 +161,7 @@ export default function V2SuccessStories() {
               <dd className="text-[28px] font-semibold leading-none lg:text-[36px]">
                 {stat.value}
               </dd>
-              <dt className="mt-2 text-sm text-ink/60">{stat.label}</dt>
+              <dt className="mt-2 text-sm text-ink/70">{stat.label}</dt>
             </div>
           ))}
         </dl>
@@ -201,9 +206,14 @@ export default function V2SuccessStories() {
                 >
                   <div className="relative aspect-square overflow-hidden rounded-[var(--radius-card)] bg-sand">
                     <img
-                      src={story.imageUrl}
+                      {...responsiveImage(
+                        story.imageUrl,
+                        "(min-width: 1262px) 400px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw",
+                        1080
+                      )}
                       alt={`${story.name}'s result`}
-                      loading="lazy"
+                      // The first row is on screen at load, so don't make it wait.
+                      loading={i < 3 ? undefined : "lazy"}
                       className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                     {story.band && (
@@ -235,7 +245,7 @@ export default function V2SuccessStories() {
           </div>
 
           {visible.length === 0 && (
-            <p className="py-20 text-center text-lg text-ink/60">
+            <p className="py-20 text-center text-lg text-ink/70">
               {t("v2_stories_empty")}
             </p>
           )}

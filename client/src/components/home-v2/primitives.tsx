@@ -4,6 +4,7 @@
  */
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -12,8 +13,8 @@ import {
 } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { Link } from "@/lib/router";
-import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { cn } from "@/lib/utils";
+import { optimizedSrc, responsiveImage } from "@/lib/image";
 
 type ButtonVariant = "dark" | "red" | "outline" | "light" | "inverse" | "ghost";
 type ButtonSize = "md" | "sm" | "xs";
@@ -145,6 +146,9 @@ export function ArrowButton({
   );
 }
 
+// Set once the first server-rendered page has hydrated.
+let pageHydrated = false;
+
 export function Reveal({
   children,
   delay = 0,
@@ -154,11 +158,51 @@ export function Reveal({
   delay?: number;
   className?: string;
 }) {
-  const { ref, isVisible } = useScrollAnimation(0.12);
+  const ref = useRef<HTMLDivElement>(null);
+  // Server-rendered content starts visible so it paints before the JS loads
+  // ("static"). Content below the fold, or mounted later by client navigation,
+  // hides and slides in when scrolled into view.
+  const [state, setState] = useState<"static" | "hidden" | "shown">(() =>
+    pageHydrated ? "hidden" : "static"
+  );
+
+  useLayoutEffect(() => {
+    pageHydrated = true;
+    const el = ref.current;
+    if (
+      state === "static" &&
+      el &&
+      el.getBoundingClientRect().top >= window.innerHeight
+    )
+      setState("hidden");
+    // Runs once on mount: only the starting position matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (state !== "hidden" || !el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setState("shown");
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [state]);
+
   return (
     <div
       ref={ref}
-      className={cn("hv-reveal", isVisible && "is-visible", className)}
+      className={cn(
+        state !== "static" && "hv-reveal",
+        state === "shown" && "is-visible",
+        className
+      )}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
@@ -181,7 +225,7 @@ export function Pill({
       aria-hidden="true"
       className="hv-pill"
       style={{
-        backgroundImage: src ? `url("${src}")` : undefined,
+        backgroundImage: src ? `url("${optimizedSrc(src, 384)}")` : undefined,
         backgroundPosition: position,
         backgroundSize: zoom,
       }}
@@ -285,7 +329,7 @@ export function HvSelect({
           open && "border-ink bg-white hover:border-ink"
         )}
       >
-        <span className={cn("truncate", selected ? "text-ink" : "text-ink/50")}>
+        <span className={cn("truncate", selected ? "text-ink" : "text-ink/70")}>
           {selected?.label || placeholder}
         </span>
         <ChevronDown
@@ -429,19 +473,30 @@ export function BannerImage({
           )}
         >
           {mobileSrc && (
-            <source media="(max-width: 639px)" srcSet={mobileSrc} />
+            <source
+              media="(max-width: 639px)"
+              srcSet={optimizedSrc(mobileSrc, 384)}
+            />
           )}
           <img
-            src={src}
+            src={optimizedSrc(src, 384)}
             alt=""
             className="h-full w-full scale-125 object-cover opacity-70 blur-2xl"
           />
         </picture>
       )}
       <picture className="relative block h-full w-full">
-        {mobileSrc && <source media="(max-width: 639px)" srcSet={mobileSrc} />}
+        {mobileSrc && (
+          <source
+            media="(max-width: 639px)"
+            srcSet={
+              responsiveImage(mobileSrc, "100vw", 1200).srcSet ?? mobileSrc
+            }
+            sizes="100vw"
+          />
+        )}
         <img
-          src={src}
+          {...responsiveImage(src, "100vw")}
           alt={alt}
           fetchPriority={priority ? "high" : undefined}
           // The ref covers images that finished loading before hydration, when onLoad never fires.

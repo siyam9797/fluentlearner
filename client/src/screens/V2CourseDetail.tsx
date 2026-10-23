@@ -11,6 +11,7 @@ import { DecorSquare, HvButton, Reveal } from "@/components/home-v2/primitives";
 import { CATEGORY_LABELS } from "@/components/home-v2/data";
 import { V2 } from "@/components/home-v2/routes";
 import { usePublicData } from "@/contexts/PublicDataContext";
+import { optimizedSrc, responsiveImage } from "@/lib/image";
 
 const LEVEL_LABELS: Record<string, string> = {
   beginner: "Beginner",
@@ -187,7 +188,11 @@ export default function V2CourseDetail() {
               </div>
             ) : course.imageUrl ? (
               <img
-                src={course.imageUrl}
+                {...responsiveImage(
+                  course.imageUrl,
+                  "(min-width: 1262px) 800px, 100vw",
+                  1200
+                )}
                 alt={`${title} course`}
                 className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover"
               />
@@ -200,7 +205,7 @@ export default function V2CourseDetail() {
                     key={fact.label}
                     className="flex flex-col gap-2 bg-sand p-5"
                   >
-                    <dt className="flex items-center gap-2 text-sm text-ink/60">
+                    <dt className="flex items-center gap-2 text-sm text-ink/70">
                       <fact.icon className="h-4 w-4" aria-hidden="true" />
                       {fact.label}
                     </dt>
@@ -254,7 +259,10 @@ export default function V2CourseDetail() {
               <Reveal className="flex flex-col gap-6 rounded-[var(--radius-card)] bg-ink p-6 text-cream sm:flex-row sm:items-center lg:p-8">
                 {course.instructorPhoto && (
                   <img
-                    src={course.instructorPhoto}
+                    src={optimizedSrc(course.instructorPhoto, 256)}
+                    width={96}
+                    height={96}
+                    loading="lazy"
                     alt={course.instructorName}
                     className="h-24 w-24 flex-none rounded-full object-cover"
                   />
@@ -291,15 +299,13 @@ export default function V2CourseDetail() {
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-[var(--radius-card)] bg-brand-red p-6 text-white lg:p-8">
-              <p className="text-sm text-white/75">
-                {t("v2_course_fee_label")}
-              </p>
+              <p className="text-sm text-white">{t("v2_course_fee_label")}</p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="text-[44px] font-semibold leading-none">
                   {course.price || t("v2_course_no_price")}
                 </span>
                 {course.originalPrice && (
-                  <span className="text-lg text-white/60 line-through">
+                  <span className="text-lg text-white/90 line-through">
                     {course.originalPrice}
                   </span>
                 )}

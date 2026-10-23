@@ -40,7 +40,7 @@ export default function WhatsAppButton({ oldSite = false }: { oldSite?: boolean 
             <X className="w-3 h-3 text-white" />
           </button>
           <p className="text-brand-dark font-body text-sm font-medium">Need help? Chat with us!</p>
-          <p className="text-brand-charcoal/50 font-body text-xs mt-1">We reply within minutes</p>
+          <p className="text-brand-charcoal/80 font-body text-xs mt-1">We reply within minutes</p>
         </div>
       )}
 

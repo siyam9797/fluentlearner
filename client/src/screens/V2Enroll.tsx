@@ -341,13 +341,13 @@ export default function V2Enroll() {
                     </p>
                     <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                       <div>
-                        <dt className="text-sm text-ink/60">Email</dt>
+                        <dt className="text-sm text-ink/70">Email</dt>
                         <dd className="mt-1 font-medium [overflow-wrap:anywhere]">
                           {summary.data.email}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-sm text-ink/60">Password</dt>
+                        <dt className="text-sm text-ink/70">Password</dt>
                         {summary.data.password ? (
                           <dd className="mt-1 flex flex-wrap items-center gap-3">
                             <span className="font-mono text-xl font-semibold tracking-wide">
@@ -399,7 +399,7 @@ export default function V2Enroll() {
                     ["Login email", summary.data.email],
                   ].map(([label, value]) => (
                     <div key={label} className="bg-sand p-5">
-                      <dt className="text-sm text-ink/60">{label}</dt>
+                      <dt className="text-sm text-ink/70">{label}</dt>
                       <dd className="mt-1 font-medium [overflow-wrap:anywhere]">
                         {value || "—"}
                       </dd>
@@ -484,7 +484,7 @@ export default function V2Enroll() {
                           ? "bg-ink text-white"
                           : current
                             ? "bg-brand-red text-white"
-                            : "bg-sand text-ink/50"
+                            : "bg-sand text-ink/70"
                       )}
                     >
                       {done ? (
@@ -500,7 +500,7 @@ export default function V2Enroll() {
                     <span
                       className={cn(
                         "text-sm font-medium sm:text-base",
-                        !current && !done && "text-ink/50"
+                        !current && !done && "text-ink/70"
                       )}
                     >
                       {label}
@@ -561,7 +561,7 @@ export default function V2Enroll() {
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="flex items-center gap-2 text-sm text-ink/60">
+                              <p className="flex items-center gap-2 text-sm text-ink/70">
                                 <DecorSquare />
                                 {CATEGORY_LABELS[item.category] ?? "Course"}
                                 {item.badge && (
@@ -570,9 +570,9 @@ export default function V2Enroll() {
                                   </span>
                                 )}
                               </p>
-                              <h3 className="mt-2 text-[22px] lg:text-2xl">
+                              <h2 className="mt-2 text-[22px] lg:text-2xl">
                                 {item.name}
-                              </h3>
+                              </h2>
                               {item.nameEn && item.nameEn !== item.name && (
                                 <p className="mt-1 text-ink/70">
                                   {item.nameEn}
@@ -583,7 +583,7 @@ export default function V2Enroll() {
                                   {item.shortDescription}
                                 </p>
                               )}
-                              <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/60">
+                              <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/70">
                                 {item.duration && (
                                   <span className="inline-flex items-center gap-1.5">
                                     <Clock
@@ -626,7 +626,7 @@ export default function V2Enroll() {
                                   {item.price || "Contact us"}
                                 </span>
                                 {item.originalPrice && (
-                                  <span className="block text-sm text-ink/50 line-through">
+                                  <span className="block text-sm text-ink/70 line-through">
                                     {item.originalPrice}
                                   </span>
                                 )}
@@ -752,7 +752,7 @@ export default function V2Enroll() {
                     ["Login email", details.studentEmail],
                   ].map(([label, value]) => (
                     <div key={label} className="bg-sand p-5">
-                      <dt className="text-sm text-ink/60">{label}</dt>
+                      <dt className="text-sm text-ink/70">{label}</dt>
                       <dd className="mt-1 font-medium [overflow-wrap:anywhere]">
                         {value || "—"}
                       </dd>
@@ -762,7 +762,7 @@ export default function V2Enroll() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="mt-3 text-sm text-ink/60 underline underline-offset-4 hover:text-ink"
+                  className="mt-3 text-sm text-ink/70 underline underline-offset-4 hover:text-ink"
                 >
                   Edit details
                 </button>

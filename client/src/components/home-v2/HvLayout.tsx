@@ -62,7 +62,7 @@ export function HvPageHeader({
         <nav
           aria-label="Breadcrumb"
           className={cn(
-            "mb-6 flex flex-wrap items-center gap-2 text-sm text-ink/60 lg:mb-8",
+            "mb-6 flex flex-wrap items-center gap-2 text-sm text-ink/70 lg:mb-8",
             enter
           )}
         >

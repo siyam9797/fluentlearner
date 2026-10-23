@@ -6,13 +6,20 @@ import { useCourseCards } from "./hooks";
 import { V2 } from "./routes";
 import { useV2Content } from "./useV2Content";
 import type { CourseCard } from "./data";
+import { responsiveImage } from "@/lib/image";
 
 export function CourseItem({
   course,
   index,
+  heading: Heading = "h3",
+  priority = false,
 }: {
   course: CourseCard;
   index: number;
+  /** h2 where the cards sit directly under the page title, h3 under a section title. */
+  heading?: "h2" | "h3";
+  /** Load the image straight away (cards on screen at page load). */
+  priority?: boolean;
 }) {
   const href = course.id > 0 ? V2.course(course.slug || course.id) : V2.courses;
   const [imageFailed, setImageFailed] = useState(false);
@@ -29,8 +36,14 @@ export function CourseItem({
         <div className="relative h-40 w-full overflow-hidden rounded-[var(--radius-control)] sm:h-[120px] sm:w-[190px] lg:w-[250px]">
           {course.imageUrl && !imageFailed ? (
             <img
-              src={course.imageUrl}
+              {...responsiveImage(
+                course.imageUrl,
+                "(min-width: 1024px) 250px, (min-width: 640px) 190px, 100vw",
+                828
+              )}
               alt=""
+              loading={priority ? undefined : "lazy"}
+              fetchPriority={priority ? "high" : undefined}
               onError={() => setImageFailed(true)}
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
@@ -58,9 +71,9 @@ export function CourseItem({
 
       <div className="mt-6 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
         <div className="flex flex-col gap-2">
-          <h3 className="text-2xl lg:text-[28px] transition-colors group-hover:text-brand-red">
+          <Heading className="text-2xl lg:text-[28px] transition-colors group-hover:text-brand-red">
             {course.title}
-          </h3>
+          </Heading>
           {course.subtitle && <p className="text-ink/70">{course.subtitle}</p>}
           {course.description && (
             <p className="line-clamp-2">{course.description}</p>

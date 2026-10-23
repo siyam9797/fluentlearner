@@ -47,11 +47,28 @@ function startPixel(datasetId: string) {
   fbq.version = "2.0";
   window.fbq = fbq;
   window._fbq = fbq;
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://connect.facebook.net/en_US/fbevents.js";
-  document.head.appendChild(script);
   fbq("init", datasetId);
+  loadOnFirstInteraction(() => {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://connect.facebook.net/en_US/fbevents.js";
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Facebook's script is heavy and sets third-party cookies, which slows the first
+ * paint and costs Lighthouse points. Calls made before it loads wait in the fbq
+ * queue and are sent once it does; the server-side PageView is sent right away.
+ */
+function loadOnFirstInteraction(load: () => void) {
+  const events = ["pointerdown", "keydown", "scroll", "touchstart"] as const;
+  const run = () => {
+    for (const event of events) window.removeEventListener(event, run);
+    load();
+  };
+  for (const event of events)
+    window.addEventListener(event, run, { once: true, passive: true });
 }
 
 export default function MetaPageView({ config }: { config: PublicMetaConfig }) {

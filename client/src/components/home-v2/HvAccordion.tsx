@@ -45,7 +45,7 @@ export default function HvAccordion({
                   <span
                     className={cn(
                       "w-8 flex-none text-sm font-medium",
-                      dark ? "text-ash" : "text-ink/50"
+                      dark ? "text-ash" : "text-ink/70"
                     )}
                   >
                     {String(i + 1).padStart(2, "0")}

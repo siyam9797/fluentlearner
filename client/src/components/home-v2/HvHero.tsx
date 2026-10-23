@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { ArrowButton, BannerImage, HvButton } from "./primitives";
 import { V2 } from "./routes";
 import { useStoryCards } from "./hooks";
+import { optimizedSrc } from "@/lib/image";
 
 function initials(name: string) {
   return name
@@ -40,8 +41,10 @@ function StudentAvatar({
   if (src && !failed) {
     return (
       <img
-        src={src}
+        src={optimizedSrc(src, 128)}
         alt={customPhoto ? "" : name}
+        width={44}
+        height={44}
         title={customPhoto ? undefined : name}
         onError={() => setFailed(true)}
         className={cn(base, "bg-sand object-cover object-center")}

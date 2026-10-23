@@ -107,7 +107,7 @@ export default function V2Contact() {
                     )}
                   </div>
                   <div className="mt-10">
-                    <p className="text-sm text-ink/60">{channel.label}</p>
+                    <p className="text-sm text-ink/70">{channel.label}</p>
                     <p className="mt-1 text-lg font-medium [overflow-wrap:anywhere]">
                       {channel.value.includes("@") ? (
                         <>
@@ -118,7 +118,7 @@ export default function V2Contact() {
                         channel.value
                       )}
                     </p>
-                    <p className="mt-2 text-sm text-ink/60">{channel.note}</p>
+                    <p className="mt-2 text-sm text-ink/70">{channel.note}</p>
                   </div>
                 </>
               );
@@ -252,7 +252,7 @@ export default function V2Contact() {
                   <span aria-hidden="true">{t("v2_contact_form_button")}</span>
                 </span>
               </button>
-              <p className="mt-3 text-center text-sm text-ink/60">
+              <p className="mt-3 text-center text-sm text-ink/70">
                 {t("v2_contact_form_note")}
               </p>
             </form>

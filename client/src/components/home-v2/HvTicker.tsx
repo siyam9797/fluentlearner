@@ -20,7 +20,7 @@ function AchievementCard({
   hidden?: boolean;
 }) {
   const highlight = /^(yes|y|true|1)$/i.test((item.highlight ?? "").trim());
-  const muted = highlight ? "text-white/80" : "text-ink/60";
+  const muted = highlight ? "text-white/80" : "text-ink/70";
   return (
     <li
       aria-hidden={hidden || undefined}

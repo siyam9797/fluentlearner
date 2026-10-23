@@ -66,7 +66,7 @@ export default function V2Courses() {
                   <span
                     className={cn(
                       "ml-2",
-                      filter === key ? "text-white/60" : "text-ink/40"
+                      filter === key ? "text-white/70" : "text-ink/70"
                     )}
                   >
                     {key === "all"
@@ -81,7 +81,12 @@ export default function V2Courses() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-5">
             {visible.map((course, i) => (
               <Reveal key={course.id} delay={(i % 2) * 120} className="h-full">
-                <CourseItem course={course} index={courses.indexOf(course)} />
+                <CourseItem
+                  course={course}
+                  index={courses.indexOf(course)}
+                  heading="h2"
+                  priority={i < 2}
+                />
               </Reveal>
             ))}
           </div>

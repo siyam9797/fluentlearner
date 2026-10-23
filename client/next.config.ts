@@ -10,6 +10,17 @@ const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["mysql2"],
   devIndicators: false,
+  images: {
+    // The optimizer caches results without checking who asked, so only public
+    // images may go through it (never payment screenshots or student uploads).
+    // Keep in sync with OPTIMIZABLE in src/lib/image.ts.
+    localPatterns: [
+      { pathname: "/uploads/images/**", search: "" },
+      { pathname: "/uploads/branding/**", search: "" },
+      { pathname: "/*", search: "" },
+      { pathname: "/old-site/**", search: "" },
+    ],
+  },
   // The admin "Mock Tests" section became "IELTS Modules" (one page per module); keep old links working.
   async redirects() {
     return [

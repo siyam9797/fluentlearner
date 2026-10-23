@@ -4,6 +4,7 @@ import { V2 } from "./routes";
 import { useStoryCardsState } from "./hooks";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
+import { responsiveImage } from "@/lib/image";
 
 const GRID_SIZE = 6;
 
@@ -57,7 +58,11 @@ export default function HvStories() {
                 className="group relative block aspect-square overflow-hidden rounded-[var(--radius-card)] bg-sand"
               >
                 <img
-                  src={story.imageUrl}
+                  {...responsiveImage(
+                    story.imageUrl,
+                    "(min-width: 1262px) 400px, (min-width: 1024px) 33vw, 50vw",
+                    1080
+                  )}
                   alt={`${story.name}'s IELTS result${story.band ? `, band ${story.band}` : ""}`}
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
