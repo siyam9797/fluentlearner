@@ -106,11 +106,12 @@ Endpoint: `/api/trpc` (GET for queries, POST for mutations, batched, superjson).
 
 ## HTTP routes
 
-| Route                               | Method   | Purpose                                                                   |
-| ----------------------------------- | -------- | ------------------------------------------------------------------------- |
-| `/api/health`                       | GET      | `SELECT 1`: `200 {ok:true}` or `503 {ok:false}`, `no-store`               |
-| `/api/payments/bkash/callback`      | GET      | bKash return. 303 to `/enroll?payment=…`                                  |
-| `/api/payments/sslcommerz/callback` | GET/POST | SSLCommerz return (`status=success\|fail\|cancel`) and IPN (`status=ipn`) |
-| `/api/meta/pageview`                | POST     | `{eventId, path}` → CAPI PageView. Same-origin only, body at most 1 KB    |
-| `/uploads/*`                        | GET      | Files from `UPLOAD_DIR`. `payment-screenshots/` requires a dashboard role |
-| `/sitemap.xml`, `/robots.txt`       | GET      | Generated                                                                 |
+| Route                               | Method   | Purpose                                                                                    |
+| ----------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `/api/health`                       | GET      | `SELECT 1`: `200 {ok:true}` or `503 {ok:false}`, `no-store`                                |
+| `/api/payments/bkash/callback`      | GET      | bKash return. 303 to `/enroll?payment=…`                                                   |
+| `/api/payments/sslcommerz/callback` | GET/POST | SSLCommerz return (`status=success\|fail\|cancel`) and IPN (`status=ipn`)                  |
+| `/api/meta/pageview`                | POST     | `{eventId, path}` → CAPI PageView. Same-origin only, body at most 1 KB                     |
+| `/uploads/*`                        | GET      | Files from `UPLOAD_DIR`. `payment-screenshots/` requires a dashboard role                  |
+| `/og/course/:slugOrId`              | GET      | Course link-preview image: featured image as 1200 × 630 JPEG (default share image if none) |
+| `/sitemap.xml`, `/robots.txt`       | GET      | Generated                                                                                  |

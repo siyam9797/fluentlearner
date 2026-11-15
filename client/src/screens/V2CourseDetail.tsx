@@ -1,6 +1,5 @@
 /** v2 Course detail page — /courses/:slug (slug or numeric id) */
 import { BookOpen, CalendarClock, Check, Clock, Users } from "lucide-react";
-import SEOHead from "@/components/SEOHead";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
 import { useV2Content } from "@/components/home-v2/useV2Content";
@@ -139,17 +138,7 @@ export default function V2CourseDetail() {
 
   return (
     <HvLayout>
-      <SEOHead
-        title={`${title} | FluentLearner`}
-        description={
-          course.shortDescription ||
-          course.description ||
-          `${title} — FluentLearner IELTS coaching`
-        }
-        path={`/courses/${course.slug || course.id}`}
-        ogImage={course.imageUrl || undefined}
-        type="article"
-      />
+      {/* Title and share tags (featured image preview) come from generateMetadata in app/[[...path]]/page.tsx. */}
       <HvPageHeader
         crumbs={[{ label: "Courses", href: V2.courses }, { label: title }]}
         title={title}

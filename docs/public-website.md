@@ -60,6 +60,7 @@ Text may contain tokens that are filled in at render time: `{scorers}`, `{succes
 ## SEO
 
 - `SEOHead` sets per-page title, description and Open Graph tags. Defaults come from the **Search & sharing** fields (`og-default.jpg` and `og-square.jpg` in `public/`).
+- **Course pages** set their title and share tags on the server (`generateMetadata` in `app/[[...path]]/page.tsx`), because link-preview crawlers read only the first HTML response. The share image is the course's **featured image**, resized by `server/courseShare.ts` to a 1200 × 630 JPEG under 280 KB (WhatsApp skips larger images) and served at `/og/course/<slug or id>?v=<last update>`. Changing the featured image changes the URL, so previews refresh. Only images stored on this site are read; anything else falls back to `og-default.jpg`.
 - `sitemap.ts` lists the public pages and every active course (`/courses/<slug or id>`), revalidated hourly.
 - `robots.ts` disallows `/admin`, `/student` and `/api/`.
 - The root `<title>` and favicon come from Branding settings and revalidate every 60 seconds.
