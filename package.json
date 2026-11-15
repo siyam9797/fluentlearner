@@ -20,7 +20,9 @@
     "seed:vocabulary": "node server/scripts/seed-vocabulary.mjs",
     "seed:type-practice": "node server/scripts/seed-type-practice.mjs",
     "sync:live": "node server/scripts/sync-from-live.mjs",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "deploy": "bash scripts/deploy.sh",
+    "rollback": "bash scripts/rollback.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

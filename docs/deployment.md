@@ -1,107 +1,136 @@
 # Deployment
 
-## Requirements
+## Production at a glance
 
-- Node.js 22 host, or Docker
-- A writable MySQL 8 database
-- **Persistent storage for uploads.** Files live on the local filesystem, so ephemeral or serverless hosting is unsuitable. Run **one app instance**, unless all instances share the same upload volume
-- A public HTTPS domain, with TLS terminated at a reverse proxy
+| What                     | Value                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| Site                     | https://fluentlearner.com                                                                |
+| Server                   | Hostinger KVM 2 VPS, Ubuntu (`ssh root@<vps-ip>`)                                        |
+| App folder               | `/var/www/fluentlearner/app` (a git checkout of `main`)                                  |
+| Process manager          | **PM2**, app name **`fluentlearner`**                                                    |
+| Other PM2 app on the box | `fluentlearner-sales`. **Never restart it by accident; never run `pm2 restart all`**     |
+| What PM2 runs            | `client/.next/standalone/client/server.cjs`, cwd `/var/www/fluentlearner/app`, port 3000 |
+| Settings                 | `/var/www/fluentlearner/app/.env` (`DATABASE_URL`, `JWT_SECRET`, `PUBLIC_SITE_URL`, …)   |
+| Database                 | MySQL on the same server, `localhost`; user and database both `fluentlearner`            |
+| Backups                  | `~/backups/` (database dumps `db-*.sql`, previous build `standalone-prev/`)              |
 
-### Runtime environment
+Docker is **not** installed on this server. The Docker / Compose setup at the end of this page is an alternative for a new server.
 
-| Variable                          | Notes                                                                      |
-| --------------------------------- | -------------------------------------------------------------------------- |
-| `DATABASE_URL`                    | Required                                                                   |
-| `JWT_SECRET`                      | Required. At least 32 random characters (`openssl rand -hex 32`)           |
-| `PUBLIC_SITE_URL`                 | Required. Must start with `https://` (the Docker entrypoint enforces this) |
-| `UPLOAD_DIR`, `PUBLIC_UPLOAD_URL` | The Docker image sets `/data/uploads` and `/uploads`                       |
-| Integrations                      | Optional. See [integrations.md](integrations.md)                           |
+## Releasing a change
 
-Never deploy the local `.env` or its demo passwords. The dev administrator login is disabled automatically when `NODE_ENV=production`. There is no default production password.
+### On your computer
 
-## Docker image
+1. Make the change and run the checks:
+   ```sh
+   npm run check && npm test && npm run build
+   ```
+2. If the change needs a **database change**, write the numbered SQL file (see [database.md](database.md#migrations)). It must be applied on the server **before** the new code goes live (step 2 below).
+3. Commit and push to `main`:
+   ```sh
+   git push origin main
+   ```
 
-`Dockerfile` is a two-stage build on `node:22-bookworm-slim`. It runs `npm ci && npm run build`, then copies only the Next standalone server (`client/.next/standalone`), static assets, `client/public`, and `seed-admin.mjs` with `dotenv`. It runs as the `node` user on port 3000. `docker-entrypoint.sh` checks the required variables, then runs `node client/server.js`.
+### On the server
 
 ```sh
-docker build -t fluentlearner .
-docker run -d --name fluentlearner -p 3000:3000 \
-  --env-file production.env \
-  --mount type=volume,src=fluentlearner-uploads,dst=/data/uploads \
-  fluentlearner
+ssh root@<vps-ip>
+cd /var/www/fluentlearner/app
+git pull --ff-only origin main
 ```
 
-Keep `production.env` private. Route all paths from your proxy to port 3000.
+**1. Only if this release adds a migration**, apply it now. The deploy script backs up the database, but make a manual dump first when the change is risky:
 
-**Without Docker:** run `npm ci && npm run check && npm test && npm run build && npm start` with the same variables. `next start` runs from the project tree.
+```sh
+mysql -h localhost -u fluentlearner -p fluentlearner < server/database/00NN_name.sql
+```
 
-## VPS with Docker Compose (recommended)
+The password is in `DATABASE_URL` in `.env`, the part between `fluentlearner:` and `@`.
 
-`compose.production.yml` runs three services:
+**2. Deploy:**
 
-| Service | Image                          | Notes                                                                                                                                        |
-| ------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `db`    | `Dockerfile.mysql` (MySQL 8.4) | Copies `server/database/*.sql` into `docker-entrypoint-initdb.d`, so on a **new** volume every migration runs once, in order. Health-checked |
-| `app`   | `Dockerfile`                   | `env_file: app.production.env`. Starts after `db` is healthy. Uploads go to the `uploads_data` volume                                        |
-| `caddy` | `caddy:2`                      | Ports 80 and 443. Automatic HTTPS for `SITE_DOMAIN` (`Caddyfile`: gzip/zstd, `reverse_proxy app:3000`)                                       |
+```sh
+npm run deploy
+```
 
-Volumes: `mysql_data`, `uploads_data`, `caddy_data`, `caddy_config`. The app and the database are not exposed to the internet directly.
+`scripts/deploy.sh` does the whole release and stops at the first error:
 
-### First deploy
+| Step | What happens                                                                                                                              |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Copies the running build to `~/backups/standalone-prev` and dumps the database to `~/backups/db-<date>.sql`. The 10 newest dumps are kept |
+| 2    | `npm ci` and `npm run build`. If the build fails, the site keeps running the old version                                                  |
+| 3    | Prepares the standalone folder: `server.js` → `server.cjs`, copies `.next/static` and `public/` (never `public/uploads`)                  |
+| 4    | `pm2 restart fluentlearner` (only that app)                                                                                               |
+| 5    | Waits for `http://127.0.0.1:3000/api/health`. **If it fails, the previous build is restored and restarted automatically**                 |
 
-1. Install Docker Engine with the Compose plugin. Point the domain's DNS A record at the VPS, and open TCP 80 and 443.
-2. `git clone https://github.com/siyam9797/fluentlearner.git && cd fluentlearner`
-3. Create the two private env files and replace every placeholder:
+It ends with `✓ Deployed <commit>` when everything worked.
+
+**3. Check in the browser:** the home page, a course page, and sign-in at `/admin`. Then check whatever the release changed.
+
+### If something is wrong after a deploy
+
+```sh
+cd /var/www/fluentlearner/app && npm run rollback
+```
+
+This puts back the build that was running before the last deploy, in seconds. It does **not** touch the database. If a release changed data and you need the old data, restore the dump taken just before it:
+
+```sh
+mysql -h localhost -u fluentlearner -p fluentlearner < ~/backups/db-<date>.sql
+```
+
+### Useful commands on the server
+
+| Task                             | Command                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Is the app running?              | `pm2 ls`                                                                                                                                 |
+| Recent logs                      | `pm2 logs fluentlearner --lines 50 --nostream`                                                                                           |
+| Clear old log lines              | `pm2 flush fluentlearner`                                                                                                                |
+| Health check                     | `curl -fsS https://fluentlearner.com/api/health` → `{"ok":true}`                                                                         |
+| Which version is live?           | `git log --oneline -1`                                                                                                                   |
+| Deploy without the database dump | `SKIP_DB_BACKUP=1 npm run deploy`                                                                                                        |
+| Make or reset a Super Admin      | `ADMIN_EMAIL=… ADMIN_PASSWORD='…' ADMIN_ROLE=super_admin npm run seed:admin` (keep the single quotes; it resets that account's password) |
+
+### Things to know
+
+- **Server-side edits get in the way.** Don't edit files in `/var/www/fluentlearner/app` by hand. If `git pull` refuses because of local changes, check them with `git status` and `git diff`, then `git stash` (it can be undone) and pull again.
+- **"9 vulnerabilities" from `npm ci`** come from development-only tools (tests, migrations) that never run on the live site. Check the live packages with `npm audit --omit=dev`. **Never run `npm audit fix --force`:** it makes breaking upgrades.
+- **Uploads** live in `UPLOAD_DIR` (default `client/public/uploads`) and are served by the app's `/uploads/*` route, which keeps payment screenshots admin-only. They survive deploys. Back them up separately: `tar czf ~/backups/uploads-$(date +%F).tgz client/public/uploads` (or your `UPLOAD_DIR`).
+- **Link previews** (WhatsApp, Facebook) are cached by those apps. After changing a course image, use Facebook's Sharing Debugger → **Scrape Again**; WhatsApp needs a fresh share.
+- **Node version:** the server runs Node 24, and the project supports Node 22 or newer.
+
+## Setting up a new server (PM2)
+
+1. Install Node 22+, MySQL 8, PM2 (`npm i -g pm2`), and a reverse proxy with HTTPS (Nginx + Certbot, or Caddy) that forwards to `127.0.0.1:3000`.
+2. `git clone` the repository into the app folder, and create `.env` with at least:
    ```sh
-   cp .env.production.example .env.production       # SITE_DOMAIN, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD
-   cp app.production.env.example app.production.env # DATABASE_URL (same MYSQL_PASSWORD, host "db"), JWT_SECRET, PUBLIC_SITE_URL
-   chmod 600 .env.production app.production.env
+   NODE_ENV=production
+   DATABASE_URL=mysql://USER:PASSWORD@localhost:3306/DBNAME   # letters and digits only in the password, or URL-encode it
+   JWT_SECRET=<openssl rand -hex 32>
+   PUBLIC_SITE_URL=https://your-domain
    ```
-   Hex passwords avoid URL-encoding problems in `DATABASE_URL`.
-4. Start the stack:
+3. Create the database and apply every `server/database/0*.sql` in order: `for f in server/database/0*.sql; do mysql -u USER -p DBNAME < "$f"; done`.
+4. Build once and start it under PM2:
    ```sh
-   docker compose --env-file .env.production -f compose.production.yml up -d --build
+   SKIP_DB_BACKUP=1 npm run deploy   # builds; the restart step fails the first time because the PM2 app doesn't exist yet
+   pm2 start client/.next/standalone/client/server.cjs --name fluentlearner --cwd "$PWD"
+   pm2 save && pm2 startup           # start again after a reboot
    ```
-5. Check it:
-   ```sh
-   docker compose --env-file .env.production -f compose.production.yml ps
-   curl -fsS https://<your-domain>/api/health
-   docker compose --env-file .env.production -f compose.production.yml logs --tail=100 db app caddy
-   ```
-6. Seed the first Super Admin **once**:
-   ```sh
-   export ADMIN_EMAIL=… ADMIN_PASSWORD=…
-   docker compose --env-file .env.production -f compose.production.yml run --rm \
-     -e ADMIN_EMAIL -e ADMIN_PASSWORD -e ADMIN_ROLE=super_admin app node server/scripts/seed-admin.mjs
-   unset ADMIN_EMAIL ADMIN_PASSWORD
-   ```
-   `seed-admin` resets the password every time it runs, so don't run it on each deploy. Then sign in at `https://<your-domain>/admin` and create the other accounts under **Admin → Users**.
+5. Create the first Super Admin with `npm run seed:admin` (see the table above), then sign in at `/admin`.
 
-### Releases
+## Alternative: Docker Compose
 
-1. **Back up** MySQL and the `uploads_data` volume.
-2. `git pull --ff-only origin main`
-3. Apply any **new** numbered SQL migrations by hand, e.g.
-   ```sh
-   docker compose --env-file .env.production -f compose.production.yml exec -T db \
-     sh -c 'mysql -ufluentlearner -p"$MYSQL_PASSWORD" fluentlearner' < server/database/00NN_name.sql
-   ```
-   The init scripts run only on an empty volume, and `npm run db:push` is **not** a safe upgrade path (see [database.md](database.md#migrations)).
-4. `docker compose --env-file .env.production -f compose.production.yml up -d --build`
+For a fresh server with Docker. Not used on the current server.
 
-**Never run `docker compose down -v` on production.** `-v` deletes the data volumes.
+`compose.production.yml` runs MySQL 8.4 (`Dockerfile.mysql`, which applies every numbered SQL file on a **new** volume), the app (`Dockerfile`, a standalone build running as `node` on port 3000, uploads on the `uploads_data` volume), and Caddy for automatic HTTPS (`Caddyfile`).
 
-## After deploying
+```sh
+cp .env.production.example .env.production        # SITE_DOMAIN, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD
+cp app.production.env.example app.production.env  # DATABASE_URL (host "db"), JWT_SECRET, PUBLIC_SITE_URL
+chmod 600 .env.production app.production.env
+docker compose --env-file .env.production -f compose.production.yml up -d --build
+curl -fsS https://<domain>/api/health
+docker compose --env-file .env.production -f compose.production.yml run --rm \
+  -e ADMIN_EMAIL -e ADMIN_PASSWORD -e ADMIN_ROLE=super_admin app node server/scripts/seed-admin.mjs
+```
 
-| Check          | Where                                                                                                           |
-| -------------- | --------------------------------------------------------------------------------------------------------------- |
-| Health         | `GET /api/health` returns 200, or 503 if MySQL is unavailable                                                   |
-| Public site    | `/`, `/courses`, `/enroll`                                                                                      |
-| Student portal | `/student` with a database-backed student account                                                               |
-| Admin          | `/admin` with a database-backed dashboard-role account                                                          |
-| Payments       | Switch the gateways to **live** in Admin → Settings → Online payment. `PUBLIC_SITE_URL` must be the real domain |
-| Meta           | Clear the **test event code** in Admin → Settings → Marketing before real traffic                               |
-
-## Backups
-
-Back up **both** the MySQL database and the uploads volume, separately. Uploads hold course images, test audio, student recordings, payment screenshots and resources, and none of them are in the database.
+To release: back up, `git pull`, apply any new SQL with `docker compose … exec -T db sh -c 'mysql -ufluentlearner -p"$MYSQL_PASSWORD" fluentlearner' < file.sql`, then `docker compose … up -d --build`. **Never run `docker compose down -v`:** it deletes the data volumes.

@@ -70,6 +70,10 @@ All scripts are plain Node ESM in `server/scripts/` and read `.env`.
 | `seed:vocabulary`         | **Replaces all** vocabulary words with the listening vocabulary list (data in `scripts/data/`)                                                                                                                                                                                                    |
 | `sync:live`               | Pulls courses, stories, batches, payment methods and site settings from `LIVE_URL` (default `https://fluentlearner.com`), downloads their `/uploads/` images, and **overwrites** those local tables. A JSON backup is written to `.local-backups/` first. Users and enrollments are never touched |
 
+## Shipping a change
+
+Run `npm run check && npm test && npm run build`, push to `main`, then on the server run `git pull --ff-only origin main && npm run deploy`. The full checklist, including database migrations and rollback, is in [deployment.md](deployment.md#releasing-a-change).
+
 ## Tests and checks
 
 ```sh

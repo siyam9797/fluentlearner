@@ -30,33 +30,35 @@ The admin login above is a development-only fallback. It needs no database row a
 
 ## Common commands
 
-| Command             | What it does                                                           |
-| ------------------- | ---------------------------------------------------------------------- |
-| `npm run dev`       | Dev server on port 3001                                                |
-| `npm run check`     | Generate Next route types and type-check (`tsc`)                       |
-| `npm test`          | Run the Vitest suite (`server/**/*.test.ts`)                           |
-| `npm run build`     | Production build (standalone output)                                   |
-| `npm start`         | Serve the production build                                             |
-| `npm run format`    | Prettier                                                               |
-| `npm run seed:*`    | Seed data. See [docs/development.md](docs/development.md#seed-scripts) |
-| `npm run sync:live` | Copy public content from the live site into the local DB               |
+| Command             | What it does                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`       | Dev server on port 3001                                                                                                               |
+| `npm run check`     | Generate Next route types and type-check (`tsc`)                                                                                      |
+| `npm test`          | Run the Vitest suite (`server/**/*.test.ts`)                                                                                          |
+| `npm run build`     | Production build (standalone output)                                                                                                  |
+| `npm start`         | Serve the production build                                                                                                            |
+| `npm run format`    | Prettier                                                                                                                              |
+| `npm run seed:*`    | Seed data. See [docs/development.md](docs/development.md#seed-scripts)                                                                |
+| `npm run sync:live` | Copy public content from the live site into the local DB                                                                              |
+| `npm run deploy`    | **On the server:** back up, build, restart `fluentlearner`, health-check, auto-rollback. See [docs/deployment.md](docs/deployment.md) |
+| `npm run rollback`  | **On the server:** put the previous build back                                                                                        |
 
 ## Documentation
 
-| Doc                                        | Covers                                                                           |
-| ------------------------------------------ | -------------------------------------------------------------------------------- |
-| [Architecture](docs/architecture.md)       | Repo layout, request flow, routing, tRPC, server-rendered data, uploads          |
-| [Development](docs/development.md)         | Setup, environment variables, local accounts, seed scripts, tests, conventions   |
-| [Database](docs/database.md)               | Tables, relationships, settings store, manual migrations                         |
-| [Auth & roles](docs/auth-and-roles.md)     | Sessions, the six roles, procedure tiers, what each role can actually do         |
-| [Public website](docs/public-website.md)   | v2 pages, the frozen `/old` site, editable content, menus, SEO                   |
-| [Student portal](docs/student-portal.md)   | Dashboard sections, taking tests, results                                        |
-| [IELTS tests](docs/ielts-tests.md)         | Test model, question types, the builder, marking and band scores, AI marking     |
-| [Admin dashboard](docs/admin-dashboard.md) | Every admin screen and what it manages                                           |
-| [Enrollment & payments](docs/payments.md)  | Online checkout with bKash and SSLCommerz, account creation, manual verification |
-| [Integrations](docs/integrations.md)       | Meta Pixel and Conversions API, Anthropic, notification webhook, Google Maps     |
-| [API reference](docs/api.md)               | Every tRPC procedure and HTTP route, with its access level                       |
-| [Deployment](docs/deployment.md)           | Docker, Compose with MySQL and Caddy on a VPS, releases, backups                 |
+| Doc                                        | Covers                                                                                                                |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| [Architecture](docs/architecture.md)       | Repo layout, request flow, routing, tRPC, server-rendered data, uploads                                               |
+| [Development](docs/development.md)         | Setup, environment variables, local accounts, seed scripts, tests, conventions                                        |
+| [Database](docs/database.md)               | Tables, relationships, settings store, manual migrations                                                              |
+| [Auth & roles](docs/auth-and-roles.md)     | Sessions, the six roles, procedure tiers, what each role can actually do                                              |
+| [Public website](docs/public-website.md)   | v2 pages, the frozen `/old` site, editable content, menus, SEO                                                        |
+| [Student portal](docs/student-portal.md)   | Dashboard sections, taking tests, results                                                                             |
+| [IELTS tests](docs/ielts-tests.md)         | Test model, question types, the builder, marking and band scores, AI marking                                          |
+| [Admin dashboard](docs/admin-dashboard.md) | Every admin screen and what it manages                                                                                |
+| [Enrollment & payments](docs/payments.md)  | Online checkout with bKash and SSLCommerz, account creation, manual verification                                      |
+| [Integrations](docs/integrations.md)       | Meta Pixel and Conversions API, Anthropic, notification webhook, Google Maps                                          |
+| [API reference](docs/api.md)               | Every tRPC procedure and HTTP route, with its access level                                                            |
+| [Deployment](docs/deployment.md)           | **Releasing to fluentlearner.com** (PM2 on the VPS, `npm run deploy`, rollback), new-server setup, Docker alternative |
 
 ## License
 
