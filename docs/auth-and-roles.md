@@ -41,6 +41,7 @@ Defined in `shared/roles.ts` (labels and descriptions shown on **Admin → Roles
 Some procedures add finer checks inside the handler:
 
 - **User management** (`users.list`, `update`, `resetPassword`) needs `admin` or `super_admin`. Only `super_admin` can manage, promote to, or reset the password of `admin` or `super_admin` accounts. Nobody can deactivate themselves or change their own role.
+- **Own email:** only the Super Admin can change their own email (Admin → Profile, `auth.updateProfile`). Every other role sees it locked and must ask the Super Admin. Anyone can change their own name and photo.
 - **Email changes** (`users.update` with `email`, rule `canChangeEmailOf`): the Super Admin can change any account's email, their own included. An Admin can change only Marketing, Staff, Mentor and Student emails. The new email must be unused. A student's enrollments move to the new email in the same transaction, so their batch and profile stay linked. Sessions are tied to the account ID, so the person stays signed in.
 - **Account creation** (`users.create`): admins can create any role. `staff` can create `student` accounts only.
 - **Student accounts** (`students.create`, `update`, `resetPassword`) use plain `adminProcedure`, so every dashboard role can use them, mentors included. They only ever act on rows whose role is `student`.

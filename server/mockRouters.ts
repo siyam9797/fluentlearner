@@ -587,8 +587,9 @@ export const studentRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { mobile, ...details } = input;
+      // updateUser, not updateStudent: the Super Admin also uses the student portal.
       if (Object.keys(details).length)
-        await mock.updateStudent(ctx.user.id, details);
+        await mock.updateUser(ctx.user.id, details);
       if (mobile) {
         const user = await getAppUserById(ctx.user.id);
         if (!user || (await mock.updateStudentMobile(user.email, mobile)) === 0)

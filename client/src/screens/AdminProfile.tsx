@@ -16,63 +16,75 @@ import AdminImageUploader from "@/components/AdminImageUploader";
 const fieldClass =
   "h-11 w-full border border-[#d9d9d9] bg-white px-3.5 text-sm text-[#30363d] outline-none transition-colors focus:border-[#c76f42]";
 
+/**
+ * Admin → Profile.
+ * Name, email and photo belong to the account (the same values the Users page shows and edits).
+ * Phone, signature and bio have no database columns, so they stay in this browser.
+ */
 export default function AdminProfilePage() {
   const { user } = useAuth();
-  const originalEmail = user?.email || "admin@localhost.test";
+  const devLogin = user?.openId === "local:admin";
+  const utils = trpc.useUtils();
+  const account = trpc.auth.myProfile.useQuery(undefined, { enabled: !!user });
+  const accountEmail = account.data?.email || user?.email || "";
+  const accountName = account.data?.name || user?.name || "";
+  const canEditEmail = !!account.data?.canEditEmail;
+
   const emptyProfile: AdminProfile = {
-    name: user?.name || "Administrator",
-    email: originalEmail,
+    name: accountName,
+    email: accountEmail,
     phone: "",
-    signature: user?.name || "Administrator",
+    signature: accountName,
     bio: "",
     avatar: "",
   };
   const [form, setForm] = useState<AdminProfile>(emptyProfile);
   const [saved, setSaved] = useState<AdminProfile>(emptyProfile);
 
+  // Account values always win over anything an older version kept in this browser.
   useEffect(() => {
-    const profile = loadAdminProfile(
-      originalEmail,
-      user?.name || "Administrator"
-    );
+    if (!account.data) return;
+    const local = loadAdminProfile(accountEmail, accountName);
+    const profile = {
+      ...local,
+      name: accountName,
+      email: accountEmail,
+      avatar: "",
+    };
     setForm(profile);
     setSaved(profile);
-  }, [originalEmail, user?.name]);
+  }, [account.data, accountEmail, accountName]);
 
   const update = (field: keyof AdminProfile, value: string) =>
     setForm(current => ({ ...current, [field]: value }));
 
-  // The photo is saved to the account (Users page, header, every device), not to this browser.
-  const devLogin = user?.openId === "local:admin";
-  const utils = trpc.useUtils();
-  const myAvatar = trpc.auth.myAvatar.useQuery(undefined, {
-    enabled: !!user && !devLogin,
-  });
+  const refreshAccount = () =>
+    Promise.all([
+      utils.auth.myProfile.invalidate(),
+      utils.auth.me.invalidate(),
+      utils.users.list.invalidate(),
+    ]);
+
   const updateAvatar = trpc.auth.updateAvatar.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.auth.myAvatar.invalidate(),
-        utils.users.list.invalidate(),
-      ]);
-    },
+    onSuccess: refreshAccount,
     onError: error => toast.error(error.message),
   });
-  const avatarUrl = myAvatar.data?.avatarUrl ?? "";
+  const updateProfile = trpc.auth.updateProfile.useMutation({
+    onError: error => toast.error(error.message),
+  });
+  const avatarUrl = account.data?.avatarUrl ?? "";
 
   // Photos chosen before they were saved to the account live only in this browser: move one over once.
   const migrated = useRef(false);
   useEffect(() => {
-    if (migrated.current || devLogin || !myAvatar.isSuccess) return;
-    const local = loadAdminProfile(
-      originalEmail,
-      user?.name || "Administrator"
-    );
+    if (migrated.current || devLogin || !account.isSuccess) return;
+    const local = loadAdminProfile(accountEmail, accountName);
     const match = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(local.avatar);
     if (!match) return;
     migrated.current = true;
     const forget = () =>
-      saveAdminProfile({ ...local, avatar: "" }, originalEmail);
-    if (myAvatar.data.avatarUrl) return forget();
+      saveAdminProfile({ ...local, avatar: "" }, accountEmail);
+    if (account.data.avatarUrl) return forget();
     updateAvatar.mutate(
       {
         base64: match[2],
@@ -81,7 +93,7 @@ export default function AdminProfilePage() {
       },
       { onSuccess: forget }
     );
-  }, [devLogin, myAvatar.isSuccess, myAvatar.data, originalEmail, user?.name]);
+  }, [devLogin, account.isSuccess, account.data, accountEmail, accountName]);
 
   const selectImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -111,16 +123,41 @@ export default function AdminProfilePage() {
       { remove: true },
       { onSuccess: () => toast.success("Profile picture removed.") }
     );
-  const save = () => {
-    if (!form.name.trim() || !form.email.trim())
-      return toast.error("Name and email are required.");
+
+  const save = async () => {
+    const name = form.name.trim();
+    const email = form.email.trim().toLowerCase();
+    if (!name || !email) return toast.error("Name and email are required.");
+    const nameChanged = name !== accountName;
+    const emailChanged = canEditEmail && email !== accountEmail.toLowerCase();
+    if (
+      emailChanged &&
+      !confirm(
+        `Change your sign-in email from ${accountEmail} to ${email}? You will sign in with the new email from now on.`
+      )
+    )
+      return;
     try {
-      // The photo is saved to the account, so never keep a copy in the browser.
-      saveAdminProfile({ ...form, avatar: "" }, originalEmail);
-      setSaved(form);
+      if (!devLogin && (nameChanged || emailChanged)) {
+        await updateProfile.mutateAsync({
+          name: nameChanged ? name : undefined,
+          email: emailChanged ? email : undefined,
+        });
+        await refreshAccount();
+      }
+      // Phone, signature and bio stay in this browser, filed under the (possibly new) email.
+      const next = {
+        ...form,
+        name,
+        email: emailChanged ? email : accountEmail,
+        avatar: "",
+      };
+      saveAdminProfile(next, next.email);
+      setForm(next);
+      setSaved(next);
       toast.success("Profile saved.");
     } catch {
-      toast.error("The profile could not be saved. Try using a smaller image.");
+      // onError already showed the message.
     }
   };
 
@@ -154,17 +191,24 @@ export default function AdminProfilePage() {
           <input
             className={`${fieldClass} mt-2`}
             value={form.name}
+            disabled={devLogin}
             onChange={e => update("name", e.target.value)}
           />
         </label>
         <label className="block text-sm font-medium text-[#30363d]">
           Email
           <input
-            className={`${fieldClass} mt-2`}
+            className={`${fieldClass} mt-2 ${canEditEmail ? "" : "cursor-not-allowed opacity-60"}`}
             type="email"
             value={form.email}
+            disabled={!canEditEmail}
             onChange={e => update("email", e.target.value)}
           />
+          <span className="mt-2 block text-xs font-normal text-[#747d87]">
+            {canEditEmail
+              ? "Your sign-in email. Changing it also updates the Users page."
+              : "Only the Super Admin can change sign-in emails."}
+          </span>
         </label>
         <label className="block text-sm font-medium text-[#30363d] md:col-span-2">
           Phone
@@ -196,9 +240,10 @@ export default function AdminProfilePage() {
       <div className="mt-0 flex flex-wrap gap-3 pt-8">
         <button
           onClick={save}
+          disabled={updateProfile.isPending}
           className="admin-button admin-button-primary min-w-40"
         >
-          Save changes
+          {updateProfile.isPending ? "Saving…" : "Save changes"}
         </button>
         <button
           onClick={() => setForm(saved)}

@@ -102,6 +102,7 @@ import {
   studentsRouter,
   usersRouter,
 } from "./mockRouters";
+import * as mock from "./mockDb";
 import { deleteMediaFile, listMediaFiles } from "./media";
 
 // ============================================
@@ -306,12 +307,72 @@ export const appRouter = router({
       ctx.clearCookie(COOKIE_NAME);
       return { success: true } as const;
     }),
-    /** The signed-in account's own profile photo (null when none, or for the dev login). */
-    myAvatar: protectedProcedure.query(async ({ ctx }) => {
-      if (!ctx.user.openId.startsWith("app:")) return { avatarUrl: null };
+    /**
+     * The signed-in account's own name, email and photo, read from the account so the
+     * Profile page and the Users page always agree. The dev login has no account row.
+     */
+    myProfile: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.openId.startsWith("app:"))
+        return {
+          name: ctx.user.name,
+          email: ctx.user.email ?? "",
+          avatarUrl: null,
+          canEditEmail: false,
+        };
       const account = await getAppUserById(ctx.user.id);
-      return { avatarUrl: account?.avatarUrl ?? null };
+      if (!account)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Account not found",
+        });
+      return {
+        name: account.name,
+        email: account.email,
+        avatarUrl: account.avatarUrl ?? null,
+        canEditEmail: account.role === "super_admin",
+      };
     }),
+
+    /** Change one's own name (any role) or email (the Super Admin only). */
+    updateProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1, "Enter your name").max(255).optional(),
+          email: z
+            .string()
+            .trim()
+            .toLowerCase()
+            .email("Enter a valid email address")
+            .max(320)
+            .optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.openId.startsWith("app:"))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "The development login is set in .env and has no account to update",
+          });
+        const account = await getAppUserById(ctx.user.id);
+        if (!account)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Account not found",
+          });
+        if (input.email !== undefined && input.email !== account.email) {
+          if (account.role !== "super_admin")
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Only the Super Admin can change their own email. Ask the Super Admin to change it for you.",
+            });
+          await mock.changeUserEmail(account.id, input.email);
+        }
+        if (input.name !== undefined && input.name !== account.name)
+          await mock.updateUser(account.id, { name: input.name });
+        return { success: true } as const;
+      }),
 
     /** Upload (or, with remove: true, clear) the signed-in account's profile photo. */
     updateAvatar: protectedProcedure

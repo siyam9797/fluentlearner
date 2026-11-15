@@ -300,11 +300,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     user?.email || "",
     user?.name || "Administrator"
   );
-  // The photo saved to the account; a photo kept only in this browser (older versions) is the fallback.
-  const { data: myAvatar } = trpc.auth.myAvatar.useQuery(undefined, {
-    enabled: !!user && user.openId !== "local:admin",
+  // Name and photo come from the account, as on the Users page. A photo kept only in this
+  // browser by older versions is the fallback until Profile moves it to the account.
+  const { data: myProfile } = trpc.auth.myProfile.useQuery(undefined, {
+    enabled: !!user,
   });
-  const avatarSrc = myAvatar?.avatarUrl || profile.avatar;
+  const avatarSrc = myProfile?.avatarUrl || profile.avatar;
   const { data: appearanceSettings } = trpc.siteSettings.getAll.useQuery(
     undefined,
     {
@@ -392,7 +393,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setMobileOpen(false);
     setAccountOpen(false);
   };
-  const displayName = profile.name || user.name || "Administrator";
+  const displayName = myProfile?.name || user.name || "Administrator";
   const roleLabel =
     ROLE_DEFINITIONS[user.role as AppRole]?.label || "Administrator";
   const initials = displayName

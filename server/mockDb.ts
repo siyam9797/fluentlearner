@@ -1037,6 +1037,7 @@ export async function updateUser(
     role?: AppRole;
     isActive?: boolean;
     passwordHash?: string;
+    targetBand?: string | null;
   }
 ) {
   const database = await db();
