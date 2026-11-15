@@ -1050,6 +1050,40 @@ export async function updateUser(
   await database.update(appUsers).set(values).where(eq(appUsers.id, id));
 }
 
+/**
+ * Change an account's sign-in email. Enrollments are linked to students by email
+ * (batch, profile, payments), so they move to the new address in the same transaction.
+ */
+export async function changeUserEmail(id: number, newEmail: string) {
+  const database = await db();
+  const email = newEmail.trim().toLowerCase();
+  await database.transaction(async tx => {
+    const [user] = await tx
+      .select({ id: appUsers.id, email: appUsers.email })
+      .from(appUsers)
+      .where(eq(appUsers.id, id))
+      .limit(1);
+    if (!user)
+      throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+    if (user.email === email) return;
+    const [taken] = await tx
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.email, email))
+      .limit(1);
+    if (taken)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Another account already uses this email",
+      });
+    await tx.update(appUsers).set({ email }).where(eq(appUsers.id, id));
+    await tx
+      .update(enrollments)
+      .set({ studentEmail: email })
+      .where(sql`lower(${enrollments.studentEmail}) = ${user.email}`);
+  });
+}
+
 export async function listStudents() {
   const database = await db();
   const students = await database

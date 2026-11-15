@@ -113,6 +113,21 @@ export function canCreateUsers(role: string | null | undefined) {
   return canManageUsers(role) || role === "staff";
 }
 
+/** Roles an Admin ranks above. */
+const BELOW_ADMIN: AppRole[] = ["marketing", "staff", "mentor", "student"];
+
+/**
+ * Who may change an account's sign-in email: the Super Admin for every account
+ * (their own included), an Admin for lower roles only.
+ */
+export function canChangeEmailOf(
+  actorRole: string | null | undefined,
+  targetRole: string | null | undefined
+) {
+  if (actorRole === "super_admin") return true;
+  return actorRole === "admin" && BELOW_ADMIN.includes(targetRole as AppRole);
+}
+
 export function canCreateUserWithRole(
   creatorRole: string | null | undefined,
   newRole: AppRole

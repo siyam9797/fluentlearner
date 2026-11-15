@@ -7,6 +7,7 @@ import { useLocation } from "@/lib/router";
 import { trpc } from "@/lib/trpc";
 import {
   APP_ROLES,
+  canChangeEmailOf,
   canManageUsers,
   ROLE_DEFINITIONS,
   type AppRole,
@@ -27,14 +28,16 @@ export default function AdminUserEdit({ id }: { id: number }) {
   const account = users.find(item => item.id === id);
   const [form, setForm] = useState<{
     name: string;
+    email: string;
     role: AppRole;
     isActive: boolean;
-  }>({ name: "", role: "student", isActive: true });
+  }>({ name: "", email: "", role: "student", isActive: true });
 
   useEffect(() => {
     if (!account) return;
     setForm({
       name: account.name || "",
+      email: account.email,
       role: account.role as AppRole,
       isActive: account.isActive,
     });
@@ -64,12 +67,25 @@ export default function AdminUserEdit({ id }: { id: number }) {
     (user?.role !== "super_admin" &&
       (account?.role === "super_admin" || account?.role === "admin"));
 
+  const emailEditable = !!account && canChangeEmailOf(user?.role, account.role);
+  const emailChanged =
+    !!account &&
+    form.email.trim().toLowerCase() !== account.email.toLowerCase();
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!account) return;
+    if (
+      emailChanged &&
+      !confirm(
+        `Change the sign-in email from ${account.email} to ${form.email.trim()}? They will sign in with the new email from now on.`
+      )
+    )
+      return;
     update.mutate({
       id,
       name: form.name,
+      email: emailEditable && emailChanged ? form.email.trim() : undefined,
       role: roleLocked ? undefined : form.role,
       isActive: isSelf ? undefined : form.isActive,
     });
@@ -119,10 +135,20 @@ export default function AdminUserEdit({ id }: { id: number }) {
           <label className="text-sm font-medium">
             Email address
             <input
-              value={account.email}
-              disabled
-              className={`${field} opacity-60`}
+              type="email"
+              required
+              value={emailEditable ? form.email : account.email}
+              disabled={!emailEditable}
+              onChange={event =>
+                setForm(current => ({ ...current, email: event.target.value }))
+              }
+              className={`${field} ${emailEditable ? "" : "opacity-60"}`}
             />
+            <span className="mt-2 block text-xs font-normal text-[var(--admin-body)]">
+              {emailEditable
+                ? "Used to sign in. Their enrollments move to the new email too."
+                : "Only the Super Admin can change an administrator's email."}
+            </span>
           </label>
           <label className="text-sm font-medium">
             Role

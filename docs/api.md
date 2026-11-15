@@ -65,12 +65,12 @@ Endpoint: `/api/trpc` (GET for queries, POST for mutations, batched, superjson).
 
 ### Users
 
-| Procedure                                               | Access          | Notes                                                                                              |
-| ------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------- |
-| `users.list`                                            | admin (+ check) | Admin or Super Admin only                                                                          |
-| `users.create`                                          | admin (+ check) | `canCreateUserWithRole`: staff → students only                                                     |
-| `users.update` / `resetPassword`                        | admin (+ check) | Admin or Super Admin. Admin-level targets need Super Admin. No self-deactivate or self-role change |
-| `students.list` / `create` / `update` / `resetPassword` | admin           | Student-role accounts only                                                                         |
+| Procedure                                               | Access          | Notes                                                                                                                                                                           |
+| ------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users.list`                                            | admin (+ check) | Admin or Super Admin only                                                                                                                                                       |
+| `users.create`                                          | admin (+ check) | `canCreateUserWithRole`: staff → students only                                                                                                                                  |
+| `users.update` / `resetPassword`                        | admin (+ check) | Admin or Super Admin. Admin-level targets need Super Admin. No self-deactivate or self-role change. `email` follows `canChangeEmailOf` and also moves the account's enrollments |
+| `students.list` / `create` / `update` / `resetPassword` | admin           | Student-role accounts only                                                                                                                                                      |
 
 ### IELTS tests (admin)
 

@@ -41,6 +41,7 @@ Defined in `shared/roles.ts` (labels and descriptions shown on **Admin → Roles
 Some procedures add finer checks inside the handler:
 
 - **User management** (`users.list`, `update`, `resetPassword`) needs `admin` or `super_admin`. Only `super_admin` can manage, promote to, or reset the password of `admin` or `super_admin` accounts. Nobody can deactivate themselves or change their own role.
+- **Email changes** (`users.update` with `email`, rule `canChangeEmailOf`): the Super Admin can change any account's email, their own included. An Admin can change only Marketing, Staff, Mentor and Student emails. The new email must be unused. A student's enrollments move to the new email in the same transaction, so their batch and profile stay linked. Sessions are tied to the account ID, so the person stays signed in.
 - **Account creation** (`users.create`): admins can create any role. `staff` can create `student` accounts only.
 - **Student accounts** (`students.create`, `update`, `resetPassword`) use plain `adminProcedure`, so every dashboard role can use them, mentors included. They only ever act on rows whose role is `student`.
 - **Online payment and gateway settings** (`paymentGateway.*`) need `admin` or `super_admin`.
@@ -49,17 +50,18 @@ Some procedures add finer checks inside the handler:
 
 ## What each role can actually do
 
-| Capability                                                                                                     | Super Admin |  Admin   |     Staff     |                 Mentor                 | Marketing | Student |
-| -------------------------------------------------------------------------------------------------------------- | :---------: | :------: | :-----------: | :------------------------------------: | :-------: | :-----: |
-| Admin dashboard (content, courses, batches, enrollments, IELTS builder and marking, resources, media, website) |      ✓      |    ✓     |       ✓       |                   ✓                    |     –     |    –    |
-| List, edit and reset users                                                                                     |      ✓      |    ✓     |       –       |                   –                    |     –     |    –    |
-| Create accounts                                                                                                |  any role   | any role | students only | students only (API, `students.create`) |     –     |    –    |
-| Deactivate / reset password of **student** accounts (`students.*`)                                             |      ✓      |    ✓     |       ✓       |                   ✓                    |     –     |    –    |
-| Manage admin / super admin accounts                                                                            |      ✓      |    –     |       –       |                   –                    |     –     |    –    |
-| Online payment settings                                                                                        |      ✓      |    ✓     |       –       |                   –                    |     –     |    –    |
-| Meta tracking settings                                                                                         |      ✓      |    ✓     |       –       |                   –                    |     ✓     |    –    |
-| AI marking API key                                                                                             |      ✓      |    –     |       –       |                   –                    |     –     |    –    |
-| Student portal                                                                                                 |      ✓      |    –     |       –       |                   –                    |     –     |    ✓    |
+| Capability                                                                                                     |     Super Admin     |               Admin               |     Staff     |                 Mentor                 | Marketing | Student |
+| -------------------------------------------------------------------------------------------------------------- | :-----------------: | :-------------------------------: | :-----------: | :------------------------------------: | :-------: | :-----: |
+| Admin dashboard (content, courses, batches, enrollments, IELTS builder and marking, resources, media, website) |          ✓          |                 ✓                 |       ✓       |                   ✓                    |     –     |    –    |
+| List, edit and reset users                                                                                     |          ✓          |                 ✓                 |       –       |                   –                    |     –     |    –    |
+| Create accounts                                                                                                |      any role       |             any role              | students only | students only (API, `students.create`) |     –     |    –    |
+| Deactivate / reset password of **student** accounts (`students.*`)                                             |          ✓          |                 ✓                 |       ✓       |                   ✓                    |     –     |    –    |
+| Change sign-in email                                                                                           | everyone, incl. own | Marketing, Staff, Mentor, Student |       –       |                   –                    |     –     |    –    |
+| Manage admin / super admin accounts                                                                            |          ✓          |                 –                 |       –       |                   –                    |     –     |    –    |
+| Online payment settings                                                                                        |          ✓          |                 ✓                 |       –       |                   –                    |     –     |    –    |
+| Meta tracking settings                                                                                         |          ✓          |                 ✓                 |       –       |                   –                    |     ✓     |    –    |
+| AI marking API key                                                                                             |          ✓          |                 –                 |       –       |                   –                    |     –     |    –    |
+| Student portal                                                                                                 |          ✓          |                 –                 |       –       |                   –                    |     –     |    ✓    |
 
 > **Note:** the per-role descriptions on the Roles page (for example, "Mentor: view assigned students") describe the _intended_ split between Staff and Mentor. The API does not enforce that split today: both roles pass `adminProcedure` and can use every admin-dashboard procedure except the user, payment, Meta and AI checks above. If those boundaries matter, add role checks to the relevant procedures.
 

@@ -19,6 +19,7 @@ import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
 import {
   APP_ROLES,
+  canChangeEmailOf,
   canCreateUserWithRole,
   canManageUsers,
 } from "@shared/roles";
@@ -363,6 +364,13 @@ export const usersRouter = router({
       z.object({
         id: z.number().int(),
         name: z.string().trim().min(1).optional(),
+        email: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .email("Enter a valid email address")
+          .max(320)
+          .optional(),
         role: z.enum(APP_ROLES).optional(),
         isActive: z.boolean().optional(),
       })
@@ -394,6 +402,16 @@ export const usersRouter = router({
           code: "FORBIDDEN",
           message: "Only Super Admin can manage administrator roles",
         });
+      }
+      const emailChanged =
+        input.email !== undefined && input.email !== target.email.toLowerCase();
+      if (emailChanged) {
+        if (!canChangeEmailOf(ctx.user.role, target.role))
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You cannot change this account's email",
+          });
+        await mock.changeUserEmail(input.id, input.email!);
       }
       return mock.updateUser(input.id, {
         name: input.name,

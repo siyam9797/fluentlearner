@@ -31,6 +31,39 @@ const roleTone: Record<AppRole, string> = {
   student: "inactive",
 };
 
+/** Profile photo, or the first letter of the name when there is none (or it fails to load). */
+function UserAvatar({
+  name,
+  email,
+  avatarUrl,
+  size = "h-10 w-10",
+}: {
+  name: string | null;
+  email: string;
+  avatarUrl: string | null;
+  size?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const label = name || email;
+  return avatarUrl && !failed ? (
+    // Plain <img>: /uploads/avatars must not go through the Next image optimizer (see next.config.ts).
+    <img
+      src={avatarUrl}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={`${size} shrink-0 rounded-full object-cover bg-[var(--admin-background)]`}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`${size} grid shrink-0 place-items-center rounded-full bg-[var(--admin-background)] font-semibold text-[var(--admin-heading)]`}
+    >
+      {label.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
 function randomPassword() {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint32Array(10));
@@ -222,12 +255,21 @@ export default function AdminUsers() {
               {users.map(account => (
                 <tr key={account.id}>
                   <td>
-                    <p className="font-semibold text-[var(--admin-heading)]">
-                      {account.name || "Unnamed user"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--admin-body)]">
-                      {account.email}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        name={account.name}
+                        email={account.email}
+                        avatarUrl={account.avatarUrl}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--admin-heading)]">
+                          {account.name || "Unnamed user"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--admin-body)]">
+                          {account.email}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td>{roleLabel(account)}</td>
                   <td>
@@ -293,9 +335,12 @@ export default function AdminUsers() {
               className="admin-list-card min-h-[255px] p-6"
             >
               <div className="flex items-start gap-3">
-                <span className="rounded-[var(--radius-control)] grid h-11 w-11 shrink-0 place-items-center bg-[var(--admin-background)] font-semibold">
-                  {(account.name || account.email).charAt(0).toUpperCase()}
-                </span>
+                <UserAvatar
+                  name={account.name}
+                  email={account.email}
+                  avatarUrl={account.avatarUrl}
+                  size="h-11 w-11"
+                />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-semibold text-[var(--admin-heading)]">
                     {account.name || "Unnamed user"}
