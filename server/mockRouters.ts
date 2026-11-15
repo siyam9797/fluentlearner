@@ -14,7 +14,12 @@ import {
 } from "./database/schema";
 import { adminProcedure, router, studentProcedure } from "./_core/trpc";
 import { hashPassword } from "./_core/password";
-import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
+import {
+  createAppUser,
+  getAppUserByEmail,
+  getAppUserById,
+  updateAppUserAvatar,
+} from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
 import {
@@ -615,7 +620,8 @@ export const studentRouter = router({
         buffer,
         input.contentType
       );
-      await mock.updateStudent(ctx.user.id, { avatarUrl: result.url });
+      // Not updateStudent: that only matches student-role rows, and the Super Admin can use this too.
+      await updateAppUserAvatar(ctx.user.id, result.url);
       return result;
     }),
 

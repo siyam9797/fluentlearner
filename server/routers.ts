@@ -89,6 +89,7 @@ import {
   getAppUserById,
   updateAppUserLastSignedIn,
   updateAppUserPassword,
+  updateAppUserAvatar,
 } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import { sessionService } from "./_core/session";
@@ -305,6 +306,63 @@ export const appRouter = router({
       ctx.clearCookie(COOKIE_NAME);
       return { success: true } as const;
     }),
+    /** The signed-in account's own profile photo (null when none, or for the dev login). */
+    myAvatar: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.openId.startsWith("app:")) return { avatarUrl: null };
+      const account = await getAppUserById(ctx.user.id);
+      return { avatarUrl: account?.avatarUrl ?? null };
+    }),
+
+    /** Upload (or, with remove: true, clear) the signed-in account's profile photo. */
+    updateAvatar: protectedProcedure
+      .input(
+        z.union([
+          z.object({ remove: z.literal(true) }),
+          z.object({
+            base64: z.string().min(1),
+            filename: z.string().min(1).max(255),
+            contentType: z.string(),
+          }),
+        ])
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.openId.startsWith("app:"))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "The development login has no account to save a photo to. Sign in with a real account.",
+          });
+        if ("remove" in input) {
+          await updateAppUserAvatar(ctx.user.id, null);
+          return { avatarUrl: null };
+        }
+        if (!input.contentType.startsWith("image/"))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose an image file",
+          });
+        const buffer = Buffer.from(input.base64, "base64");
+        if (buffer.length > 5 * 1024 * 1024)
+          throw new TRPCError({
+            code: "PAYLOAD_TOO_LARGE",
+            message: "Profile photos must be under 5MB",
+          });
+        const ext =
+          input.filename
+            .split(".")
+            .pop()
+            ?.toLowerCase()
+            .replace(/[^a-z0-9]/g, "")
+            .slice(0, 5) || "jpg";
+        const { url } = await storagePut(
+          `uploads/avatars/${ctx.user.id}-${nanoid(8)}.${ext}`,
+          buffer,
+          input.contentType
+        );
+        await updateAppUserAvatar(ctx.user.id, url);
+        return { avatarUrl: url };
+      }),
+
     /** Any signed-in account changes its own password, after confirming the current one. */
     changePassword: protectedProcedure
       .input(

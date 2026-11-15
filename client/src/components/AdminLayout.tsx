@@ -300,6 +300,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     user?.email || "",
     user?.name || "Administrator"
   );
+  // The photo saved to the account; a photo kept only in this browser (older versions) is the fallback.
+  const { data: myAvatar } = trpc.auth.myAvatar.useQuery(undefined, {
+    enabled: !!user && user.openId !== "local:admin",
+  });
+  const avatarSrc = myAvatar?.avatarUrl || profile.avatar;
   const { data: appearanceSettings } = trpc.siteSettings.getAll.useQuery(
     undefined,
     {
@@ -396,9 +401,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     .map(part => part[0])
     .join("")
     .toUpperCase();
-  const avatar = profile.avatar ? (
+  const avatar = avatarSrc ? (
     <img
-      src={profile.avatar}
+      src={avatarSrc}
       alt=""
       className="h-full w-full rounded-full object-cover grayscale"
     />

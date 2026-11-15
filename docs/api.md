@@ -22,6 +22,8 @@ Endpoint: `/api/trpc` (GET for queries, POST for mutations, batched, superjson).
 | `auth.login`          | public    | `{email, password}` → sets the session cookie                                                                            |
 | `auth.logout`         | public    | Clears the cookie                                                                                                        |
 | `auth.changePassword` | protected | `{currentPassword, newPassword}` (8–200 chars, must differ). Any database account, every role. Refused for the dev login |
+| `auth.myAvatar`       | protected | Own profile photo URL (`null` for the dev login)                                                                         |
+| `auth.updateAvatar`   | protected | Upload own photo (image, max 5 MB, to `uploads/avatars/`) or `{remove: true}`. Any role. Refused for the dev login       |
 
 ### Site content
 

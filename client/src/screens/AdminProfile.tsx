@@ -1,7 +1,9 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
+import { fileToBase64 } from "@/lib/fileToBase64";
 import {
   AdminProfile,
   loadAdminProfile,
@@ -39,24 +41,82 @@ export default function AdminProfilePage() {
 
   const update = (field: keyof AdminProfile, value: string) =>
     setForm(current => ({ ...current, [field]: value }));
-  const selectImage = (event: ChangeEvent<HTMLInputElement>) => {
+
+  // The photo is saved to the account (Users page, header, every device), not to this browser.
+  const devLogin = user?.openId === "local:admin";
+  const utils = trpc.useUtils();
+  const myAvatar = trpc.auth.myAvatar.useQuery(undefined, {
+    enabled: !!user && !devLogin,
+  });
+  const updateAvatar = trpc.auth.updateAvatar.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.auth.myAvatar.invalidate(),
+        utils.users.list.invalidate(),
+      ]);
+    },
+    onError: error => toast.error(error.message),
+  });
+  const avatarUrl = myAvatar.data?.avatarUrl ?? "";
+
+  // Photos chosen before they were saved to the account live only in this browser: move one over once.
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (migrated.current || devLogin || !myAvatar.isSuccess) return;
+    const local = loadAdminProfile(
+      originalEmail,
+      user?.name || "Administrator"
+    );
+    const match = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(local.avatar);
+    if (!match) return;
+    migrated.current = true;
+    const forget = () =>
+      saveAdminProfile({ ...local, avatar: "" }, originalEmail);
+    if (myAvatar.data.avatarUrl) return forget();
+    updateAvatar.mutate(
+      {
+        base64: match[2],
+        filename: `avatar.${match[1].split("/")[1] || "jpg"}`,
+        contentType: match[1],
+      },
+      { onSuccess: forget }
+    );
+  }, [devLogin, myAvatar.isSuccess, myAvatar.data, originalEmail, user?.name]);
+
+  const selectImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
+    if (devLogin)
+      return toast.error(
+        "The development login has no account to save a photo to."
+      );
     if (!file.type.startsWith("image/"))
       return toast.error("Please select an image file.");
-    if (file.size > 2 * 1024 * 1024)
-      return toast.error("Profile images must be smaller than 2MB.");
-    const reader = new FileReader();
-    reader.onload = () => update("avatar", String(reader.result));
-    reader.onerror = () => toast.error("The image could not be read.");
-    reader.readAsDataURL(file);
-    event.target.value = "";
+    if (file.size > 5 * 1024 * 1024)
+      return toast.error("Profile images must be smaller than 5MB.");
+    try {
+      await updateAvatar.mutateAsync({
+        base64: await fileToBase64(file),
+        filename: file.name,
+        contentType: file.type,
+      });
+      toast.success("Profile picture updated.");
+    } catch {
+      // onError already showed the message.
+    }
   };
+  const removeImage = () =>
+    updateAvatar.mutate(
+      { remove: true },
+      { onSuccess: () => toast.success("Profile picture removed.") }
+    );
   const save = () => {
     if (!form.name.trim() || !form.email.trim())
       return toast.error("Name and email are required.");
     try {
-      saveAdminProfile(form, originalEmail);
+      // The photo is saved to the account, so never keep a copy in the browser.
+      saveAdminProfile({ ...form, avatar: "" }, originalEmail);
       setSaved(form);
       toast.success("Profile saved.");
     } catch {
@@ -77,12 +137,13 @@ export default function AdminProfilePage() {
         </label>
         <div className="max-w-xl">
           <AdminImageUploader
-            value={form.avatar}
+            value={avatarUrl}
             label="Profile picture"
             recommendation="Square image, at least 512 × 512px"
-            maxSizeLabel="Max 2 MB"
+            maxSizeLabel="Max 5 MB"
+            uploading={updateAvatar.isPending}
             onChange={selectImage}
-            onRemove={() => update("avatar", "")}
+            onRemove={removeImage}
           />
         </div>
       </section>

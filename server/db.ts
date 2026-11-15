@@ -197,6 +197,17 @@ export async function updateAppUserPassword(id: number, passwordHash: string) {
   await db.update(appUsers).set({ passwordHash }).where(eq(appUsers.id, id));
 }
 
+/** Any account's profile photo (null removes it). */
+export async function updateAppUserAvatar(
+  id: number,
+  avatarUrl: string | null
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(appUsers).set({ avatarUrl }).where(eq(appUsers.id, id));
+}
+
 export async function updateAppUserLastSignedIn(
   id: number,
   lastSignedIn = new Date()
