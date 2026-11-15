@@ -27,10 +27,11 @@ import {
   startSslcommerzEnrollment,
 } from "./payments";
 import { COOKIE_NAME } from "@shared/const";
-import { verifyPassword } from "./_core/password";
+import { hashPassword, verifyPassword } from "./_core/password";
 import { systemRouter } from "./_core/systemRouter";
 import {
   publicProcedure,
+  protectedProcedure,
   adminProcedure,
   marketingProcedure,
   superAdminProcedure,
@@ -85,7 +86,9 @@ import {
   bulkUpsertSiteSettings,
   upsertSiteSetting,
   getAppUserByEmail,
+  getAppUserById,
   updateAppUserLastSignedIn,
+  updateAppUserPassword,
 } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import { sessionService } from "./_core/session";
@@ -302,6 +305,45 @@ export const appRouter = router({
       ctx.clearCookie(COOKIE_NAME);
       return { success: true } as const;
     }),
+    /** Any signed-in account changes its own password, after confirming the current one. */
+    changePassword: protectedProcedure
+      .input(
+        z.object({
+          currentPassword: z.string().min(1, "Enter your current password"),
+          newPassword: z
+            .string()
+            .min(8, "Password must be at least 8 characters")
+            .max(200, "Password is too long"),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        // The development login lives in .env, not in app_users.
+        if (!ctx.user.openId.startsWith("app:"))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This development login is set in .env (LOCAL_ADMIN_PASSWORD) and can't be changed here",
+          });
+        const account = await getAppUserById(ctx.user.id);
+        if (
+          !account ||
+          !(await verifyPassword(input.currentPassword, account.passwordHash))
+        )
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Current password is incorrect",
+          });
+        if (input.currentPassword === input.newPassword)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose a password different from your current one",
+          });
+        await updateAppUserPassword(
+          account.id,
+          await hashPassword(input.newPassword)
+        );
+        return { success: true } as const;
+      }),
   }),
 
   // ============================================

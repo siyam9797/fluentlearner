@@ -190,6 +190,13 @@ export async function createAppUser(data: InsertAppUser) {
   return { id: result[0].insertId };
 }
 
+export async function updateAppUserPassword(id: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(appUsers).set({ passwordHash }).where(eq(appUsers.id, id));
+}
+
 export async function updateAppUserLastSignedIn(
   id: number,
   lastSignedIn = new Date()

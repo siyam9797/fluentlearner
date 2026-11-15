@@ -2136,7 +2136,7 @@ function StudentSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const changePassword = trpc.student.changePassword.useMutation({
+  const changePassword = trpc.auth.changePassword.useMutation({
     onSuccess: () => {
       toast.success("Password changed successfully");
       setCurrentPassword("");

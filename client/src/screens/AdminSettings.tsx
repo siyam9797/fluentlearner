@@ -22,6 +22,7 @@ import {
   saveAdminMode,
 } from "@/lib/adminAppearance";
 import AdminImageUploader from "@/components/AdminImageUploader";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import { Switch } from "@/components/ui/switch";
 import { META_DATASET_ID } from "@shared/meta";
 
@@ -951,11 +952,14 @@ export default function AdminSiteSettings() {
       ? [{ id: "ai" as const, label: "AI marking", icon: Sparkles }]
       : []),
   ];
+  // Marketing accounts get Meta tracking and their own password, nothing else.
   const visibleTabs =
     user?.role === "marketing"
-      ? tabs.filter(item => item.id === "marketing")
+      ? tabs.filter(item => item.id === "marketing" || item.id === "security")
       : tabs;
-  const activeTab = user?.role === "marketing" ? "marketing" : tab;
+  const activeTab = visibleTabs.some(item => item.id === tab)
+    ? tab
+    : visibleTabs[0].id;
 
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
@@ -1213,36 +1217,39 @@ export default function AdminSiteSettings() {
               </div>
             </section>
           ) : (
-            <section>
-              <h2 className="font-display text-xl font-bold text-[#30363d]">
-                Security
-              </h2>
-              <p className="mb-8 mt-1 text-sm text-[#747d87]">
-                Manage local administrator security preferences.
-              </p>
-              <label className="flex items-center justify-between border-y border-[#dedede] py-5 text-sm text-[#30363d]">
-                <span>
-                  <strong className="block font-medium">
-                    Login notifications
-                  </strong>
-                  <span className="mt-1 block text-xs text-[#747d87]">
-                    Show a notice when a new local session starts.
+            <div className="space-y-14">
+              <ChangePasswordForm devLogin={user?.openId === "local:admin"} />
+              <section>
+                <h2 className="font-display text-xl font-bold text-[#30363d]">
+                  Security
+                </h2>
+                <p className="mb-8 mt-1 text-sm text-[#747d87]">
+                  Manage local administrator security preferences.
+                </p>
+                <label className="flex items-center justify-between border-y border-[#dedede] py-5 text-sm text-[#30363d]">
+                  <span>
+                    <strong className="block font-medium">
+                      Login notifications
+                    </strong>
+                    <span className="mt-1 block text-xs text-[#747d87]">
+                      Show a notice when a new local session starts.
+                    </span>
                   </span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={sessionAlerts}
-                  onChange={event => setSessionAlerts(event.target.checked)}
-                  className="h-4 w-4 accent-[#c76f42]"
-                />
-              </label>
-              <button
-                onClick={() => toast.success("Security preferences saved.")}
-                className="admin-button admin-button-primary mt-8"
-              >
-                Save security
-              </button>
-            </section>
+                  <input
+                    type="checkbox"
+                    checked={sessionAlerts}
+                    onChange={event => setSessionAlerts(event.target.checked)}
+                    className="h-4 w-4 accent-[#c76f42]"
+                  />
+                </label>
+                <button
+                  onClick={() => toast.success("Security preferences saved.")}
+                  className="admin-button admin-button-primary mt-8"
+                >
+                  Save security
+                </button>
+              </section>
+            </div>
           )}
         </main>
       </div>

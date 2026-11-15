@@ -13,7 +13,7 @@ import {
   type AiEvaluation,
 } from "./database/schema";
 import { adminProcedure, router, studentProcedure } from "./_core/trpc";
-import { hashPassword, verifyPassword } from "./_core/password";
+import { hashPassword } from "./_core/password";
 import { createAppUser, getAppUserByEmail, getAppUserById } from "./db";
 import { storagePut, storagePutNamed } from "./storage";
 import * as mock from "./mockDb";
@@ -601,31 +601,7 @@ export const studentRouter = router({
       return result;
     }),
 
-  changePassword: studentProcedure
-    .input(
-      z.object({
-        currentPassword: z.string().min(1),
-        newPassword: z
-          .string()
-          .min(8, "Password must be at least 8 characters"),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const user = await getAppUserById(ctx.user.id);
-      if (
-        !user ||
-        !(await verifyPassword(input.currentPassword, user.passwordHash))
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Current password is incorrect",
-        });
-      }
-      await mock.updateStudent(ctx.user.id, {
-        passwordHash: await hashPassword(input.newPassword),
-      });
-      return { success: true } as const;
-    }),
+  // Password changes for every account, students included, use auth.changePassword.
 
   tests: studentProcedure.query(({ ctx }) =>
     mock.listStudentTests(ctx.user.id)
