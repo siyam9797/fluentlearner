@@ -33,7 +33,7 @@ export function CourseItem({
           <DecorSquare />
           {course.label}
         </span>
-        <div className="relative h-40 w-full overflow-hidden rounded-[var(--radius-control)] sm:h-[120px] sm:w-[190px] lg:w-[250px]">
+        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-[var(--radius-control)] sm:w-[190px] lg:w-[250px]">
           {course.imageUrl && !imageFailed ? (
             <img
               {...responsiveImage(

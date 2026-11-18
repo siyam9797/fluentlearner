@@ -183,7 +183,7 @@ export default function V2CourseDetail() {
                   1200
                 )}
                 alt={`${title} course`}
-                className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover"
+                className="aspect-[4/3] w-full rounded-[var(--radius-card)] object-cover"
               />
             ) : null}
 

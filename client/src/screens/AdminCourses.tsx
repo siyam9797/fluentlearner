@@ -896,12 +896,12 @@ export default function AdminCourses({
                           <div className="space-y-6">
                             <Field
                               label="Course image"
-                              hint="Landscape, 16:9. Shown on course cards and the course page."
+                              hint="Landscape, 4:3. Shown on course cards and the course page."
                             >
                               <AdminImageUploader
                                 value={editingCourse.imageUrl}
                                 label="Course image"
-                                recommendation="Landscape, 16:9 ratio"
+                                recommendation="Landscape, 4:3 ratio"
                                 uploading={uploading}
                                 onChange={e => handleImageUpload(e, "imageUrl")}
                                 onMediaSelect={url =>
@@ -1450,7 +1450,7 @@ export default function AdminCourses({
                           <AdminImageUploader
                             value={editingCourse.imageUrl}
                             label="Course image"
-                            recommendation="Landscape, 16:9 ratio"
+                            recommendation="Landscape, 4:3 ratio"
                             uploading={uploading}
                             onChange={e => handleImageUpload(e, "imageUrl")}
                             onMediaSelect={url =>
