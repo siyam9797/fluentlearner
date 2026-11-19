@@ -58,10 +58,15 @@ export function resetLimit(key: string) {
   buckets.delete(key);
 }
 
-/** The visitor's address as reported by the reverse proxy (or "unknown"). */
+/**
+ * The visitor's address as reported by the reverse proxy (or "unknown").
+ * X-Real-IP is set by the proxy itself, so it is preferred; the first X-Forwarded-For
+ * entry can be supplied by the visitor.
+ */
 export function clientIp(req: Request) {
+  const real = req.headers.get("x-real-ip")?.trim();
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || req.headers.get("x-real-ip")?.trim() || "unknown";
+  return real || forwarded || "unknown";
 }
 
 /** Only for tests. */
