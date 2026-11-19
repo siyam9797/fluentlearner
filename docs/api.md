@@ -12,12 +12,10 @@ Endpoint: `/api/trpc` (GET for queries, POST for mutations, batched, superjson).
 
 "(+ check)" means the handler applies an extra role check, explained in the Notes column.
 
-### `system`, `auth`
+### `auth`
 
 | Procedure             | Access    | Notes                                                                                                                    |
 | --------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `system.health`       | public    | `{ ok: true }` (no DB check; use `/api/health`)                                                                          |
-| `system.notifyOwner`  | admin     | Sends `{title, content}` to the webhook                                                                                  |
 | `auth.me`             | public    | Current user or `null`                                                                                                   |
 | `auth.login`          | public    | `{email, password}` → sets the session cookie                                                                            |
 | `auth.logout`         | public    | Clears the cookie                                                                                                        |
@@ -28,36 +26,32 @@ Endpoint: `/api/trpc` (GET for queries, POST for mutations, batched, superjson).
 
 ### Site content
 
-| Procedure                                                        | Access | Notes                                                            |
-| ---------------------------------------------------------------- | ------ | ---------------------------------------------------------------- |
-| `courses.list` / `featured` / `getById` / `getBySlug`            | public | Active courses only                                              |
-| `courses.adminList` / `create` / `update` / `delete`             | admin  |                                                                  |
-| `successStories.list` / `featured` / `count`                     | public |                                                                  |
-| `successStories.adminList` / `create` / `update` / `delete`      | admin  |                                                                  |
-| `batches.active`                                                 | public | Open, active batches                                             |
-| `batches.adminList` / `getById` / `create` / `update` / `delete` | admin  |                                                                  |
-| `siteSettings.getAll`                                            | public | Map of key → value, secrets removed                              |
-| `siteSettings.getAllWithMeta`                                    | admin  | Rows with type, group and label, secrets removed                 |
-| `siteSettings.update`                                            | admin  | Bulk upsert. Secret keys are silently ignored                    |
-| `upload.image`                                                   | admin  | Image to `uploads/images/`                                       |
-| `upload.paymentScreenshot`                                       | public | Max 2 MB, to `uploads/payment-screenshots/` (admin-only to read) |
-| `media.list` / `upload` / `delete`                               | admin  | Media library. Delete only works on unused files                 |
+| Procedure                                                        | Access | Notes                                            |
+| ---------------------------------------------------------------- | ------ | ------------------------------------------------ |
+| `courses.list` / `getById` / `getBySlug`                         | public | Active courses only                              |
+| `courses.adminList` / `create` / `update` / `delete`             | admin  |                                                  |
+| `successStories.list` / `featured`                               | public |                                                  |
+| `successStories.adminList` / `create` / `update` / `delete`      | admin  |                                                  |
+| `batches.active`                                                 | public | Open, active batches                             |
+| `batches.adminList` / `getById` / `create` / `update` / `delete` | admin  |                                                  |
+| `siteSettings.getAll`                                            | public | Map of key → value, secrets removed              |
+| `siteSettings.getAllWithMeta`                                    | admin  | Rows with type, group and label, secrets removed |
+| `siteSettings.update`                                            | admin  | Bulk upsert. Secret keys are silently ignored    |
+| `upload.image`                                                   | admin  | Image to `uploads/images/`                       |
+| `media.list` / `upload` / `delete`                               | admin  | Media library. Delete only works on unused files |
 
 ### Enrollment and payments
 
-| Procedure                                                    | Access          | Notes                                                                                                  |
-| ------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------ |
-| `paymentSettings.active`                                     | public          | Manual payment methods                                                                                 |
-| `paymentSettings.adminList` / `create` / `update` / `delete` | admin           |                                                                                                        |
-| `payments.available`                                         | public          | `{ bkash, sslcommerz }` configured flags                                                               |
-| `payments.bkashStart`                                        | public          | Checkout input → bKash URL                                                                             |
-| `payments.sslcommerzStart`                                   | public          | Checkout input → SSLCommerz URL                                                                        |
-| `payments.bkashResult`                                       | public          | Confirmation summary. The one-time password is returned only to the signed-in new account (via cookie) |
-| `enrollments.submit`                                         | public          | Manual enrollment (legacy v1 form). Rejects duplicate transaction IDs                                  |
-| `enrollments.adminList` / `stats` / `getById`                | admin           |                                                                                                        |
-| `enrollments.verify` / `reject` / `update`                   | admin           | Verify assigns `FL-YYMM-NNNN`                                                                          |
-| `paymentGateway.status` / `save` / `setEnabled`              | admin (+ check) | bKash settings. Admin or Super Admin only                                                              |
-| `paymentGateway.sslcommerzStatus` / `sslcommerzSave`         | admin (+ check) | SSLCommerz settings. Admin or Super Admin only                                                         |
+| Procedure                                            | Access          | Notes                                                                                                  |
+| ---------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
+| `payments.available`                                 | public          | `{ bkash, sslcommerz }` configured flags                                                               |
+| `payments.bkashStart`                                | public          | Checkout input → bKash URL                                                                             |
+| `payments.sslcommerzStart`                           | public          | Checkout input → SSLCommerz URL                                                                        |
+| `payments.bkashResult`                               | public          | Confirmation summary. The one-time password is returned only to the signed-in new account (via cookie) |
+| `enrollments.adminList` / `stats` / `getById`        | admin           |                                                                                                        |
+| `enrollments.verify` / `reject` / `update`           | admin           | Verify assigns `FL-YYMM-NNNN`                                                                          |
+| `paymentGateway.status` / `save` / `setEnabled`      | admin (+ check) | bKash settings. Admin or Super Admin only                                                              |
+| `paymentGateway.sslcommerzStatus` / `sslcommerzSave` | admin (+ check) | SSLCommerz settings. Admin or Super Admin only                                                         |
 
 ### Settings with secrets
 

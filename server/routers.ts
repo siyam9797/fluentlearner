@@ -28,7 +28,6 @@ import {
 } from "./payments";
 import { COOKIE_NAME } from "@shared/const";
 import { hashPassword, verifyPassword } from "./_core/password";
-import { systemRouter } from "./_core/systemRouter";
 import {
   publicProcedure,
   protectedProcedure,
@@ -49,7 +48,6 @@ import { z } from "zod";
 import {
   appUserToAuthUser,
   getActiveCourses,
-  getFeaturedCourses,
   getAllCourses,
   getCourseById,
   getCourseBySlug,
@@ -62,24 +60,16 @@ import {
   createSuccessStory,
   updateSuccessStory,
   deleteSuccessStory,
-  getSuccessStoriesCount,
   getActiveBatches,
   getAllBatches,
   getBatchById,
   createBatch,
   updateBatch,
   deleteBatch,
-  getActivePaymentSettings,
-  getAllPaymentSettings,
-  createPaymentSetting,
-  updatePaymentSetting,
-  deletePaymentSetting,
   getAllEnrollments,
   getEnrollmentsByStatus,
   getEnrollmentById,
-  createEnrollment,
   updateEnrollment,
-  checkTransactionIdExists,
   getEnrollmentStats,
   generateStudentId,
   getAllSiteSettings,
@@ -94,7 +84,6 @@ import {
 import { storagePut, storagePutNamed } from "./storage";
 import { sessionService } from "./_core/session";
 import { nanoid } from "nanoid";
-import { notifyOwner } from "./_core/notification";
 import {
   learningResourcesRouter,
   mockTestsRouter,
@@ -183,31 +172,6 @@ const batchInput = z.object({
   isActive: z.boolean().default(true),
 });
 
-const paymentSettingInput = z.object({
-  methodName: z.string().min(1),
-  accountType: z.string().optional().nullable(),
-  accountNumber: z.string().min(1),
-  accountHolder: z.string().optional().nullable(),
-  instructions: z.string().optional().nullable(),
-  iconUrl: z.string().optional().nullable(),
-  qrCodeUrl: z.string().optional().nullable(),
-  sortOrder: z.number().default(0),
-  isActive: z.boolean().default(true),
-});
-
-const enrollmentInput = z.object({
-  studentName: z.string().min(1, "Enter your name"),
-  studentMobile: z.string().min(11, "Enter a valid mobile number"),
-  studentEmail: z.string().optional().nullable(),
-  courseId: z.number(),
-  batchId: z.number().optional().nullable(),
-  paymentMethod: z.string().min(1, "Select a payment method"),
-  paymentAccountNumber: z.string().min(1, "Enter the sender number"),
-  transactionId: z.string().min(1, "Enter the transaction ID"),
-  paymentAmount: z.string().min(1, "Enter the payment amount"),
-  paymentScreenshotUrl: z.string().optional().nullable(),
-});
-
 /** What the v2 enroll page collects before sending the student to a payment gateway. */
 const checkoutInput = z.object({
   courseId: z.number(),
@@ -230,7 +194,6 @@ function requirePaymentManager(role: string) {
 }
 
 export const appRouter = router({
-  system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     login: publicProcedure
@@ -471,7 +434,6 @@ export const appRouter = router({
   // ============================================
   courses: router({
     list: publicProcedure.query(async () => getActiveCourses()),
-    featured: publicProcedure.query(async () => getFeaturedCourses()),
     getById: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getCourseById(input.id)),
@@ -502,7 +464,6 @@ export const appRouter = router({
   successStories: router({
     list: publicProcedure.query(async () => getActiveSuccessStories()),
     featured: publicProcedure.query(async () => getFeaturedSuccessStories()),
-    count: publicProcedure.query(async () => getSuccessStoriesCount()),
     adminList: adminProcedure.query(async () => getAllSuccessStories()),
     create: adminProcedure
       .input(successStoryInput)
@@ -552,37 +513,8 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
-
   // ============================================
-  // PAYMENT SETTINGS — Public (read) + Admin (CRUD)
-  // ============================================
-  paymentSettings: router({
-    /** Public: get active payment methods for enrollment form */
-    active: publicProcedure.query(async () => getActivePaymentSettings()),
-    /** Admin: get all payment settings */
-    adminList: adminProcedure.query(async () => getAllPaymentSettings()),
-    /** Admin: create payment method */
-    create: adminProcedure
-      .input(paymentSettingInput)
-      .mutation(async ({ input }) => createPaymentSetting(input)),
-    /** Admin: update payment method */
-    update: adminProcedure
-      .input(z.object({ id: z.number(), data: paymentSettingInput.partial() }))
-      .mutation(async ({ input }) => {
-        await updatePaymentSetting(input.id, input.data);
-        return { success: true };
-      }),
-    /** Admin: delete payment method */
-    delete: adminProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        await deletePaymentSetting(input.id);
-        return { success: true };
-      }),
-  }),
-
-  // ============================================
-  // ENROLLMENTS — Public (submit) + Admin (manage)
+  // ENROLLMENTS — Admin (manage)
   // ============================================
   /** Online payments (bKash Tokenized Checkout) for the v2 enroll page. */
   payments: router({
@@ -646,30 +578,6 @@ export const appRouter = router({
   }),
 
   enrollments: router({
-    /** Public: submit a new enrollment */
-    submit: publicProcedure
-      .input(enrollmentInput)
-      .mutation(async ({ input }) => {
-        // Check for duplicate transaction ID
-        const exists = await checkTransactionIdExists(input.transactionId);
-        if (exists) {
-          throw new Error(
-            "This transaction ID has already been used. Please enter a valid transaction ID."
-          );
-        }
-        const result = await createEnrollment(input);
-        // Notify admin about new enrollment
-        try {
-          await notifyOwner({
-            title: `🎓 New Enrollment Application — ${input.studentName}`,
-            content: `Name: ${input.studentName}\nMobile: ${input.studentMobile}\nPayment: ${input.paymentMethod} — ${input.paymentAmount}\nTrxID: ${input.transactionId}\n\nReview and verify it in the admin panel.`,
-          });
-        } catch (e) {
-          console.warn("[Enrollment] Failed to notify owner:", e);
-        }
-        return { id: result.id, success: true };
-      }),
-
     /** Admin: get all enrollments */
     adminList: adminProcedure
       .input(z.object({ status: z.string().optional() }).optional())
@@ -758,7 +666,7 @@ export const appRouter = router({
   }),
 
   // ============================================
-  // FILE UPLOAD — Admin + Public (for payment screenshots)
+  // FILE UPLOAD — Admin
   // ============================================
   upload: router({
     /** Admin: upload an image file to S3 */
@@ -778,27 +686,6 @@ export const appRouter = router({
           buffer,
           "jpg"
         );
-        return { url, key };
-      }),
-
-    /** Public: upload payment screenshot (limited to 2MB) */
-    paymentScreenshot: publicProcedure
-      .input(
-        z.object({
-          base64: z.string(),
-          filename: z.string(),
-          contentType: z.string().default("image/jpeg"),
-        })
-      )
-      .mutation(async ({ input }) => {
-        const buffer = Buffer.from(input.base64, "base64");
-        // Limit to 2MB
-        if (buffer.length > 2 * 1024 * 1024) {
-          throw new Error("File size cannot exceed 2MB");
-        }
-        const ext = input.filename.split(".").pop() || "jpg";
-        const key = `uploads/payment-screenshots/${nanoid()}.${ext}`;
-        const { url } = await storagePut(key, buffer, input.contentType);
         return { url, key };
       }),
   }),

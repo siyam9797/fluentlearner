@@ -78,7 +78,7 @@ Online payments arrive already `verified`. Payment screenshots (`/uploads/paymen
 
 ## Manual payment methods
 
-**Admin → Payments** (`payment_settings`) stores bKash, Nagad, Rocket or bank numbers with instructions and QR codes, exposed publicly through `paymentSettings.active`. The manual enrollment API (`enrollments.submit` with sender number, transaction ID and optional screenshot via `upload.paymentScreenshot`) still exists and rejects duplicate transaction IDs. **The current v2 enroll page doesn't use it.** It belonged to the v1 enrollment form. The current site uses online checkout, with WhatsApp as the fallback.
+The old manual enrollment form, its API (`enrollments.submit`, `upload.paymentScreenshot`) and the admin Payments page were removed. Students pay through online checkout, with WhatsApp as the fallback. The `payment_settings` table and existing payment screenshots are kept for the record.
 
 ## Side effects of a confirmed payment
 

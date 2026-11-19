@@ -79,12 +79,6 @@ describe("courses", () => {
     expect(Array.isArray(courses)).toBe(true);
   });
 
-  it("public can get featured courses", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const courses = await caller.courses.featured();
-    expect(Array.isArray(courses)).toBe(true);
-  });
-
   it("admin can list all courses", async () => {
     const caller = appRouter.createCaller(createAdminContext());
     const courses = await caller.courses.adminList();
@@ -105,42 +99,6 @@ describe("courses", () => {
       sortOrder: 99,
       isActive: true,
       isFeatured: false,
-    });
-    expect(result).toBeDefined();
-  });
-});
-
-// ============================================
-// PAYMENT SETTINGS TESTS
-// ============================================
-describe("paymentSettings", () => {
-  it("public can get active payment methods", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const settings = await caller.paymentSettings.active();
-    expect(Array.isArray(settings)).toBe(true);
-  });
-
-  it("admin can list all payment settings", async () => {
-    const caller = appRouter.createCaller(createAdminContext());
-    const settings = await caller.paymentSettings.adminList();
-    expect(Array.isArray(settings)).toBe(true);
-  });
-
-  it("non-admin cannot access admin payment settings", async () => {
-    const caller = appRouter.createCaller(createUserContext());
-    await expect(caller.paymentSettings.adminList()).rejects.toThrow();
-  });
-
-  databaseIt("admin can create a payment method", async () => {
-    const caller = appRouter.createCaller(createAdminContext());
-    const result = await caller.paymentSettings.create({
-      methodName: "bKash",
-      accountNumber: "01729879855",
-      accountType: "Personal",
-      accountHolder: "Test User",
-      instructions: "Send money to this number",
-      sortOrder: 1,
-      isActive: true,
     });
     expect(result).toBeDefined();
   });
@@ -230,12 +188,6 @@ describe("successStories", () => {
     const caller = appRouter.createCaller(createPublicContext());
     const stories = await caller.successStories.featured();
     expect(Array.isArray(stories)).toBe(true);
-  });
-
-  it("public can get success stories count", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const count = await caller.successStories.count();
-    expect(typeof count).toBe("number");
   });
 
   it("admin can list all success stories", async () => {

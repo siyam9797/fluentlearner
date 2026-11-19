@@ -7,7 +7,6 @@ import {
   courses,
   successStories,
   batches,
-  paymentSettings,
   enrollments,
   siteSettings,
   type AppUser,
@@ -16,7 +15,6 @@ import {
   type InsertCourse,
   type InsertSuccessStory,
   type InsertBatch,
-  type InsertPaymentSetting,
   type InsertEnrollment,
 } from "./database/schema";
 
@@ -232,16 +230,6 @@ export async function getActiveCourses() {
     .orderBy(asc(courses.sortOrder), desc(courses.createdAt));
 }
 
-export async function getFeaturedCourses() {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(courses)
-    .where(and(eq(courses.isActive, true), eq(courses.isFeatured, true)))
-    .orderBy(asc(courses.sortOrder));
-}
-
 export async function getAllCourses() {
   const db = await getDb();
   if (!db) return [];
@@ -363,16 +351,6 @@ export async function deleteSuccessStory(id: number) {
   await db.delete(successStories).where(eq(successStories.id, id));
 }
 
-export async function getSuccessStoriesCount() {
-  const db = await getDb();
-  if (!db) return 0;
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(successStories)
-    .where(eq(successStories.isActive, true));
-  return result[0]?.count ?? 0;
-}
-
 // ============================================
 // BATCH QUERIES
 // ============================================
@@ -424,51 +402,6 @@ export async function deleteBatch(id: number) {
 }
 
 // ============================================
-// PAYMENT SETTINGS QUERIES
-// ============================================
-
-export async function getActivePaymentSettings() {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(paymentSettings)
-    .where(eq(paymentSettings.isActive, true))
-    .orderBy(asc(paymentSettings.sortOrder));
-}
-
-export async function getAllPaymentSettings() {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(paymentSettings)
-    .orderBy(asc(paymentSettings.sortOrder));
-}
-
-export async function createPaymentSetting(data: InsertPaymentSetting) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.insert(paymentSettings).values(data);
-  return { id: result[0].insertId };
-}
-
-export async function updatePaymentSetting(
-  id: number,
-  data: Partial<InsertPaymentSetting>
-) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(paymentSettings).set(data).where(eq(paymentSettings.id, id));
-}
-
-export async function deletePaymentSetting(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.delete(paymentSettings).where(eq(paymentSettings.id, id));
-}
-
-// ============================================
 // ENROLLMENT QUERIES
 // ============================================
 
@@ -499,13 +432,6 @@ export async function getEnrollmentById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function createEnrollment(data: InsertEnrollment) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.insert(enrollments).values(data);
-  return { id: result[0].insertId };
-}
-
 export async function updateEnrollment(
   id: number,
   data: Partial<InsertEnrollment>
@@ -513,18 +439,6 @@ export async function updateEnrollment(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(enrollments).set(data).where(eq(enrollments.id, id));
-}
-
-export async function checkTransactionIdExists(
-  transactionId: string
-): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(enrollments)
-    .where(eq(enrollments.transactionId, transactionId));
-  return (result[0]?.count ?? 0) > 0;
 }
 
 export async function getEnrollmentStats() {

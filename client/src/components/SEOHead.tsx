@@ -1,7 +1,7 @@
 /**
  * SEOHead Component — Per-page Open Graph + Twitter Card + SEO meta tags
  * Uses React metadata elements, which Next.js hoists into the document head.
- * 
+ *
  * Brand: FluentLearner IELTS & SPOKEN
  * Domain: https://fluentlearner.com
  * OG Images: locally hosted branded images
@@ -83,17 +83,13 @@ export const PAGE_SEO = {
   },
   successStories: {
     title: `Success Stories - Verified IELTS Results | ${BRAND.NAME}`,
-    description: "Real student results with verified IELTS band scores. From Band 7.0 to 8.5 — see how FluentLearner students achieved their dreams.",
+    description:
+      "Real student results with verified IELTS band scores. From Band 7.0 to 8.5 — see how FluentLearner students achieved their dreams.",
     path: "/success-stories",
   },
   contact: {
     title: `Contact & Enroll - WhatsApp | ${BRAND.NAME}`,
     description: `Contact ${BRAND.NAME} via WhatsApp: ${CONTACT.PHONE_SHORT} or email: ${CONTACT.EMAIL}. Enroll now for the next IELTS batch.`,
     path: "/contact",
-  },
-  verify: {
-    title: `Certificate Verification - ${BRAND.NAME}`,
-    description: `Verify ${BRAND.NAME} course completion certificates. Enter your certificate ID to check authenticity and view detailed results.`,
-    path: "/verify",
   },
 };

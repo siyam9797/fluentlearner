@@ -49,7 +49,6 @@ Both seed scripts create the account, or update it (password included) when one 
 | `META_CAPI_ACCESS_TOKEN`, `META_TEST_EVENT_CODE`                                          | optional        | Fallbacks for the Meta settings. **Never** put them in a `NEXT_PUBLIC_` variable                                                           |
 | `ANTHROPIC_API_KEY`                                                                       | optional        | AI marking. A key saved in Settings takes priority                                                                                         |
 | `NOTIFICATION_WEBHOOK_URL`                                                                | optional        | POST `{title, content}` to this URL when a payment completes                                                                               |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`                                                         | –               | Listed in `.env.example` but **not read by any code** at present                                                                           |
 
 Credentials saved in **Admin → Settings** live in `site_settings` and override the matching environment variables. See [integrations.md](integrations.md) and [payments.md](payments.md).
 

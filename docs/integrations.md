@@ -39,4 +39,4 @@ The token must stay server-side. Never put it in a `NEXT_PUBLIC_` variable. Afte
 
 ## Notification webhook
 
-`server/_core/notification.ts`. When `NOTIFICATION_WEBHOOK_URL` is set, `notifyOwner` POSTs JSON `{ "title": "...", "content": "..." }` to it. This currently happens when an online payment completes, and also through the admin-only `system.notifyOwner` procedure. A failed delivery is logged and otherwise ignored. Any endpoint that accepts JSON will work, such as a Slack or Discord relay, Zapier or Make.
+`server/_core/notification.ts`. When `NOTIFICATION_WEBHOOK_URL` is set, `notifyOwner` POSTs JSON `{ "title": "...", "content": "..." }` to it. This happens when an online payment completes. A failed delivery is logged and otherwise ignored. Any endpoint that accepts JSON will work, such as a Slack or Discord relay, Zapier or Make.

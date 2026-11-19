@@ -33,7 +33,6 @@ const live = {
   courses: await fetchProcedure("courses.list"),
   success_stories: await fetchProcedure("successStories.list"),
   batches: await fetchProcedure("batches.active"),
-  payment_settings: await fetchProcedure("paymentSettings.active"),
 };
 const liveSettings = await fetchProcedure("siteSettings.getAll");
 

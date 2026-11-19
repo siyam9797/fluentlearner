@@ -85,33 +85,11 @@ describe("courses.list (public)", () => {
   });
 });
 
-describe("courses.featured (public)", () => {
-  it("returns an array of featured courses", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const featured = await caller.courses.featured();
-    expect(Array.isArray(featured)).toBe(true);
-    // All returned courses should be featured
-    for (const course of featured) {
-      expect(course.isFeatured).toBe(true);
-      expect(course.isActive).toBe(true);
-    }
-  });
-});
-
 describe("successStories.list (public)", () => {
   it("returns an array of success stories", async () => {
     const caller = appRouter.createCaller(createPublicContext());
     const stories = await caller.successStories.list();
     expect(Array.isArray(stories)).toBe(true);
-  });
-});
-
-describe("successStories.count (public)", () => {
-  it("returns a number", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const count = await caller.successStories.count();
-    expect(typeof count).toBe("number");
-    expect(count).toBeGreaterThanOrEqual(0);
   });
 });
 
