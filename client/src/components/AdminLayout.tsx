@@ -25,6 +25,8 @@ import {
 } from "@/lib/adminAppearance";
 import {
   canAccessAdminPortal,
+  canManageContent,
+  canManageEnrollments,
   canManageUsers,
   ROLE_DEFINITIONS,
   type AppRole,
@@ -61,6 +63,10 @@ type NavigationItem = {
   icon: typeof Home;
   also?: string[];
   userManagement?: boolean;
+  /** Admin and Super Admin only (courses, website, success stories…). */
+  contentManagement?: boolean;
+  /** Admin, Super Admin and Staff only (payments). */
+  enrollmentManagement?: boolean;
   staffOnly?: boolean;
   /** Shown to the Super Admin only. */
   superAdminOnly?: boolean;
@@ -179,8 +185,18 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         icon: Shield,
         userManagement: true,
       },
-      { label: "Instructors", href: "/admin/instructors", icon: UserRound },
-      { label: "Transactions", href: "/admin/transactions", icon: Receipt },
+      {
+        label: "Instructors",
+        href: "/admin/instructors",
+        icon: UserRound,
+        contentManagement: true,
+      },
+      {
+        label: "Transactions",
+        href: "/admin/transactions",
+        icon: Receipt,
+        enrollmentManagement: true,
+      },
     ],
   },
   {
@@ -190,6 +206,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         label: "Website",
         href: "/admin/website",
         icon: LayoutTemplate,
+        contentManagement: true,
         children: [
           {
             label: "Pages",
@@ -204,6 +221,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         label: "Success Stories",
         href: "/admin/success-stories",
         icon: Trophy,
+        contentManagement: true,
       },
       { label: "Media", href: "/admin/media", icon: ImageIcon },
     ],
@@ -510,6 +528,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 .filter(
                   item =>
                     (!item.userManagement || canManageUsers(user.role)) &&
+                    (!item.contentManagement || canManageContent(user.role)) &&
+                    (!item.enrollmentManagement ||
+                      canManageEnrollments(user.role)) &&
                     (!item.superAdminOnly || user.role === "super_admin") &&
                     (!item.staffOnly || user.role === "staff")
                 )

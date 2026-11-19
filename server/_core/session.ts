@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { parse as parseCookieHeader } from "cookie";
 import { SignJWT, jwtVerify } from "jose";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
@@ -6,8 +7,14 @@ import type { User } from "../database/schema";
 import * as db from "../db";
 
 type SessionPayload =
-  | { authType: "app"; userId: number }
+  /** `pv` fingerprints the password a session was opened with (absent on sessions from before it existed). */
+  | { authType: "app"; userId: number; pv?: string }
   | { authType: "local"; email: string; name: string };
+
+/** Changes whenever the password does, so changing or resetting it ends every other session. */
+function passwordFingerprint(passwordHash: string) {
+  return createHash("sha256").update(passwordHash).digest("hex").slice(0, 16);
+}
 
 class SessionService {
   private secret() {
@@ -22,7 +29,13 @@ class SessionService {
   }
 
   async createAppSessionToken(userId: number, expiresInMs = ONE_YEAR_MS) {
-    return new SignJWT({ authType: "app", userId })
+    const account = await db.getAppUserById(userId);
+    if (!account) throw new Error("Account not found");
+    return new SignJWT({
+      authType: "app",
+      userId,
+      pv: passwordFingerprint(account.passwordHash),
+    })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setIssuedAt()
       .setExpirationTime(Math.floor((Date.now() + expiresInMs) / 1000))
@@ -53,7 +66,11 @@ class SessionService {
         algorithms: ["HS256"],
       });
       if (payload.authType === "app" && typeof payload.userId === "number") {
-        return { authType: "app", userId: payload.userId };
+        return {
+          authType: "app",
+          userId: payload.userId,
+          pv: typeof payload.pv === "string" ? payload.pv : undefined,
+        };
       }
       if (
         payload.authType === "local" &&
@@ -91,6 +108,8 @@ class SessionService {
     const found = await db.getAppUserById(session.userId);
     const user = found;
     if (!user || !user.isActive) throw ForbiddenError("User not found");
+    if (session.pv && session.pv !== passwordFingerprint(user.passwordHash))
+      throw ForbiddenError("Password changed; sign in again");
     const signedInAt = new Date();
     await db.updateAppUserLastSignedIn(user.id, signedInAt);
     return db.appUserToAuthUser({ ...user, lastSignedIn: signedInAt });

@@ -12,7 +12,12 @@ import {
   MOCK_QUESTION_TYPES,
   type AiEvaluation,
 } from "./database/schema";
-import { adminProcedure, router, studentProcedure } from "./_core/trpc";
+import {
+  adminProcedure,
+  enrollmentManagerProcedure,
+  router,
+  studentProcedure,
+} from "./_core/trpc";
 import { hashPassword } from "./_core/password";
 import {
   createAppUser,
@@ -293,7 +298,7 @@ export const mockTestSetsRouter = router({
 export const studentsRouter = router({
   list: adminProcedure.query(() => mock.listStudents()),
 
-  create: adminProcedure
+  create: enrollmentManagerProcedure
     .input(
       z.object({
         name: z.string().trim().min(1),
@@ -316,7 +321,7 @@ export const studentsRouter = router({
       });
     }),
 
-  update: adminProcedure
+  update: enrollmentManagerProcedure
     .input(
       z.object({
         id: z.number().int(),
@@ -331,7 +336,7 @@ export const studentsRouter = router({
       })
     ),
 
-  resetPassword: adminProcedure
+  resetPassword: enrollmentManagerProcedure
     .input(
       z.object({
         id: z.number().int(),

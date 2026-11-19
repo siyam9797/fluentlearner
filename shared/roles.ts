@@ -109,6 +109,16 @@ export function canManageUsers(role: string | null | undefined) {
   return role === "super_admin" || role === "admin";
 }
 
+/** Courses, batches, success stories, website settings and deleting media: Admin and Super Admin. */
+export function canManageContent(role: string | null | undefined) {
+  return canManageUsers(role);
+}
+
+/** Payments (transactions) and student accounts: Admin, Super Admin and Staff, not Mentors. */
+export function canManageEnrollments(role: string | null | undefined) {
+  return canManageUsers(role) || role === "staff";
+}
+
 export function canCreateUsers(role: string | null | undefined) {
   return canManageUsers(role) || role === "staff";
 }

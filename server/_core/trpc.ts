@@ -7,6 +7,8 @@ import { hashPassword } from "./password";
 import type { TrpcContext } from "./context";
 import {
   canAccessAdminDashboard,
+  canManageContent,
+  canManageEnrollments,
   canManageMarketing,
   canAccessStudentDashboard,
 } from "@shared/roles";
@@ -49,6 +51,34 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
+  })
+);
+
+/** Changing courses, batches, success stories, website settings, or deleting media: Admin and Super Admin. */
+export const contentManagerProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user || !canManageContent(ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only an Admin can change this",
+      });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  })
+);
+
+/** Payments and student accounts: Admin, Super Admin and Staff. */
+export const enrollmentManagerProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user || !canManageEnrollments(ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only Admin or Staff accounts can do this",
+      });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
   })
 );
 

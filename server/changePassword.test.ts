@@ -15,15 +15,20 @@ vi.mock("./db", async importOriginal => ({
 const { appRouter } = await import("./routers");
 const { hashPassword, verifyPassword } = await import("./_core/password");
 
+const setCookie = vi.fn();
+
 function callerFor(user: { id: number; openId: string; role: string }) {
   return appRouter.createCaller({
     user: { ...user, email: "someone@example.com", name: "Someone" },
+    req: new Request("http://localhost/api/trpc"),
+    setCookie,
   } as unknown as TrpcContext);
 }
 
 describe("auth.changePassword", () => {
   beforeEach(async () => {
     accounts.clear();
+    setCookie.mockClear();
     accounts.set(7, {
       id: 7,
       passwordHash: await hashPassword("old-password"),
@@ -43,6 +48,8 @@ describe("auth.changePassword", () => {
       const stored = accounts.get(7)!.passwordHash;
       expect(await verifyPassword("new-password-1", stored)).toBe(true);
       expect(await verifyPassword("old-password", stored)).toBe(false);
+      // A fresh session cookie keeps this browser signed in after the change.
+      expect(setCookie).toHaveBeenCalledTimes(1);
     }
   );
 

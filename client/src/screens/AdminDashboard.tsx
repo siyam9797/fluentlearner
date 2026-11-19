@@ -28,6 +28,12 @@ import {
 } from "@/components/AdminCharts";
 import { MODULE_ICONS } from "./AdminMockTests";
 import { MODULE_LABELS, type MockModule } from "@shared/mock";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  canCreateUsers,
+  canManageContent,
+  canManageEnrollments,
+} from "@shared/roles";
 
 const enrollmentStatus = {
   pending: { label: "Pending", className: "warning" },
@@ -151,8 +157,17 @@ function EmptyRow({ children }: { children: ReactNode }) {
 }
 
 export default function AdminDashboard() {
-  const { data: stats } = trpc.enrollments.stats.useQuery();
-  const { data: enrollments = [] } = trpc.enrollments.adminList.useQuery();
+  const { user } = useAuth();
+  // Mentors don't see payments; Staff don't manage content.
+  const mayManagePayments = canManageEnrollments(user?.role);
+  const mayManageContent = canManageContent(user?.role);
+  const { data: stats } = trpc.enrollments.stats.useQuery(undefined, {
+    enabled: mayManagePayments,
+  });
+  const { data: enrollments = [] } = trpc.enrollments.adminList.useQuery(
+    undefined,
+    { enabled: mayManagePayments }
+  );
   const { data: courses = [] } = trpc.courses.adminList.useQuery();
   const { data: batches = [] } = trpc.batches.adminList.useQuery();
   const { data: students = [] } = trpc.students.list.useQuery();
@@ -221,7 +236,7 @@ export default function AdminDashboard() {
   const newThisMonth = (rows: { createdAt: Date | string }[]) =>
     rows.filter(row => monthKey(row.createdAt) === thisMonth).length;
 
-  const metrics = [
+  const allMetrics = [
     {
       label: "Students",
       value: String(activeStudents),
@@ -259,6 +274,10 @@ export default function AdminDashboard() {
       trend: null,
     },
   ];
+
+  const metrics = allMetrics.filter(
+    metric => mayManagePayments || metric.label !== "Revenue"
+  );
 
   const attention = [
     pending > 0 && {
@@ -330,12 +349,32 @@ export default function AdminDashboard() {
     `Course #${courseId}`;
 
   const quickActions = [
-    { label: "New test", href: "/admin/ielts/new", icon: Plus },
-    { label: "Add a course", href: "/admin/courses/new", icon: BookOpen },
-    { label: "Create a batch", href: "/admin/batches/new", icon: Layers3 },
-    { label: "Add a student", href: "/admin/users/new", icon: UserPlus },
-    { label: "Edit website", href: "/admin/website", icon: LayoutTemplate },
-  ];
+    { label: "New test", href: "/admin/ielts/new", icon: Plus, show: true },
+    {
+      label: "Add a course",
+      href: "/admin/courses/new",
+      icon: BookOpen,
+      show: mayManageContent,
+    },
+    {
+      label: "Create a batch",
+      href: "/admin/batches/new",
+      icon: Layers3,
+      show: mayManageContent,
+    },
+    {
+      label: "Add a student",
+      href: "/admin/users/new",
+      icon: UserPlus,
+      show: canCreateUsers(user?.role),
+    },
+    {
+      label: "Edit website",
+      href: "/admin/website",
+      icon: LayoutTemplate,
+      show: mayManageContent,
+    },
+  ].filter(action => action.show);
 
   const rowClass =
     "flex items-center gap-3 border-b border-[var(--admin-border)] px-5 py-3.5 transition-colors last:border-0 hover:bg-black/[0.025]";
@@ -428,115 +467,121 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <div className={row}>
-          <Section
-            title="Enrollments by month"
-            description="Applications over the last six months, with verified revenue."
-            link={{ label: "View all", href: "/admin/transactions" }}
-            panelClassName="p-5"
-          >
-            <MonthlyBars
-              months={months}
-              series={[
-                {
-                  label: "Verified",
-                  color: "var(--admin-primary)",
-                  values: enrollmentsVerifiedByMonth,
-                },
-                {
-                  label: "Pending or rejected",
-                  color:
-                    "color-mix(in srgb, var(--admin-body) 30%, transparent)",
-                  values: enrollmentsOtherByMonth,
-                },
-              ]}
-              caption={index =>
-                revenueByMonth[index]
-                  ? `৳${compactMoney.format(revenueByMonth[index])}`
-                  : "—"
-              }
-            />
-          </Section>
+        {mayManagePayments && (
+          <div className={row}>
+            <Section
+              title="Enrollments by month"
+              description="Applications over the last six months, with verified revenue."
+              link={{ label: "View all", href: "/admin/transactions" }}
+              panelClassName="p-5"
+            >
+              <MonthlyBars
+                months={months}
+                series={[
+                  {
+                    label: "Verified",
+                    color: "var(--admin-primary)",
+                    values: enrollmentsVerifiedByMonth,
+                  },
+                  {
+                    label: "Pending or rejected",
+                    color:
+                      "color-mix(in srgb, var(--admin-body) 30%, transparent)",
+                    values: enrollmentsOtherByMonth,
+                  },
+                ]}
+                caption={index =>
+                  revenueByMonth[index]
+                    ? `৳${compactMoney.format(revenueByMonth[index])}`
+                    : "—"
+                }
+              />
+            </Section>
 
-          <Section
-            title="Enrollment status"
-            description="Application health at a glance."
-            panelClassName="flex flex-col justify-between gap-5 p-5"
-          >
-            <div className="flex items-center justify-between border-b border-[var(--admin-border)] pb-4">
-              <span className="inline-flex items-center gap-2 text-sm text-[var(--admin-body)]">
-                <FileText className="h-4 w-4" /> All applications
-              </span>
-              <strong className="font-display text-2xl text-[var(--admin-heading)]">
-                {total}
-              </strong>
-            </div>
-            {statusItems.map(item => {
-              const percentage = total
-                ? Math.round((item.value / total) * 100)
-                : 0;
-              return (
-                <div key={item.label}>
-                  <div className="mb-2 flex items-center justify-between text-xs">
-                    <span className="inline-flex items-center gap-2 text-[var(--admin-body)]">
-                      <item.icon
-                        className="h-3.5 w-3.5"
-                        style={{ color: item.color }}
-                      />
-                      {item.label}
-                    </span>
-                    <span className="font-semibold text-[var(--admin-heading)]">
-                      {item.value} · {percentage}%
-                    </span>
-                  </div>
-                  <Bar value={percentage} color={item.color} />
-                </div>
-              );
-            })}
-          </Section>
-        </div>
-
-        <div className={row}>
-          <Section
-            title="Recent enrollments"
-            description="The latest applications and payments."
-            link={{ label: "View all", href: "/admin/transactions" }}
-          >
-            {recentEnrollments.length ? (
-              recentEnrollments.map(enrollment => {
-                const status =
-                  enrollmentStatus[
-                    enrollment.status as keyof typeof enrollmentStatus
-                  ] || enrollmentStatus.pending;
+            <Section
+              title="Enrollment status"
+              description="Application health at a glance."
+              panelClassName="flex flex-col justify-between gap-5 p-5"
+            >
+              <div className="flex items-center justify-between border-b border-[var(--admin-border)] pb-4">
+                <span className="inline-flex items-center gap-2 text-sm text-[var(--admin-body)]">
+                  <FileText className="h-4 w-4" /> All applications
+                </span>
+                <strong className="font-display text-2xl text-[var(--admin-heading)]">
+                  {total}
+                </strong>
+              </div>
+              {statusItems.map(item => {
+                const percentage = total
+                  ? Math.round((item.value / total) * 100)
+                  : 0;
                 return (
-                  <Link
-                    key={enrollment.id}
-                    href={`/admin/transactions/${enrollment.id}`}
-                    className={rowClass}
-                  >
-                    <span className={avatarClass}>
-                      {enrollment.studentName.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[var(--admin-heading)]">
-                        {enrollment.studentName}
+                  <div key={item.label}>
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="inline-flex items-center gap-2 text-[var(--admin-body)]">
+                        <item.icon
+                          className="h-3.5 w-3.5"
+                          style={{ color: item.color }}
+                        />
+                        {item.label}
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-[var(--admin-body)]">
-                        {courseName(enrollment.courseId)} · ৳
-                        {enrollment.paymentAmount} ·{" "}
-                        {relativeDay(enrollment.createdAt)}
+                      <span className="font-semibold text-[var(--admin-heading)]">
+                        {item.value} · {percentage}%
                       </span>
-                    </span>
-                    <span className={`admin-status-label ${status.className}`}>
-                      {status.label}
-                    </span>
-                  </Link>
+                    </div>
+                    <Bar value={percentage} color={item.color} />
+                  </div>
                 );
-              })
-            ) : (
-              <EmptyRow>No enrollment applications yet.</EmptyRow>
-            )}
-          </Section>
+              })}
+            </Section>
+          </div>
+        )}
+
+        <div className={row}>
+          {mayManagePayments && (
+            <Section
+              title="Recent enrollments"
+              description="The latest applications and payments."
+              link={{ label: "View all", href: "/admin/transactions" }}
+            >
+              {recentEnrollments.length ? (
+                recentEnrollments.map(enrollment => {
+                  const status =
+                    enrollmentStatus[
+                      enrollment.status as keyof typeof enrollmentStatus
+                    ] || enrollmentStatus.pending;
+                  return (
+                    <Link
+                      key={enrollment.id}
+                      href={`/admin/transactions/${enrollment.id}`}
+                      className={rowClass}
+                    >
+                      <span className={avatarClass}>
+                        {enrollment.studentName.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-[var(--admin-heading)]">
+                          {enrollment.studentName}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-[var(--admin-body)]">
+                          {courseName(enrollment.courseId)} · ৳
+                          {enrollment.paymentAmount} ·{" "}
+                          {relativeDay(enrollment.createdAt)}
+                        </span>
+                      </span>
+                      <span
+                        className={`admin-status-label ${status.className}`}
+                      >
+                        {status.label}
+                      </span>
+                    </Link>
+                  );
+                })
+              ) : (
+                <EmptyRow>No enrollment applications yet.</EmptyRow>
+              )}
+            </Section>
+          )}
 
           <Section
             title="Quick actions"

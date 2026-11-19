@@ -32,6 +32,8 @@ import {
   publicProcedure,
   protectedProcedure,
   adminProcedure,
+  contentManagerProcedure,
+  enrollmentManagerProcedure,
   marketingProcedure,
   superAdminProcedure,
   router,
@@ -44,6 +46,13 @@ import {
 } from "./publicSiteSettings";
 import { getMetaSettings, META_SETTING_KEYS } from "./metaSettings";
 import { TRPCError } from "@trpc/server";
+import {
+  assertWithinLimit,
+  clientIp,
+  consume,
+  recordHit,
+  resetLimit,
+} from "./_core/rateLimit";
 import { z } from "zod";
 import {
   appUserToAuthUser,
@@ -94,6 +103,9 @@ import {
 } from "./mockRouters";
 import * as mock from "./mockDb";
 import { deleteMediaFile, listMediaFiles } from "./media";
+
+/** Window for counting failed sign-ins and password checks. */
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 // ============================================
 // Zod schemas for validation
@@ -241,10 +253,22 @@ export const appRouter = router({
           message: "Invalid email or password",
         });
 
+        // Slow down password guessing: 10 failures per email, 30 per address, per 15 minutes.
+        const tooMany = "Too many sign-in attempts.";
+        const emailKey = `login:email:${input.email.toLowerCase()}`;
+        const ipKey = `login:ip:${clientIp(ctx.req)}`;
+        assertWithinLimit(emailKey, 10, tooMany);
+        assertWithinLimit(ipKey, 30, tooMany);
+        const failed = () => {
+          recordHit(emailKey, LOGIN_WINDOW_MS);
+          recordHit(ipKey, LOGIN_WINDOW_MS);
+          return invalidCredentials;
+        };
+
         const found = await getAppUserByEmail(input.email);
         const appUser = found;
         if (!appUser || !appUser.isActive) {
-          throw invalidCredentials;
+          throw failed();
         }
 
         const passwordMatches = await verifyPassword(
@@ -252,8 +276,9 @@ export const appRouter = router({
           appUser.passwordHash
         );
         if (!passwordMatches) {
-          throw invalidCredentials;
+          throw failed();
         }
+        resetLimit(emailKey);
 
         const signedInAt = new Date();
         await updateAppUserLastSignedIn(appUser.id, signedInAt);
@@ -407,15 +432,19 @@ export const appRouter = router({
             message:
               "This development login is set in .env (LOCAL_ADMIN_PASSWORD) and can't be changed here",
           });
+        const passwordKey = `password:${ctx.user.id}`;
+        assertWithinLimit(passwordKey, 10, "Too many attempts.");
         const account = await getAppUserById(ctx.user.id);
         if (
           !account ||
           !(await verifyPassword(input.currentPassword, account.passwordHash))
-        )
+        ) {
+          recordHit(passwordKey, LOGIN_WINDOW_MS);
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Current password is incorrect",
           });
+        }
         if (input.currentPassword === input.newPassword)
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -424,6 +453,13 @@ export const appRouter = router({
         await updateAppUserPassword(
           account.id,
           await hashPassword(input.newPassword)
+        );
+        // The new password ends other sessions; keep this one signed in.
+        const keepSignedIn = 1000 * 60 * 60 * 24 * 365;
+        ctx.setCookie(
+          COOKIE_NAME,
+          await sessionService.createAppSessionToken(ctx.user.id, keepSignedIn),
+          keepSignedIn
         );
         return { success: true } as const;
       }),
@@ -441,16 +477,16 @@ export const appRouter = router({
       .input(z.object({ slug: z.string() }))
       .query(async ({ input }) => getCourseBySlug(input.slug)),
     adminList: adminProcedure.query(async () => getAllCourses()),
-    create: adminProcedure
+    create: contentManagerProcedure
       .input(courseInput)
       .mutation(async ({ input }) => createCourse(input)),
-    update: adminProcedure
+    update: contentManagerProcedure
       .input(z.object({ id: z.number(), data: courseInput.partial() }))
       .mutation(async ({ input }) => {
         await updateCourse(input.id, input.data);
         return { success: true };
       }),
-    delete: adminProcedure
+    delete: contentManagerProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteCourse(input.id);
@@ -465,16 +501,16 @@ export const appRouter = router({
     list: publicProcedure.query(async () => getActiveSuccessStories()),
     featured: publicProcedure.query(async () => getFeaturedSuccessStories()),
     adminList: adminProcedure.query(async () => getAllSuccessStories()),
-    create: adminProcedure
+    create: contentManagerProcedure
       .input(successStoryInput)
       .mutation(async ({ input }) => createSuccessStory(input)),
-    update: adminProcedure
+    update: contentManagerProcedure
       .input(z.object({ id: z.number(), data: successStoryInput.partial() }))
       .mutation(async ({ input }) => {
         await updateSuccessStory(input.id, input.data);
         return { success: true };
       }),
-    delete: adminProcedure
+    delete: contentManagerProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteSuccessStory(input.id);
@@ -495,18 +531,18 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getBatchById(input.id)),
     /** Admin: create batch */
-    create: adminProcedure
+    create: contentManagerProcedure
       .input(batchInput)
       .mutation(async ({ input }) => createBatch(input)),
     /** Admin: update batch */
-    update: adminProcedure
+    update: contentManagerProcedure
       .input(z.object({ id: z.number(), data: batchInput.partial() }))
       .mutation(async ({ input }) => {
         await updateBatch(input.id, input.data);
         return { success: true };
       }),
     /** Admin: delete batch */
-    delete: adminProcedure
+    delete: contentManagerProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteBatch(input.id);
@@ -527,6 +563,13 @@ export const appRouter = router({
     bkashStart: publicProcedure
       .input(checkoutInput)
       .mutation(async ({ input, ctx }) => {
+        // Each checkout creates an account and a pending payment: 20 per address per hour.
+        consume(
+          `checkout:${clientIp(ctx.req)}`,
+          20,
+          60 * 60 * 1000,
+          "Too many payment attempts."
+        );
         if (!(await isBkashConfigured()))
           throw new Error(
             "Online payment isn't available right now. Please contact us to enroll."
@@ -544,6 +587,13 @@ export const appRouter = router({
     sslcommerzStart: publicProcedure
       .input(checkoutInput)
       .mutation(async ({ input, ctx }) => {
+        // Each checkout creates an account and a pending payment: 20 per address per hour.
+        consume(
+          `checkout:${clientIp(ctx.req)}`,
+          20,
+          60 * 60 * 1000,
+          "Too many payment attempts."
+        );
         if (!(await isSslcommerzConfigured()))
           throw new Error(
             "Online payment isn't available right now. Please contact us to enroll."
@@ -579,7 +629,7 @@ export const appRouter = router({
 
   enrollments: router({
     /** Admin: get all enrollments */
-    adminList: adminProcedure
+    adminList: enrollmentManagerProcedure
       .input(z.object({ status: z.string().optional() }).optional())
       .query(async ({ input }) => {
         if (input?.status) {
@@ -589,15 +639,15 @@ export const appRouter = router({
       }),
 
     /** Admin: get enrollment stats */
-    stats: adminProcedure.query(async () => getEnrollmentStats()),
+    stats: enrollmentManagerProcedure.query(async () => getEnrollmentStats()),
 
     /** Admin: get single enrollment */
-    getById: adminProcedure
+    getById: enrollmentManagerProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => getEnrollmentById(input.id)),
 
     /** Admin: verify an enrollment — assigns student ID */
-    verify: adminProcedure
+    verify: enrollmentManagerProcedure
       .input(
         z.object({
           id: z.number(),
@@ -623,7 +673,7 @@ export const appRouter = router({
       }),
 
     /** Admin: reject an enrollment */
-    reject: adminProcedure
+    reject: enrollmentManagerProcedure
       .input(
         z.object({
           id: z.number(),
@@ -642,7 +692,7 @@ export const appRouter = router({
       }),
 
     /** Admin: update enrollment details */
-    update: adminProcedure
+    update: enrollmentManagerProcedure
       .input(
         z.object({
           id: z.number(),
@@ -748,7 +798,7 @@ export const appRouter = router({
           });
         return storagePutNamed(categories.folder, input.filename, buffer);
       }),
-    delete: adminProcedure
+    delete: contentManagerProcedure
       .input(z.object({ key: z.string().min(1) }))
       .mutation(async ({ input }) => {
         try {
@@ -782,7 +832,7 @@ export const appRouter = router({
     }),
 
     /** Admin: bulk update site settings */
-    update: adminProcedure
+    update: contentManagerProcedure
       .input(
         z.array(
           z.object({

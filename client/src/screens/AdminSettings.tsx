@@ -10,7 +10,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { canManageMarketing, canManageUsers } from "@shared/roles";
+import {
+  canManageContent,
+  canManageMarketing,
+  canManageUsers,
+} from "@shared/roles";
 import AdminSelect from "@/components/AdminSelect";
 import { trpc } from "@/lib/trpc";
 import { fileToBase64 } from "@/lib/fileToBase64";
@@ -939,7 +943,9 @@ export default function AdminSiteSettings() {
     }
   };
   const tabs = [
-    { id: "branding" as const, label: "Branding", icon: Palette },
+    ...(canManageContent(user?.role)
+      ? [{ id: "branding" as const, label: "Branding", icon: Palette }]
+      : []),
     { id: "appearance" as const, label: "Appearance", icon: Monitor },
     ...(canManageUsers(user?.role)
       ? [{ id: "payments" as const, label: "Online payment", icon: CreditCard }]
