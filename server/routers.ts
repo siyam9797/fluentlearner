@@ -256,12 +256,14 @@ export const appRouter = router({
         // Slow down password guessing: 10 failures per email, 30 per address, per 15 minutes.
         const tooMany = "Too many sign-in attempts.";
         const emailKey = `login:email:${input.email.toLowerCase()}`;
-        const ipKey = `login:ip:${clientIp(ctx.req)}`;
+        // Without a known address (no proxy header) everyone would share one bucket, so only the email limit applies.
+        const ip = clientIp(ctx.req);
+        const ipKey = ip === "unknown" ? null : `login:ip:${ip}`;
         assertWithinLimit(emailKey, 10, tooMany);
-        assertWithinLimit(ipKey, 30, tooMany);
+        if (ipKey) assertWithinLimit(ipKey, 30, tooMany);
         const failed = () => {
           recordHit(emailKey, LOGIN_WINDOW_MS);
-          recordHit(ipKey, LOGIN_WINDOW_MS);
+          if (ipKey) recordHit(ipKey, LOGIN_WINDOW_MS);
           return invalidCredentials;
         };
 
@@ -564,12 +566,14 @@ export const appRouter = router({
       .input(checkoutInput)
       .mutation(async ({ input, ctx }) => {
         // Each checkout creates an account and a pending payment: 20 per address per hour.
-        consume(
-          `checkout:${clientIp(ctx.req)}`,
-          20,
-          60 * 60 * 1000,
-          "Too many payment attempts."
-        );
+        const checkoutIp = clientIp(ctx.req);
+        if (checkoutIp !== "unknown")
+          consume(
+            `checkout:${checkoutIp}`,
+            20,
+            60 * 60 * 1000,
+            "Too many payment attempts."
+          );
         if (!(await isBkashConfigured()))
           throw new Error(
             "Online payment isn't available right now. Please contact us to enroll."
@@ -588,12 +592,14 @@ export const appRouter = router({
       .input(checkoutInput)
       .mutation(async ({ input, ctx }) => {
         // Each checkout creates an account and a pending payment: 20 per address per hour.
-        consume(
-          `checkout:${clientIp(ctx.req)}`,
-          20,
-          60 * 60 * 1000,
-          "Too many payment attempts."
-        );
+        const checkoutIp = clientIp(ctx.req);
+        if (checkoutIp !== "unknown")
+          consume(
+            `checkout:${checkoutIp}`,
+            20,
+            60 * 60 * 1000,
+            "Too many payment attempts."
+          );
         if (!(await isSslcommerzConfigured()))
           throw new Error(
             "Online payment isn't available right now. Please contact us to enroll."
