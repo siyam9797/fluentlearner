@@ -2151,6 +2151,15 @@ export default function AdminMockTestEditor() {
       bookNumber: existing.bookNumber,
       testNumber: existing.testNumber,
     });
+    // A module created with its full test starts empty: begin from the usual template.
+    if (existing.sections.length === 0) {
+      setSections(
+        existing.format === "answer_sheet"
+          ? answerSheetTemplate(existing.module)
+          : templateFor(existing.module)
+      );
+      return;
+    }
     setSections(
       existing.sections.map(s =>
         withSpeakingPart(
@@ -2259,12 +2268,14 @@ export default function AdminMockTestEditor() {
             : "New test"
       }
       parent={
-        settings
-          ? {
-              label: MODULE_LABELS[settings.module],
-              href: `/admin/ielts/${settings.module}`,
-            }
-          : undefined
+        existing?.setId
+          ? { label: "Full tests", href: "/admin/ielts/tests" }
+          : settings
+            ? {
+                label: MODULE_LABELS[settings.module],
+                href: `/admin/ielts/${settings.module}`,
+              }
+            : undefined
       }
       action={
         settings ? (

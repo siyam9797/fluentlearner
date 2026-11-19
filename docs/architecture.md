@@ -26,7 +26,7 @@ Browser ──► Next.js (client/src/app)
 ```text
 client/                         Next.js project root (next dev client)
   next.config.ts                standalone output, image allow-list, redirects; loads ../.env
-  public/                       static assets (logos, OG images, practice SVGs, /old-site images)
+  public/                       static assets (logos, OG images, practice SVGs)
   src/
     app/                        App Router: catch-all page, API routes, sitemap, robots
     App.tsx                     the client-side router (pathname → screen)
@@ -40,7 +40,6 @@ client/                         Next.js project root (next dev client)
     contexts/                   PublicDataContext (server-loaded data), ThemeContext
     hooks/                      useAuth, useSiteSettings, useInstructors, ...
     lib/                        trpc client, router shim, rich HTML, listening layout, image helpers
-    old-site/content.ts         frozen v1 content for /old
 server/
   _core/                        tRPC init and procedure tiers, context, session (JWT), password, env, webhook
   routers.ts                    appRouter: auth, courses, stories, batches, enrollments, payments, settings
@@ -84,13 +83,12 @@ The whole UI is **one catch-all route**, `client/src/app/[[...path]]/page.tsx`. 
 | Path                                                                                                 | Screen                                                                           |
 | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `/` `/courses` `/courses/:slugOrId` `/about` `/success-stories` `/how-it-works` `/contact` `/enroll` | Current public site (v2): `HomeV2`, `V2*`                                        |
-| `/old` `/old/courses` `/old/courses/:id` `/old/success-stories`                                      | Frozen v1 site                                                                   |
 | `/student`, `/student/{practice,mocks,results,batch,resources,typing,profile,settings}`              | `StudentDashboard` (login screen when signed out)                                |
 | `/student/attempts/:id`                                                                              | `StudentAttempt`: exam screen, then result                                       |
 | `/admin/ielts/preview/:testId`                                                                       | Full-screen student view of a test, for admins                                   |
 | `/admin/**`                                                                                          | Admin screens inside `AdminLayout`. See [admin-dashboard.md](admin-dashboard.md) |
 
-Redirects in `next.config.ts` keep old links working: `/home-2`, `/v2/*` → `/`, `/old/enroll` → `/enroll`, `/admin/mock-tests/*` → `/admin/ielts/*`, `/admin/mock-results*` → `/admin/ielts/...`, `/admin/site-settings` → `/admin/website`.
+Redirects in `next.config.ts` keep old links working: `/home-2`, `/v2/*` → `/`, `/old`, `/old/*` → the matching live page, `/admin/mock-tests/*` → `/admin/ielts/*`, `/admin/mock-results*` → `/admin/ielts/...`, `/admin/site-settings` → `/admin/website`.
 
 ## Server-rendered public data
 
@@ -116,7 +114,7 @@ Uploaded files are written to local disk under `UPLOAD_DIR` (default `client/pub
 - **Images** are recompressed with `sharp` (`server/imageOptimizer.ts`). The original format and any animation are kept. Files under 1 KB or over 25 MB, high-bit-depth images, and any result that would be larger than the original are stored unchanged.
 - **Folders:** `images/`, `branding/`, `resources/`, `mock-audio/`, `speaking/` (student recordings), `avatars/`, `payment-screenshots/`, plus `videos/` and `documents/` for the media library.
 - **Access:** `payment-screenshots/*` is served only to admin-dashboard roles. Everything else is public to anyone who has the URL.
-- **Next image optimizer:** only `/uploads/images/**`, `/uploads/branding/**`, root files and `/old-site/**` may pass through it (`next.config.ts` `images.localPatterns`, kept in sync with `OPTIMIZABLE` in `client/src/lib/image.ts`). The optimizer caches responses regardless of who requested them, so private files must never go through it.
+- **Next image optimizer:** only `/uploads/images/**`, `/uploads/branding/**` and root files may pass through it (`next.config.ts` `images.localPatterns`, kept in sync with `OPTIMIZABLE` in `client/src/lib/image.ts`). The optimizer caches responses regardless of who requested them, so private files must never go through it.
 - **Media library** (`server/media.ts`): lists files on disk, marks which ones are referenced by database rows, and deletes unused files.
 
 Uploads arrive as base64 strings in tRPC mutations. Size limits are enforced server-side: images 10 MB, test audio 60 MB, speaking recordings 15 MB.

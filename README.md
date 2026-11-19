@@ -51,7 +51,7 @@ The admin login above is a development-only fallback. It needs no database row a
 | [Development](docs/development.md)         | Setup, environment variables, local accounts, seed scripts, tests, conventions                                        |
 | [Database](docs/database.md)               | Tables, relationships, settings store, manual migrations                                                              |
 | [Auth & roles](docs/auth-and-roles.md)     | Sessions, the six roles, procedure tiers, what each role can actually do                                              |
-| [Public website](docs/public-website.md)   | v2 pages, the frozen `/old` site, editable content, menus, SEO                                                        |
+| [Public website](docs/public-website.md)   | v2 pages, editable content, menus, SEO                                                        |
 | [Student portal](docs/student-portal.md)   | Dashboard sections, taking tests, results                                                                             |
 | [IELTS tests](docs/ielts-tests.md)         | Test model, question types, the builder, marking and band scores, AI marking                                          |
 | [Admin dashboard](docs/admin-dashboard.md) | Every admin screen and what it manages                                                                                |

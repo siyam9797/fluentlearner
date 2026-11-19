@@ -6,9 +6,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Link } from "@/lib/router";
 import {
-  APP_ROLES,
   canCreateUsers,
-  canManageUsers,
+  creatableRoles,
   ROLE_DEFINITIONS,
   type AppRole,
 } from "@shared/roles";
@@ -27,7 +26,6 @@ export default function AdminUserCreate() {
   const { user, loading } = useAuth();
   const utils = trpc.useUtils();
   const mayCreateUsers = canCreateUsers(user?.role);
-  const mayManageUsers = canManageUsers(user?.role);
   const staffOnly = user?.role === "staff";
   const [form, setForm] = useState<{
     name: string;
@@ -41,7 +39,7 @@ export default function AdminUserCreate() {
     role: AppRole;
   } | null>(null);
 
-  const assignableRoles = mayManageUsers ? APP_ROLES : (["student"] as const);
+  const assignableRoles = creatableRoles(user?.role);
   const create = trpc.users.create.useMutation({
     onSuccess: () => {
       setCreated({
@@ -57,7 +55,7 @@ export default function AdminUserCreate() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    create.mutate(staffOnly ? { ...form, role: "student" } : form);
+    create.mutate(form);
   };
 
   const copyCredentials = async () => {
@@ -97,7 +95,7 @@ export default function AdminUserCreate() {
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
       <AdminPageHeader
-        title={staffOnly ? "Add student" : "New user"}
+        title={staffOnly ? "Add student or mentor" : "New user"}
         parent={
           staffOnly ? undefined : { label: "Users", href: "/admin/users" }
         }
@@ -166,7 +164,7 @@ export default function AdminUserCreate() {
             </h2>
             <p className="mt-1 text-sm text-[var(--admin-body)]">
               {staffOnly
-                ? "Enter the student details to create their account."
+                ? "Enter their details and choose whether they're a student or a mentor."
                 : "Enter the user details and assign their platform role."}
             </p>
           </div>
@@ -201,25 +199,21 @@ export default function AdminUserCreate() {
             </label>
             <label className="text-sm font-medium text-[var(--admin-heading)]">
               Role
-              {staffOnly ? (
-                <div className={`${inputClass} flex items-center`}>Student</div>
-              ) : (
-                <AdminSelect
-                  value={form.role}
-                  onChange={event =>
-                    setForm(current => ({
-                      ...current,
-                      role: event.target.value as AppRole,
-                    }))
-                  }
-                >
-                  {assignableRoles.map(role => (
-                    <option key={role} value={role}>
-                      {ROLE_DEFINITIONS[role].label}
-                    </option>
-                  ))}
-                </AdminSelect>
-              )}
+              <AdminSelect
+                value={form.role}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    role: event.target.value as AppRole,
+                  }))
+                }
+              >
+                {assignableRoles.map(role => (
+                  <option key={role} value={role}>
+                    {ROLE_DEFINITIONS[role].label}
+                  </option>
+                ))}
+              </AdminSelect>
               <span className="mt-2 block text-xs font-normal leading-5 text-[var(--admin-body)]">
                 {ROLE_DEFINITIONS[form.role].description}
               </span>
@@ -265,7 +259,7 @@ export default function AdminUserCreate() {
               ) : (
                 <Check className="h-4 w-4" />
               )}
-              {staffOnly ? "Create student" : "Create user"}
+              {staffOnly ? "Create account" : "Create user"}
             </button>
             <Link
               href={staffOnly ? "/admin" : "/admin/users"}

@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
       { pathname: "/uploads/images/**", search: "" },
       { pathname: "/uploads/branding/**", search: "" },
       { pathname: "/*", search: "" },
-      { pathname: "/old-site/**", search: "" },
     ],
   },
   // The admin "Mock Tests" section became "IELTS Modules" (one page per module); keep old links working.
@@ -28,8 +27,20 @@ const nextConfig: NextConfig = {
       { source: "/home-2", destination: "/", permanent: true },
       { source: "/v2", destination: "/", permanent: true },
       { source: "/v2/:path*", destination: "/:path*", permanent: true },
-      // The old site is static: it has no enroll page or admin controls of its own.
-      { source: "/old/enroll", destination: "/enroll", permanent: true },
+      // The old (v1) site at /old was removed; send its links to the matching live pages.
+      { source: "/old", destination: "/", permanent: true },
+      { source: "/old/:path*", destination: "/:path*", permanent: true },
+      // Enrollments became Transactions.
+      {
+        source: "/admin/enrollments",
+        destination: "/admin/transactions",
+        permanent: true,
+      },
+      {
+        source: "/admin/enrollments/:id",
+        destination: "/admin/transactions/:id",
+        permanent: true,
+      },
       {
         source: "/admin/site-settings",
         destination: "/admin/website",
@@ -42,7 +53,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/admin/ielts",
-        destination: "/admin/ielts/listening",
+        destination: "/admin/ielts/tests",
         permanent: false,
       },
       {

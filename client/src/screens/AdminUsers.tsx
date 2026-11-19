@@ -9,9 +9,7 @@ import AdminFilterDrawer, {
   type FilterGroup,
   type FilterSelection,
 } from "@/components/AdminFilterDrawer";
-import AdminViewToggle, {
-  type AdminListView,
-} from "@/components/AdminViewToggle";
+import { type AdminListView } from "@/components/AdminViewToggle";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
@@ -177,7 +175,6 @@ export default function AdminUsers() {
               selection={filters}
               onClick={() => setFilterOpen(true)}
             />
-            <AdminViewToggle view={view} onChange={setView} label="Users" />
             <Link href="/admin/users/new" className="admin-primary-button">
               <Plus className="h-4 w-4" /> New user
             </Link>
@@ -193,6 +190,8 @@ export default function AdminUsers() {
           onChange={setFilters}
           onClose={() => setFilterOpen(false)}
           resultCount={users.length}
+          view={view}
+          onViewChange={setView}
         />
       )}
 
@@ -332,7 +331,7 @@ export default function AdminUsers() {
           {users.map(account => (
             <article
               key={account.id}
-              className="admin-list-card min-h-[255px] p-6"
+              className="admin-list-card flex flex-col p-5"
             >
               <div className="flex items-start gap-3">
                 <UserAvatar
@@ -341,11 +340,14 @@ export default function AdminUsers() {
                   avatarUrl={account.avatarUrl}
                   size="h-11 w-11"
                 />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-semibold text-[var(--admin-heading)]">
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <h3 className="line-clamp-2 break-words font-semibold leading-snug text-[var(--admin-heading)]">
                     {account.name || "Unnamed user"}
                   </h3>
-                  <p className="truncate text-xs text-[var(--admin-body)]">
+                  <p
+                    className="truncate text-xs text-[var(--admin-body)]"
+                    title={account.email}
+                  >
                     {account.email}
                   </p>
                 </div>
@@ -378,34 +380,28 @@ export default function AdminUsers() {
                   </button>
                 </AdminActionsMenu>
               </div>
-              <div className="mt-6">{roleLabel(account)}</div>
-              <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--admin-border)] pt-4 text-xs">
-                <div>
-                  <dt className="text-[var(--admin-body)]">Last sign-in</dt>
-                  <dd className="mt-1 font-medium text-[var(--admin-heading)]">
+              <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                {roleLabel(account)}
+                <span className="flex min-w-0 items-center gap-1.5 text-xs text-[var(--admin-body)]">
+                  <span
+                    aria-hidden
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                      account.isActive
+                        ? "bg-[var(--admin-success)]"
+                        : "bg-[var(--admin-body)] opacity-50"
+                    }`}
+                  />
+                  <span className="truncate">
+                    {account.isActive ? "Active" : "Disabled"} ·{" "}
                     {account.lastSignedIn
                       ? new Date(account.lastSignedIn).toLocaleDateString(
-                          "en-GB"
+                          "en-GB",
+                          { day: "numeric", month: "short", year: "numeric" }
                         )
-                      : "Never"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[var(--admin-body)]">Status</dt>
-                  <dd className="mt-1">
-                    <span
-                      className={`admin-status-label ${account.isActive ? "" : "inactive"}`}
-                    >
-                      {account.isActive ? "Active" : "Disabled"}
-                    </span>
-                  </dd>
-                </div>
-              </dl>
-              <span
-                className={`admin-status-label ${roleTone[account.role as AppRole]} absolute bottom-5 right-5`}
-              >
-                {ROLE_DEFINITIONS[account.role as AppRole].label}
-              </span>
+                      : "Never signed in"}
+                  </span>
+                </span>
+              </div>
             </article>
           ))}
         </div>

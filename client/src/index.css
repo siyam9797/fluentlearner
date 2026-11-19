@@ -744,9 +744,10 @@
   /* ============================================
      Home v2 (current site)
      ============================================ */
-  /* Always reserve the scrollbar's width on v2 pages, so moving between short and long
+  /* Always reserve the scrollbar's width on v2 and admin pages, so moving between short and long
      pages (or opening a lightbox that locks scrolling) doesn't shift the layout sideways. */
-  html:has(.home-v2) {
+  html:has(.home-v2),
+  html:has(.admin-content) {
     scrollbar-gutter: stable;
   }
   .home-v2 {

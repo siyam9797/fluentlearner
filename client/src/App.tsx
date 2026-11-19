@@ -10,7 +10,6 @@ import type { MockModule } from "@shared/mock";
 
 // Every screen except the home page loads on demand, so visitors to the public site
 // don't download the admin and student apps.
-const Home = dynamic(() => import("./screens/Home"));
 const V2Courses = dynamic(() => import("./screens/V2Courses"));
 const V2CourseDetail = dynamic(() => import("./screens/V2CourseDetail"));
 const V2About = dynamic(() => import("./screens/V2About"));
@@ -18,24 +17,16 @@ const V2SuccessStories = dynamic(() => import("./screens/V2SuccessStories"));
 const V2HowItWorks = dynamic(() => import("./screens/V2HowItWorks"));
 const V2Contact = dynamic(() => import("./screens/V2Contact"));
 const V2Enroll = dynamic(() => import("./screens/V2Enroll"));
-const CoursesPage = dynamic(() => import("./screens/CoursesPage"));
-const CourseDetailPage = dynamic(() => import("./screens/CourseDetailPage"));
-const SuccessStoriesPage = dynamic(
-  () => import("./screens/SuccessStoriesPage")
-);
 const AdminDashboard = dynamic(() => import("./screens/AdminDashboard"));
 const AdminCourses = dynamic(() => import("./screens/AdminCourses"));
 const AdminSuccessStories = dynamic(
   () => import("./screens/AdminSuccessStories")
 );
-const AdminEnrollments = dynamic(() => import("./screens/AdminEnrollments"));
+const AdminTransactions = dynamic(() => import("./screens/AdminTransactions"));
 const AdminBatches = dynamic(() => import("./screens/AdminBatches"));
 const AdminWebsite = dynamic(() => import("./screens/AdminWebsite"));
 const AdminSettings = dynamic(() => import("./screens/AdminSettings"));
 const AdminInstructors = dynamic(() => import("./screens/AdminInstructors"));
-const AdminPaymentSettings = dynamic(
-  () => import("./screens/AdminPaymentSettings")
-);
 const AdminProfile = dynamic(() => import("./screens/AdminProfile"));
 const AdminLayout = dynamic(() => import("./components/AdminLayout"));
 const AdminMockTests = dynamic(() => import("./screens/AdminMockTests"));
@@ -46,6 +37,7 @@ const AdminCambridgeLibrary = dynamic(
   () => import("./screens/AdminCambridgeLibrary")
 );
 const AdminMockResults = dynamic(() => import("./screens/AdminMockResults"));
+const AdminFullTests = dynamic(() => import("./screens/AdminFullTests"));
 const AdminUsers = dynamic(() => import("./screens/AdminUsers"));
 const AdminUserCreate = dynamic(() => import("./screens/AdminUserCreate"));
 const AdminUserEdit = dynamic(() => import("./screens/AdminUserEdit"));
@@ -69,7 +61,7 @@ const isMockModule = (value: string): value is MockModule =>
 
 function Router() {
   const pathname = usePathname() ?? "/";
-  // Current site (v2)
+  // Public website
   if (pathname === "/") return <HomeV2 />;
   if (pathname === "/courses") return <V2Courses />;
   if (pathname.startsWith("/courses/"))
@@ -79,11 +71,6 @@ function Router() {
   if (pathname === "/how-it-works") return <V2HowItWorks />;
   if (pathname === "/contact") return <V2Contact />;
   if (pathname === "/enroll") return <V2Enroll />;
-  // Old site (v1), kept under /old
-  if (pathname === "/old") return <Home />;
-  if (pathname === "/old/courses") return <CoursesPage />;
-  if (pathname.startsWith("/old/courses/")) return <CourseDetailPage />;
-  if (pathname === "/old/success-stories") return <SuccessStoriesPage />;
   // Student mock test area
   if (
     [
@@ -131,22 +118,9 @@ function Router() {
           )}
         />
       );
-    else if (pathname === "/admin/enrollments") screen = <AdminEnrollments />;
-    else if (pathname.startsWith("/admin/enrollments/"))
+    else if (pathname === "/admin/transactions") screen = <AdminTransactions />;
+    else if (pathname.startsWith("/admin/transactions/"))
       screen = <AdminEnrollmentDetail key={pathname} />;
-    else if (pathname === "/admin/payment-settings")
-      screen = <AdminPaymentSettings key={pathname} />;
-    else if (pathname === "/admin/payment-settings/new")
-      screen = <AdminPaymentSettings key={pathname} createMode />;
-    else if (/^\/admin\/payment-settings\/\d+\/edit$/.test(pathname))
-      screen = (
-        <AdminPaymentSettings
-          key={pathname}
-          editId={Number(
-            pathname.match(/^\/admin\/payment-settings\/(\d+)\/edit$/)?.[1]
-          )}
-        />
-      );
     else if (pathname === "/admin/instructors")
       screen = <AdminInstructors key={pathname} />;
     else if (pathname === "/admin/instructors/new")
@@ -175,9 +149,9 @@ function Router() {
       screen = <AdminWebsite />;
     else if (pathname === "/admin/settings") screen = <AdminSettings />;
     else if (pathname === "/admin/profile") screen = <AdminProfile />;
-    // /admin/ielts redirects to Listening (next.config.ts); render it here too in case it doesn't.
-    else if (pathname === "/admin/ielts")
-      screen = <AdminMockTests key="listening" module="listening" />;
+    // /admin/ielts redirects to Full tests (next.config.ts); render it here too in case it doesn't.
+    else if (pathname === "/admin/ielts" || pathname === "/admin/ielts/tests")
+      screen = <AdminFullTests />;
     else if (isMockModule(pathname.slice("/admin/ielts/".length)))
       screen = (
         <AdminMockTests

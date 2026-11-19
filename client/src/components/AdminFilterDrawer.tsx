@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { ListFilter, X } from "lucide-react";
+import { Grid2X2, ListFilter, TableProperties, X } from "lucide-react";
+import type { AdminListView } from "@/components/AdminViewToggle";
 
 export type FilterOption = { value: string; label: string; count: number };
 export type FilterGroup = {
@@ -60,6 +61,8 @@ export default function AdminFilterDrawer({
   onChange,
   onClose,
   resultCount,
+  view,
+  onViewChange,
 }: {
   title: string;
   groups: FilterGroup[];
@@ -68,6 +71,9 @@ export default function AdminFilterDrawer({
   onClose: () => void;
   /** Rows matching the current filters; shown on the footer button. */
   resultCount?: number;
+  /** When given, the panel also lets the admin switch between grid and table layouts. */
+  view?: AdminListView;
+  onViewChange?: (view: AdminListView) => void;
 }) {
   const active = countFilters(selection);
   const toggle = (key: string, value: string) => {
@@ -131,6 +137,36 @@ export default function AdminFilterDrawer({
         </header>
 
         <div className="min-h-0 flex-1 divide-y divide-[var(--admin-border)] overflow-y-auto px-6">
+          {view && onViewChange && (
+            <section className="py-5">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                View
+              </h3>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="View">
+                {(
+                  [
+                    { value: "grid", label: "Grid", Icon: Grid2X2 },
+                    { value: "table", label: "Table", Icon: TableProperties },
+                  ] as const
+                ).map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onViewChange(value)}
+                    aria-pressed={view === value}
+                    className={`flex h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border text-sm transition-colors ${
+                      view === value
+                        ? "border-[var(--admin-primary)] text-[var(--admin-primary)]"
+                        : "border-[var(--admin-border)] text-[var(--admin-heading)] hover:bg-[var(--admin-card)]"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {groups.map(group => {
             const chosen = selection[group.key] ?? [];
             return (

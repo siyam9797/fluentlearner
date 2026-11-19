@@ -1,6 +1,5 @@
 import { trpc } from "@/lib/trpc";
 import { SITE_STATS, CONTACT, BRAND } from "@/lib/siteConstants";
-import { OLD_SITE_SETTINGS } from "@/old-site/content";
 import { usePublicData } from "@/contexts/PublicDataContext";
 
 /**
@@ -18,11 +17,6 @@ export function useSiteSettings() {
     data ?? initialSettings ?? undefined,
     isLoading && !initialSettings
   );
-}
-
-/** The old (v1) site at /old: the same shape, from frozen values instead of the database. */
-export function useOldSiteSettings() {
-  return siteSettingsFrom(OLD_SITE_SETTINGS, false);
 }
 
 function siteSettingsFrom(

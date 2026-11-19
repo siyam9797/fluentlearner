@@ -34,7 +34,6 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
-  CreditCard,
   ExternalLink,
   FolderOpen,
   Globe2,
@@ -53,7 +52,7 @@ import {
   Trophy,
   UserRound,
   UserPlus,
-  Users,
+  Receipt,
 } from "lucide-react";
 
 type NavigationItem = {
@@ -149,6 +148,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         href: "/admin/ielts",
         icon: ClipboardCheck,
         children: [
+          { label: "Full tests", href: "/admin/ielts/tests" },
           { label: "Listening", href: "/admin/ielts/listening" },
           { label: "Reading", href: "/admin/ielts/reading" },
           { label: "Writing", href: "/admin/ielts/writing" },
@@ -168,7 +168,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         userManagement: true,
       },
       {
-        label: "Add student",
+        label: "Add student or mentor",
         href: "/admin/users/new",
         icon: UserPlus,
         staffOnly: true,
@@ -180,8 +180,7 @@ const navigationGroups: { label: string; items: NavigationItem[] }[] = [
         userManagement: true,
       },
       { label: "Instructors", href: "/admin/instructors", icon: UserRound },
-      { label: "Enrollments", href: "/admin/enrollments", icon: Users },
-      { label: "Payments", href: "/admin/payment-settings", icon: CreditCard },
+      { label: "Transactions", href: "/admin/transactions", icon: Receipt },
     ],
   },
   {

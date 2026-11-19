@@ -93,14 +93,14 @@ export default function AdminEnrollmentDetail() {
     return (
       <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
         <AdminPageHeader
-          title="Enrollment not found"
-          parent={{ label: "Enrollments", href: "/admin/enrollments" }}
+          title="Transaction not found"
+          parent={{ label: "Transactions", href: "/admin/transactions" }}
         />
         <button
           className="admin-button admin-button-secondary"
-          onClick={() => navigate("/admin/enrollments")}
+          onClick={() => navigate("/admin/transactions")}
         >
-          Back to enrollments
+          Back to transactions
         </button>
       </div>
     );
@@ -114,7 +114,7 @@ export default function AdminEnrollmentDetail() {
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
       <AdminPageHeader
         title={enrollment.studentName}
-        parent={{ label: "Enrollments", href: "/admin/enrollments" }}
+        parent={{ label: "Transactions", href: "/admin/transactions" }}
         action={
           <span className={`admin-status-label ${status.className}`}>
             <StatusIcon className="mr-1.5 h-3.5 w-3.5" />

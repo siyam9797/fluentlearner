@@ -28,7 +28,7 @@ import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminPagination, {
   useAdminPagination,
 } from "@/components/AdminPagination";
-import AdminViewToggle, {
+import {
   type AdminListView,
 } from "@/components/AdminViewToggle";
 import { Switch } from "@/components/ui/switch";
@@ -294,11 +294,6 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
         action={
           searchOpen ? undefined : (
             <div className="flex flex-wrap items-center gap-2">
-              <AdminViewToggle
-                view={listView}
-                onChange={setListView}
-                label={`${label} tests`}
-              />
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
@@ -385,6 +380,8 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
           }}
           onClose={() => setFilterOpen(false)}
           resultCount={tests.length}
+          view={listView}
+          onViewChange={setListView}
         />
       )}
 

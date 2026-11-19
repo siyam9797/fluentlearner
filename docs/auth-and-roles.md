@@ -69,5 +69,5 @@ Some procedures add finer checks inside the handler:
 ## Admin portal UI by role
 
 - `marketing` users who open `/admin` see only Settings (the **Marketing** and **Security** tabs) and their profile (`canAccessAdminPortal`).
-- `staff` users get an **Add student** shortcut. The account creation form fixes their new accounts to the `student` role.
+- `staff` users get an **Add student or mentor** shortcut. They can create `student` and `mentor` accounts only (`creatableRoles` in `shared/roles.ts`, checked again on the server).
 - `super_admin` sees a **Student dashboard** link and the **AI marking** settings tab. `admin` and `super_admin` see **Online payment** and **Marketing**.

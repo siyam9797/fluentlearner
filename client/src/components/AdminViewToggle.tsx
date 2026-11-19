@@ -13,32 +13,21 @@ export default function AdminViewToggle({
   onChange: (view: AdminListView) => void;
   label: string;
 }) {
+  const next: AdminListView = view === "grid" ? "table" : "grid";
+  const title = `Switch to ${next} view`;
   return (
-    <div
-      className="flex items-center gap-2"
-      role="group"
-      aria-label={`${label} view`}
+    <button
+      type="button"
+      onClick={() => onChange(next)}
+      aria-label={`${label}: ${title}`}
+      title={title}
+      className="admin-icon-button"
     >
-      <button
-        type="button"
-        onClick={() => onChange("grid")}
-        aria-label="Grid view"
-        aria-pressed={view === "grid"}
-        title="Grid view"
-        className="admin-icon-button"
-      >
-        <Grid2X2 className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("table")}
-        aria-label="Table view"
-        aria-pressed={view === "table"}
-        title="Table view"
-        className="admin-icon-button"
-      >
+      {next === "table" ? (
         <TableProperties className="h-4 w-4" />
-      </button>
-    </div>
+      ) : (
+        <Grid2X2 className="h-4 w-4" />
+      )}
+    </button>
   );
 }

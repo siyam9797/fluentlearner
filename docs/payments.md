@@ -68,7 +68,7 @@ In **Admin → Settings → Online payment** (Admin or Super Admin), or through 
 
 ## Manual verification in Admin
 
-**Admin → Enrollments** lists every enrollment, online or manual. On an enrollment's detail page an admin can:
+**Admin → Transactions** lists every payment, online or manual (each is an enrollment row). On a transaction's detail page an admin can:
 
 - **Verify** a pending enrollment. This assigns a student ID `FL-YYMM-NNNN` (counted per month), an optional batch and notes.
 - **Reject** it with a reason.

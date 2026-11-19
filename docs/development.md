@@ -101,4 +101,3 @@ Tests live in `server/*.test.ts` and run in a Node environment. Most of them cal
 - **Comments** explain _why_. Many modules start with a block comment describing their contract, e.g. `server/payments.ts` and `server/aiGrading.ts`. Read it before changing the module.
 - **IELTS screens must look like the real exam.** The student test screens and the admin builders deliberately mirror the computer-delivered IELTS layout. Keep that fidelity when changing them.
 - **Secrets** (payment credentials, API keys, Meta token) are `site_settings` rows. Add any new secret key to `SECRET_SETTING_KEYS` in `server/publicSiteSettings.ts`, or it will leak through `siteSettings.getAll`.
-- **Old site:** `/old` is frozen (`client/src/old-site/content.ts`, `client/public/old-site/`). Don't wire it back to live data.

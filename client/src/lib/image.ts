@@ -13,7 +13,7 @@ const OWN_ORIGIN = /^https?:\/\/(www\.)?fluentlearner\.com(?=\/)/i;
 
 // Public folders the optimizer may read; must match images.localPatterns in next.config.ts.
 const OPTIMIZABLE =
-  /^\/(uploads\/(images|branding)\/[^?#]+|old-site\/[^?#]+|[^/?#]+)$/;
+  /^\/(uploads\/(images|branding)\/[^?#]+|[^/?#]+)$/;
 
 function localPath(src: string): string | null {
   const path = src.replace(OWN_ORIGIN, "");

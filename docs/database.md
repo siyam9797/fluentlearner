@@ -34,6 +34,7 @@ A student's batch is found by matching the account email to an enrollment's `stu
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `learning_resources` | Files and links for students. `batchId` null = everyone, otherwise only that batch                                                                                                                                     |
 | `vocabulary_words`   | Vocabulary list: `word` (unique), `partOfSpeech`, `meaning`, `example`, `topic`                                                                                                                                        |
+| `mock_test_sets`     | A full IELTS test that groups four module tests: `title`, `variant`, `series`, `bookNumber`, `testNumber`. Its modules point to it with `mock_tests.setId` |
 | `mock_tests`         | One IELTS test for one module: `module`, `variant` (`academic`, `general`), `durationMinutes`, `maxAttempts`, `isPublished`, `format` (`full`, `answer_sheet`), `series`, `bookNumber`, `testNumber`                   |
 | `mock_sections`      | A Reading passage, Listening part, Writing task or Speaking part: `content` (rich HTML), `questionLayout` (Listening `[[n]]` layout), `imageUrl`, `audioUrl`                                                           |
 | `mock_questions`     | `type` (27 types, see [ielts-tests.md](ielts-tests.md)), `instruction`, `prompt`, JSON `options`, JSON `answers` (accepted answers), `explanation`, `points`, `minWords`, `prepSeconds`, `responseSeconds`, `audioUrl` |
@@ -67,7 +68,7 @@ Migrations are the numbered files `server/database/0000_*.sql` … `0021_marketi
 
 - **Never run `npm run db:push`** (`drizzle-kit generate && drizzle-kit migrate`) against an existing database. It will fail, or try to re-apply migrations.
 - **New database:** apply every file in number order. The Compose MySQL image does this automatically on a fresh volume (see [deployment.md](deployment.md)).
-- **Existing database:** back it up, then apply only the files that haven't run yet, e.g. `mysql fluentlearner < server/database/0021_marketing_role.sql`. Do this both locally and on production.
+- **Existing database:** back it up, then apply only the files that haven't run yet, e.g. `mysql fluentlearner < server/database/0022_full_tests.sql`. Do this both locally and on production.
 
 **Adding a migration:**
 
@@ -94,3 +95,4 @@ Migrations are the numbered files `server/database/0000_*.sql` … `0021_marketi
 | 0019      | Question audio (Speaking examiner audio)                                                    |
 | 0020      | Attempt practice type                                                                       |
 | 0021      | `marketing` role. **Apply before creating a Marketing account**                             |
+| 0022      | Full tests: `mock_test_sets` table and `mock_tests.setId`. **Apply before deploying**       |

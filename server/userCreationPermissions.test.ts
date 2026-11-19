@@ -21,11 +21,11 @@ describe("user creation permissions", () => {
     }
   });
 
-  it("staff can create only students", () => {
+  it("staff can create only students and mentors", () => {
     expect(canCreateUsers("staff")).toBe(true);
     for (const newRole of APP_ROLES) {
       expect(canCreateUserWithRole("staff", newRole)).toBe(
-        newRole === "student"
+        newRole === "student" || newRole === "mentor"
       );
     }
   });

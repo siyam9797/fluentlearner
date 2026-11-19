@@ -98,6 +98,7 @@ import { notifyOwner } from "./_core/notification";
 import {
   learningResourcesRouter,
   mockTestsRouter,
+  mockTestSetsRouter,
   studentRouter,
   studentsRouter,
   usersRouter,
@@ -1213,6 +1214,7 @@ export const appRouter = router({
   // IELTS MOCK TESTS — Admin builder + student exam area
   // ============================================
   mockTests: mockTestsRouter,
+  mockTestSets: mockTestSetsRouter,
   students: studentsRouter,
   users: usersRouter,
   learningResources: learningResourcesRouter,

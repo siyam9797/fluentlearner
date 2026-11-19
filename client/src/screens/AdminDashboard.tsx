@@ -237,7 +237,7 @@ export default function AdminDashboard() {
       note: `৳${money.format(revenueByMonth.at(-1) ?? 0)} this month`,
       icon: Banknote,
       color: "var(--admin-primary)",
-      href: "/admin/enrollments",
+      href: "/admin/transactions",
       trend: revenueByMonth,
     },
     {
@@ -262,8 +262,8 @@ export default function AdminDashboard() {
 
   const attention = [
     pending > 0 && {
-      label: `${pending} enrollment${pending === 1 ? "" : "s"} to verify`,
-      href: "/admin/enrollments",
+      label: `${pending} transaction${pending === 1 ? "" : "s"} to verify`,
+      href: "/admin/transactions",
       icon: Clock3,
       color: "var(--admin-warning)",
     },
@@ -432,7 +432,7 @@ export default function AdminDashboard() {
           <Section
             title="Enrollments by month"
             description="Applications over the last six months, with verified revenue."
-            link={{ label: "View all", href: "/admin/enrollments" }}
+            link={{ label: "View all", href: "/admin/transactions" }}
             panelClassName="p-5"
           >
             <MonthlyBars
@@ -500,7 +500,7 @@ export default function AdminDashboard() {
           <Section
             title="Recent enrollments"
             description="The latest applications and payments."
-            link={{ label: "View all", href: "/admin/enrollments" }}
+            link={{ label: "View all", href: "/admin/transactions" }}
           >
             {recentEnrollments.length ? (
               recentEnrollments.map(enrollment => {
@@ -511,7 +511,7 @@ export default function AdminDashboard() {
                 return (
                   <Link
                     key={enrollment.id}
-                    href={`/admin/enrollments/${enrollment.id}`}
+                    href={`/admin/transactions/${enrollment.id}`}
                     className={rowClass}
                   >
                     <span className={avatarClass}>

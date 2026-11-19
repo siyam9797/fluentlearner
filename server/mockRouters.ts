@@ -264,6 +264,32 @@ export const mockTestsRouter = router({
     }),
 });
 
+const testSetInput = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200),
+  description: z.string().nullish(),
+  variant: z.enum(["academic", "general"]).default("academic"),
+  series: z.string().trim().max(50).nullish(),
+  bookNumber: z.number().int().min(1).max(99).nullish(),
+  testNumber: z.number().int().min(1).max(20).nullish(),
+});
+
+/** Full IELTS tests: created first, then each module's questions are added in the test editor. */
+export const mockTestSetsRouter = router({
+  list: adminProcedure.query(() => mock.listTestSets()),
+
+  create: adminProcedure
+    .input(testSetInput)
+    .mutation(async ({ input }) => ({ id: await mock.createTestSet(input) })),
+
+  update: adminProcedure
+    .input(z.object({ id: z.number().int().positive(), data: testSetInput }))
+    .mutation(({ input }) => mock.updateTestSet(input.id, input.data)),
+
+  delete: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(({ input }) => mock.deleteTestSet(input.id)),
+});
+
 export const studentsRouter = router({
   list: adminProcedure.query(() => mock.listStudents()),
 

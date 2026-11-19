@@ -25,6 +25,7 @@ import {
   mockAttempts,
   mockQuestions,
   mockSections,
+  mockTestSets,
   mockTests,
   vocabularyWords,
   type InsertLearningResource,
@@ -41,6 +42,7 @@ import {
   bandFromRawScore,
   DEFAULT_DURATION_MINUTES,
   isAutoMarkedModule,
+  MODULE_LABELS,
   overallFromCriteria,
   practiceQuestionIds,
   practiceTypeInfo,
@@ -323,6 +325,141 @@ export async function setTestPublished(testId: number, isPublished: boolean) {
     .update(mockTests)
     .set({ isPublished })
     .where(eq(mockTests.id, testId));
+}
+
+// ============================================
+// Full tests (one mock test per module)
+// ============================================
+
+/** The order modules are taken in the real exam. */
+export const FULL_TEST_MODULES: MockModule[] = [
+  "listening",
+  "reading",
+  "writing",
+  "speaking",
+];
+
+export type TestSetInput = {
+  title: string;
+  description?: string | null;
+  variant: "academic" | "general";
+  series?: string | null;
+  bookNumber?: number | null;
+  testNumber?: number | null;
+};
+
+const moduleTitle = (setTitle: string, module: MockModule) =>
+  `${setTitle} · ${MODULE_LABELS[module]}`;
+
+/** Full tests, newest first, each with its module tests and their progress. */
+export async function listTestSets() {
+  const database = await db();
+  const sets = await database
+    .select()
+    .from(mockTestSets)
+    .orderBy(asc(mockTestSets.sortOrder), desc(mockTestSets.createdAt));
+  const tests = (await listTestsWithStats()).filter(t => t.setId !== null);
+  return sets.map(set => ({
+    ...set,
+    modules: FULL_TEST_MODULES.map(module => {
+      const test = tests.find(t => t.setId === set.id && t.module === module);
+      return test
+        ? {
+            module,
+            testId: test.id,
+            isPublished: test.isPublished,
+            questionCount: test.questionCount,
+            attemptCount: test.attemptCount,
+          }
+        : {
+            module,
+            testId: null,
+            isPublished: false,
+            questionCount: 0,
+            attemptCount: 0,
+          };
+    }),
+  }));
+}
+
+/** Creates the full test and an empty, unpublished test for each of its four modules. */
+export async function createTestSet(input: TestSetInput) {
+  const database = await db();
+  return database.transaction(async tx => {
+    const shared = {
+      variant: input.variant,
+      series: input.series || null,
+      bookNumber: input.series ? (input.bookNumber ?? null) : null,
+      testNumber: input.series ? (input.testNumber ?? null) : null,
+    };
+    const [result] = await tx.insert(mockTestSets).values({
+      title: input.title,
+      description: input.description ?? null,
+      ...shared,
+    });
+    const setId = result.insertId;
+    for (const module of FULL_TEST_MODULES) {
+      await tx.insert(mockTests).values({
+        setId,
+        title: moduleTitle(input.title, module),
+        module,
+        durationMinutes: DEFAULT_DURATION_MINUTES[module],
+        isPublished: false,
+        format: "full",
+        ...shared,
+      });
+    }
+    return setId;
+  });
+}
+
+/** Renames modules whose titles still follow the full test's name. */
+export async function updateTestSet(id: number, input: TestSetInput) {
+  const database = await db();
+  await database.transaction(async tx => {
+    const [current] = await tx
+      .select()
+      .from(mockTestSets)
+      .where(eq(mockTestSets.id, id))
+      .limit(1);
+    if (!current)
+      throw new TRPCError({ code: "NOT_FOUND", message: "Test not found" });
+    await tx
+      .update(mockTestSets)
+      .set({
+        title: input.title,
+        description: input.description ?? null,
+        variant: input.variant,
+        series: input.series || null,
+        bookNumber: input.series ? (input.bookNumber ?? null) : null,
+        testNumber: input.series ? (input.testNumber ?? null) : null,
+      })
+      .where(eq(mockTestSets.id, id));
+    if (current.title === input.title) return;
+    for (const module of FULL_TEST_MODULES) {
+      await tx
+        .update(mockTests)
+        .set({ title: moduleTitle(input.title, module) })
+        .where(
+          and(
+            eq(mockTests.setId, id),
+            eq(mockTests.module, module),
+            eq(mockTests.title, moduleTitle(current.title, module))
+          )
+        );
+    }
+  });
+}
+
+/** Deletes the full test and its module tests, including their attempts. */
+export async function deleteTestSet(id: number) {
+  const database = await db();
+  const tests = await database
+    .select({ id: mockTests.id })
+    .from(mockTests)
+    .where(eq(mockTests.setId, id));
+  for (const test of tests) await deleteTest(test.id);
+  await database.delete(mockTestSets).where(eq(mockTestSets.id, id));
 }
 
 // ============================================

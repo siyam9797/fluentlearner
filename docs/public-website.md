@@ -53,9 +53,9 @@ Text may contain tokens that are filled in at render time: `{scorers}`, `{succes
 | Logo, favicon, page title, tagline       | Admin → Settings → Branding                                       |
 | Fallback stats and brand constants       | `client/src/lib/siteConstants.ts`                                 |
 
-## Old site (v1) at `/old`
+## Old site (v1)
 
-`/old`, `/old/courses`, `/old/courses/:id` and `/old/success-stories` render the previous site. Its content was copied from the live site on 2026-10-10 into `client/src/old-site/content.ts`, and its images into `client/public/old-site/`. **It doesn't read anything the dashboard can change.** It has no enroll page, and `/old/enroll` redirects to `/enroll`. Its screens are `Home.tsx`, `CoursesPage.tsx`, `CourseDetailPage.tsx` and `SuccessStoriesPage.tsx`, along with the un-prefixed components in `client/src/components/`.
+The previous site, once kept at `/old`, has been removed. `/old` and `/old/*` permanently redirect to the matching live page (`next.config.ts`).
 
 ## SEO
 

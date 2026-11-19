@@ -53,7 +53,7 @@ export const ROLE_DEFINITIONS: Record<
     permissions: [
       "Review enrollments",
       "Manage students",
-      "Create student accounts",
+      "Create student and mentor accounts",
       "View courses and batches",
       "Manage learning resources",
     ],
@@ -128,12 +128,21 @@ export function canChangeEmailOf(
   return actorRole === "admin" && BELOW_ADMIN.includes(targetRole as AppRole);
 }
 
+/** Roles Staff may give new accounts: learners and their teachers. */
+export const STAFF_CREATABLE_ROLES: readonly AppRole[] = ["student", "mentor"];
+
+/** The roles this creator may give a new account (empty if they can't create accounts). */
+export function creatableRoles(
+  creatorRole: string | null | undefined
+): readonly AppRole[] {
+  if (canManageUsers(creatorRole)) return APP_ROLES;
+  if (creatorRole === "staff") return STAFF_CREATABLE_ROLES;
+  return [];
+}
+
 export function canCreateUserWithRole(
   creatorRole: string | null | undefined,
   newRole: AppRole
 ) {
-  return (
-    canManageUsers(creatorRole) ||
-    (creatorRole === "staff" && newRole === "student")
-  );
+  return creatableRoles(creatorRole).includes(newRole);
 }

@@ -399,11 +399,34 @@ export const MOCK_QUESTION_TYPES = [
   "short_answers",
 ] as const;
 
+/**
+ * A full IELTS test (e.g. "Cambridge 18 Test 1") that groups one mock test per module.
+ * Created first; its Listening, Reading, Writing and Speaking tests are then filled in one by one.
+ */
+export const mockTestSets = mysqlTable("mock_test_sets", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  variant: mysqlEnum("variant", ["academic", "general"])
+    .default("academic")
+    .notNull(),
+  series: varchar("series", { length: 50 }),
+  bookNumber: int("bookNumber"),
+  testNumber: int("testNumber"),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MockTestSet = typeof mockTestSets.$inferSelect;
+
 /** One mock test covers one IELTS module. */
 export const mockTests = mysqlTable(
   "mock_tests",
   {
     id: int("id").autoincrement().primaryKey(),
+    /** The full test (mock_test_sets) this module belongs to; null for a standalone test. */
+    setId: int("setId"),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     module: mysqlEnum("module", MOCK_MODULES).notNull(),
@@ -442,6 +465,7 @@ export const mockTests = mysqlTable(
       table.testNumber
     ),
     index("mock_tests_practice_type_idx").on(table.practiceType),
+    index("mock_tests_set_idx").on(table.setId),
   ]
 );
 
