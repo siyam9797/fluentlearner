@@ -92,7 +92,21 @@ export default function AdminFullTestForm({ id }: { id?: number }) {
   });
   const createBook = trpc.mockTestSets.createBook.useMutation({
     onSuccess: ({ created, skipped }) => {
-      const book = bookTitle(form.series, Number(form.book) || 1);
+      const bookNumber = bookSeries(form.series)?.singleBook
+        ? 1
+        : Number(form.book) || 1;
+      const book = bookTitle(form.series, bookNumber);
+      // Open the book in the list (same key and storage as AdminFullTests).
+      try {
+        const key = "admin-full-tests-open-books";
+        const open = new Set(
+          JSON.parse(localStorage.getItem(key) ?? "[]") as string[]
+        );
+        open.add(`${form.series}-${bookNumber}`);
+        localStorage.setItem(key, JSON.stringify([...open]));
+      } catch {
+        // Storage unavailable: the book just starts closed.
+      }
       if (created.length === 0)
         toast.info(`All tests of ${book} are already added`);
       else

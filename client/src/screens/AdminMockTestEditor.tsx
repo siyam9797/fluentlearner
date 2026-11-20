@@ -15,6 +15,7 @@ import {
   ArrowDown,
   ArrowUp,
   CloudUpload,
+  Copy,
   Eye,
   FileInput,
   Loader2,
@@ -27,6 +28,7 @@ import {
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
+import CopyModuleDialog from "@/components/CopyModuleDialog";
 import { trpc } from "@/lib/trpc";
 import { useLocation, useSearch } from "@/lib/router";
 import { fileToBase64 } from "@/lib/fileToBase64";
@@ -2135,6 +2137,7 @@ export default function AdminMockTestEditor() {
   );
   const [settings, setSettings] = useState<Settings | null>(null);
   const [sections, setSections] = useState<SectionDraft[]>([]);
+  const [copyOpen, setCopyOpen] = useState(false);
 
   useEffect(() => {
     if (!existing) return;
@@ -2282,6 +2285,40 @@ export default function AdminMockTestEditor() {
       action={
         settings ? (
           <div className="flex items-center gap-2">
+            {testId && existing && (
+              <button
+                type="button"
+                onClick={() => setCopyOpen(true)}
+                title="Replace this module's questions with a copy of another test's"
+                className="admin-button admin-button-secondary"
+              >
+                <Copy className="h-4 w-4" />
+                Copy from another test
+              </button>
+            )}
+            {copyOpen && testId && existing && (
+              <CopyModuleDialog
+                target={{
+                  testId,
+                  module: existing.module,
+                  setTitle: existing.title,
+                  variant: existing.variant,
+                  questionCount: existing.sections.reduce(
+                    (sum, section) => sum + section.questions.length,
+                    0
+                  ),
+                }}
+                note="Unsaved changes in this editor will be lost."
+                onClose={() => setCopyOpen(false)}
+                onCopied={() => {
+                  setCopyOpen(false);
+                  // Reload the editor with the copied sections and questions.
+                  utils.mockTests.get.invalidate({ id: testId });
+                  utils.mockTests.list.invalidate();
+                  utils.mockTestSets.list.invalidate();
+                }}
+              />
+            )}
             {testId && (
               <a
                 href={`/admin/ielts/preview/${testId}`}
