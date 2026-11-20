@@ -34,6 +34,7 @@ import {
   canManageUsers,
 } from "@shared/roles";
 import { BOOK_SERIES_KEYS, choiceSelectionCount } from "@shared/mock";
+import { parseDriveLink } from "@shared/googleDrive";
 import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
 const questionInput = z
@@ -520,6 +521,31 @@ const resourceInput = z.object({
   sortOrder: z.number().int().default(0),
 });
 
+/**
+ * Resource files come from Google Drive: the link must be a Drive or Google Docs share link.
+ * Stores its tidy form and Google's type, and clears the size an upload used to have.
+ */
+function driveFile(fileUrl: string) {
+  const link = parseDriveLink(fileUrl);
+  if (!link)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Paste a Google Drive share link (drive.google.com or docs.google.com)",
+    });
+  // Students get files through the portal, which can pass on a file but not a folder or a form.
+  if (link.kind === "folder" || link.kind === "forms")
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `A ${link.label} can't be shared through the portal. Link the file itself.`,
+    });
+  return {
+    fileUrl: link.url,
+    mimeType: link.mimeType,
+    fileName: null,
+    fileSize: null,
+  };
+}
+
 const vocabularyInput = z.object({
   word: z.string().trim().min(1).max(120),
   partOfSpeech: z.string().trim().min(1).max(50),
@@ -534,7 +560,9 @@ export const learningResourcesRouter = router({
   list: adminProcedure.query(() => mock.listLearningResources()),
   create: adminProcedure
     .input(resourceInput)
-    .mutation(({ input }) => mock.createLearningResource(input)),
+    .mutation(({ input }) =>
+      mock.createLearningResource({ ...input, ...driveFile(input.fileUrl) })
+    ),
   update: adminProcedure
     .input(
       z.object({
@@ -542,28 +570,21 @@ export const learningResourcesRouter = router({
         data: resourceInput.partial(),
       })
     )
-    .mutation(({ input }) => mock.updateLearningResource(input.id, input.data)),
+    .mutation(async ({ input }) => {
+      const { fileUrl, ...data } = input.data;
+      const current = await mock.getLearningResource(input.id);
+      if (!current)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
+      // Resources from before Google Drive keep their uploaded file until it is replaced.
+      const file =
+        fileUrl === undefined || fileUrl === current.fileUrl
+          ? {}
+          : driveFile(fileUrl);
+      return mock.updateLearningResource(input.id, { ...data, ...file });
+    }),
   delete: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(({ input }) => mock.deleteLearningResource(input.id)),
-  upload: adminProcedure
-    .input(
-      z.object({
-        base64: z.string(),
-        filename: z.string().min(1),
-        contentType: z.string().default("application/octet-stream"),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const buffer = decodeUpload(input.base64, 25 * MB);
-      const result = await storagePutNamed("resources", input.filename, buffer);
-      return {
-        ...result,
-        fileName: input.filename,
-        mimeType: input.contentType,
-        fileSize: result.size,
-      };
-    }),
   vocabularyList: adminProcedure.query(() => mock.listVocabulary()),
   vocabularyCreate: adminProcedure
     .input(vocabularyInput)
@@ -689,8 +710,24 @@ export const studentRouter = router({
 
   batch: studentProcedure.query(({ ctx }) => mock.getStudentBatch(ctx.user.id)),
 
-  resources: studentProcedure.query(({ ctx }) =>
-    mock.listStudentResources(ctx.user.id)
+  /**
+   * Drive resources never show their Drive link to students: they get our portal link
+   * (/api/resources/:id/file), which checks access and streams the file from Drive.
+   */
+  resources: studentProcedure.query(async ({ ctx }) =>
+    (await mock.listStudentResources(ctx.user.id)).map(row => {
+      const drive = parseDriveLink(row.resource.fileUrl);
+      return drive
+        ? {
+            ...row,
+            resource: {
+              ...row.resource,
+              fileUrl: `/api/resources/${row.resource.id}/file`,
+              driveKind: drive.kind,
+            },
+          }
+        : { ...row, resource: { ...row.resource, driveKind: null } };
+    })
   ),
 
   vocabulary: studentProcedure.query(() => mock.listVocabulary(true)),

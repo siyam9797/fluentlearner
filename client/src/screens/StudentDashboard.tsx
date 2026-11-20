@@ -16,13 +16,16 @@ import {
   FileArchive,
   FileAudio,
   FileImage,
+  FileSpreadsheet,
   FileText,
+  Folder,
   Gauge,
   Keyboard,
   LockKeyhole,
   Mail,
   Mic,
   PenLine,
+  Presentation,
   Play,
   Sparkles,
   RotateCcw,
@@ -54,6 +57,7 @@ import { fileToBase64 } from "@/lib/fileToBase64";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
+import type { DriveKind } from "@shared/googleDrive";
 import {
   CAMBRIDGE,
   MODULE_LABELS,
@@ -1206,6 +1210,10 @@ function ResourcesPage() {
   );
 
   const iconFor = (mime: string | null) => {
+    if (mime === "application/vnd.google-apps.folder") return Folder;
+    if (mime === "application/vnd.google-apps.spreadsheet")
+      return FileSpreadsheet;
+    if (mime === "application/vnd.google-apps.presentation") return Presentation;
     if (mime?.startsWith("audio/")) return FileAudio;
     if (mime?.startsWith("video/")) return Video;
     if (mime?.startsWith("image/")) return FileImage;
@@ -1381,7 +1389,10 @@ function ResourcesPage() {
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {rows.map(({ resource, batch }) => {
             const Icon = iconFor(resource.mimeType);
-            const external = !resource.fileSize;
+            // Drive files come through the portal (fileUrl is our link, never Drive's) and
+            // open in a new tab; older resources are uploads, downloaded directly.
+            const fromDrive = resource.driveKind !== null;
+            const external = fromDrive || !resource.fileSize;
             return (
               <article
                 key={resource.id}
@@ -1403,7 +1414,9 @@ function ResourcesPage() {
                 )}
                 <div className="mt-auto flex items-center justify-between gap-4 pt-6">
                   <span className="min-w-0 truncate text-xs text-ink/45">
-                    {resource.fileName || sizeLabel(resource.fileSize)}
+                    {fromDrive
+                      ? DRIVE_KIND_LABELS[resource.driveKind ?? "file"]
+                      : resource.fileName || sizeLabel(resource.fileSize)}
                   </span>
                   <a
                     href={resource.fileUrl}
@@ -2305,6 +2318,16 @@ function ResultsHistory() {
     </div>
   );
 }
+
+/** What a portal resource from Google Drive is, without naming Drive. */
+const DRIVE_KIND_LABELS: Record<DriveKind, string> = {
+  file: "File",
+  document: "Document · PDF",
+  presentation: "Slides · PDF",
+  spreadsheets: "Spreadsheet",
+  folder: "Folder",
+  forms: "Form",
+};
 
 export default function StudentDashboard() {
   const [pathname] = useLocation();

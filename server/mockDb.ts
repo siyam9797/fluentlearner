@@ -1129,6 +1129,16 @@ export async function listStudentResources(userId: number) {
     );
 }
 
+export async function getLearningResource(id: number) {
+  const database = await db();
+  const [row] = await database
+    .select()
+    .from(learningResources)
+    .where(eq(learningResources.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function createLearningResource(data: InsertLearningResource) {
   const database = await db();
   const [result] = await database.insert(learningResources).values(data);

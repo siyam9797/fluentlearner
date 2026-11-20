@@ -1,11 +1,11 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { Check, File, FileUp, Loader2 } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Check, File, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
-import { fileToBase64 } from "@/lib/fileToBase64";
 import { useLocation } from "@/lib/router";
 import { trpc } from "@/lib/trpc";
 import AdminSelect from "@/components/AdminSelect";
+import { parseDriveLink } from "@shared/googleDrive";
 
 type ResourceForm = {
   title: string;
@@ -66,6 +66,8 @@ export default function AdminResourceForm({
   const editing = Boolean(editId);
   const [resource, setResource] = useState<ResourceForm>(emptyResource);
   const [vocabulary, setVocabulary] = useState<VocabularyForm>(emptyVocabulary);
+  /** The file link the resource had when the form loaded (editing only). */
+  const [savedFileUrl, setSavedFileUrl] = useState("");
   const { data: batches = [] } = trpc.batches.adminList.useQuery();
   const { data: resources = [] } = trpc.learningResources.list.useQuery(
     undefined,
@@ -77,12 +79,12 @@ export default function AdminResourceForm({
       enabled: kind === "vocabulary" && editing,
     }
   );
-  const upload = trpc.learningResources.upload.useMutation();
 
   useEffect(() => {
     if (kind !== "resource" || !editId) return;
     const row = resources.find(item => item.resource.id === editId);
     if (!row) return;
+    setSavedFileUrl(row.resource.fileUrl);
     setResource({
       title: row.resource.title,
       description: row.resource.description ?? "",
@@ -136,37 +138,26 @@ export default function AdminResourceForm({
     navigate(path);
   }
 
-  const uploadFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
-    if (selected.size > 25 * 1024 * 1024) {
-      toast.error("File must be 25MB or smaller");
-      return;
-    }
-    try {
-      const result = await upload.mutateAsync({
-        base64: await fileToBase64(selected),
-        filename: selected.name,
-        contentType: selected.type || "application/octet-stream",
-      });
-      setResource(current => ({
-        ...current,
-        fileUrl: result.url,
-        fileName: result.fileName,
-        mimeType: result.mimeType,
-        fileSize: result.fileSize,
-        title: current.title || selected.name.replace(/\.[^.]+$/, ""),
-      }));
-      toast.success("File uploaded");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
-    }
-  };
+  const driveLink = parseDriveLink(resource.fileUrl);
+  /** Resources from before Google Drive keep their uploaded file until a Drive link replaces it. */
+  /** The portal can pass on a file, but not a folder or a form. */
+  const unsupported =
+    driveLink?.kind === "folder" || driveLink?.kind === "forms";
+  const legacyFile =
+    editing && !driveLink && resource.fileUrl === savedFileUrl;
 
   const saveResource = (event: FormEvent) => {
     event.preventDefault();
-    if (!resource.title.trim() || !resource.fileUrl.trim()) {
-      toast.error("Add a title and upload a file or enter a URL");
+    if (!resource.title.trim()) {
+      toast.error("Give the resource a title");
+      return;
+    }
+    if (!driveLink && !legacyFile) {
+      toast.error("Paste the file's Google Drive share link");
+      return;
+    }
+    if (unsupported) {
+      toast.error("Link a Drive file, not a folder or form");
       return;
     }
     const data = {
@@ -374,31 +365,10 @@ export default function AdminResourceForm({
                 }
               />
             </label>
-            <div className="border-y border-dashed border-[var(--admin-border)] py-5 sm:col-span-2">
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="admin-button admin-button-secondary">
-                  <FileUp className="h-4 w-4" />
-                  {upload.isPending ? "Uploading…" : "Upload file"}
-                  <input
-                    type="file"
-                    className="sr-only"
-                    disabled={upload.isPending}
-                    onChange={uploadFile}
-                  />
-                </label>
-                <span className="text-sm text-[var(--admin-body)]">
-                  Maximum file size: 25MB
-                </span>
-              </div>
-              {resource.fileName && (
-                <p className="mt-3 flex items-center gap-2 text-sm">
-                  <File className="h-4 w-4" /> {resource.fileName}
-                </p>
-              )}
-            </div>
             <label className="text-sm font-medium sm:col-span-2">
-              Or external URL
+              Google Drive link
               <input
+                required
                 type="url"
                 className={field}
                 value={resource.fileUrl}
@@ -406,13 +376,50 @@ export default function AdminResourceForm({
                   setResource(current => ({
                     ...current,
                     fileUrl: event.target.value,
-                    fileName: "",
-                    mimeType: "",
-                    fileSize: null,
                   }))
                 }
-                placeholder="https://…"
+                placeholder="https://drive.google.com/file/d/…"
               />
+              <span className="mt-2 flex items-center gap-2 text-xs font-normal leading-5 text-[var(--admin-body)]">
+                {driveLink && unsupported ? (
+                  <span className="text-[var(--admin-danger,#b91c1c)]">
+                    A {driveLink.label} can’t be shared through the portal. Link
+                    the file itself.
+                  </span>
+                ) : driveLink ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 shrink-0 text-[var(--admin-success)]" />
+                    <span>
+                      {driveLink.label}
+                      {editId && resource.fileUrl === savedFileUrl && (
+                        <>
+                          {" · "}
+                          <a
+                            href={`/api/resources/${editId}/file`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[var(--admin-primary)] hover:underline"
+                          >
+                            Open as students get it
+                          </a>
+                        </>
+                      )}
+                    </span>
+                  </>
+                ) : legacyFile ? (
+                  <>
+                    <File className="h-3.5 w-3.5 shrink-0" />
+                    Uploaded file{resource.fileName ? ` ${resource.fileName}` : ""}.
+                    Paste a Google Drive link to replace it.
+                  </>
+                ) : resource.fileUrl.trim() ? (
+                  <span className="text-[var(--admin-danger,#b91c1c)]">
+                    This isn’t a Google Drive link.
+                  </span>
+                ) : (
+                  "Students never see this link: the portal fetches the file and sends it to them. In Drive, set the file's General access to “Anyone with the link” so the portal can fetch it."
+                )}
+              </span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input

@@ -1,8 +1,7 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   File,
-  FileUp,
   ListFilter,
   Loader2,
   Plus,
@@ -18,38 +17,14 @@ import AdminFilterDrawer, {
   type FilterGroup,
   type FilterSelection,
 } from "@/components/AdminFilterDrawer";
-import { fileToBase64 } from "@/lib/fileToBase64";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { useLocation } from "@/lib/router";
-import AdminSelect from "@/components/AdminSelect";
+import { parseDriveLink } from "@shared/googleDrive";
 import AdminPagination, {
   useAdminPagination,
 } from "@/components/AdminPagination";
 
 type Row = RouterOutputs["learningResources"]["list"][number];
-type Form = {
-  title: string;
-  description: string;
-  batchId: number | null;
-  fileUrl: string;
-  fileName: string;
-  mimeType: string;
-  fileSize: number | null;
-  isActive: boolean;
-  sortOrder: number;
-};
-
-const empty: Form = {
-  title: "",
-  description: "",
-  batchId: null,
-  fileUrl: "",
-  fileName: "",
-  mimeType: "",
-  fileSize: null,
-  isActive: true,
-  sortOrder: 0,
-};
 const field =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--admin-primary)]";
 
@@ -480,7 +455,7 @@ function AdminResourceFiles({
             <tr>
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Available to</th>
-              <th className="px-4 py-3 font-medium">Size</th>
+              <th className="px-4 py-3 font-medium">File</th>
               <th className="px-4 py-3 font-medium">Order</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3">
@@ -508,7 +483,10 @@ function AdminResourceFiles({
                   {row.batch?.name || "All students"}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {sizeLabel(row.resource.fileSize)}
+                  {parseDriveLink(row.resource.fileUrl)?.label ??
+                    (row.resource.fileSize
+                      ? `Uploaded · ${sizeLabel(row.resource.fileSize)}`
+                      : "External link")}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {row.resource.sortOrder}
@@ -561,9 +539,6 @@ export default function AdminResources({
   const utils = trpc.useUtils();
   const { data: rows = [], isLoading } = trpc.learningResources.list.useQuery();
   const { data: batches = [] } = trpc.batches.adminList.useQuery();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<number | null>(null);
-  const [form, setForm] = useState<Form>(empty);
   // Driven by the URL: the sidebar sub-menu links to /admin/resources and /admin/resources/vocabulary.
   const section = initialSection;
   const [searchOpen, setSearchOpen] = useState(false);
@@ -639,15 +614,6 @@ export default function AdminResources({
         )}
       </button>
     );
-  const upload = trpc.learningResources.upload.useMutation();
-  const create = trpc.learningResources.create.useMutation({
-    onSuccess: done,
-    onError: error => toast.error(error.message),
-  });
-  const update = trpc.learningResources.update.useMutation({
-    onSuccess: done,
-    onError: error => toast.error(error.message),
-  });
   const remove = trpc.learningResources.delete.useMutation({
     onSuccess: () => {
       toast.success("Resource deleted");
@@ -656,54 +622,8 @@ export default function AdminResources({
     onError: error => toast.error(error.message),
   });
 
-  function done() {
-    toast.success(editing ? "Resource updated" : "Resource published");
-    setOpen(false);
-    setEditing(null);
-    setForm(empty);
-    utils.learningResources.list.invalidate();
-  }
-
   const edit = (row: Row) => {
     navigate(`/admin/resources/${row.resource.id}/edit`);
-  };
-
-  const uploadFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (file.size > 25 * 1024 * 1024)
-      return toast.error("File must be 25MB or smaller");
-    try {
-      const result = await upload.mutateAsync({
-        base64: await fileToBase64(file),
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-      });
-      setForm(value => ({
-        ...value,
-        fileUrl: result.url,
-        fileName: result.fileName,
-        mimeType: result.mimeType,
-        fileSize: result.fileSize,
-        title: value.title || file.name.replace(/\.[^.]+$/, ""),
-      }));
-      toast.success("File uploaded");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
-    }
-  };
-
-  const save = () => {
-    if (!form.title.trim() || !form.fileUrl.trim())
-      return toast.error("Add a title and upload a file or enter a URL");
-    const data = {
-      ...form,
-      description: form.description || null,
-      fileName: form.fileName || null,
-      mimeType: form.mimeType || null,
-    };
-    if (editing) update.mutate({ id: editing, data });
-    else create.mutate(data);
   };
 
   return (
@@ -733,7 +653,7 @@ export default function AdminResources({
                 </button>
               </div>
             )
-          ) : !open && !searchOpen ? (
+          ) : !searchOpen ? (
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -815,147 +735,6 @@ export default function AdminResources({
         <AdminVocabulary query={searchQuery} filters={filters} />
       ) : (
         <>
-          {open && (
-            <div className="mb-8 border-b border-[var(--admin-border)] pb-8">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">
-                  {editing ? "Edit resource" : "New resource"}
-                </h2>
-                <button onClick={() => setOpen(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-sm font-medium">
-                  Title
-                  <input
-                    className={`${field} mt-2`}
-                    value={form.title}
-                    onChange={e =>
-                      setForm(v => ({ ...v, title: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Available to
-                  <AdminSelect
-                    value={form.batchId ?? ""}
-                    onChange={e =>
-                      setForm(v => ({
-                        ...v,
-                        batchId: e.target.value ? Number(e.target.value) : null,
-                      }))
-                    }
-                    className="mt-2"
-                  >
-                    <option value="">All students</option>
-                    {batches.map(batch => (
-                      <option key={batch.id} value={batch.id}>
-                        {batch.name}
-                      </option>
-                    ))}
-                  </AdminSelect>
-                </label>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Description
-                  <textarea
-                    className={`${field} mt-2 min-h-24`}
-                    value={form.description}
-                    onChange={e =>
-                      setForm(v => ({ ...v, description: e.target.value }))
-                    }
-                  />
-                </label>
-                <div className="sm:col-span-2 rounded-[var(--radius-card)] border border-dashed border-gray-300 p-5">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="admin-button admin-button-secondary">
-                      <FileUp className="h-4 w-4" />
-                      {upload.isPending ? "Uploading…" : "Upload file"}
-                      <input
-                        type="file"
-                        className="sr-only"
-                        disabled={upload.isPending}
-                        onChange={uploadFile}
-                      />
-                    </label>
-                    <span className="text-sm text-gray-500">
-                      PDF, document, slides, spreadsheet, ZIP, image, audio, or
-                      video · maximum 25MB
-                    </span>
-                  </div>
-                  {form.fileName && (
-                    <p className="mt-3 flex items-center gap-2 text-sm">
-                      <File className="h-4 w-4" />
-                      {form.fileName} · {sizeLabel(form.fileSize)}
-                    </p>
-                  )}
-                </div>
-                <label className="text-sm font-medium sm:col-span-2">
-                  Or external URL
-                  <input
-                    type="url"
-                    className={`${field} mt-2`}
-                    placeholder="https://…"
-                    value={form.fileUrl}
-                    onChange={e =>
-                      setForm(v => ({
-                        ...v,
-                        fileUrl: e.target.value,
-                        fileName: "",
-                        mimeType: "",
-                        fileSize: null,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.isActive}
-                    onChange={e =>
-                      setForm(v => ({ ...v, isActive: e.target.checked }))
-                    }
-                  />
-                  Visible to students
-                </label>
-                <label className="flex items-center gap-3 text-sm">
-                  Order
-                  <input
-                    type="number"
-                    className="w-24 rounded-md border px-3 py-2"
-                    value={form.sortOrder}
-                    onChange={e =>
-                      setForm(v => ({
-                        ...v,
-                        sortOrder: Number(e.target.value),
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-              <div className="mt-0 flex gap-3 pt-8">
-                <button
-                  onClick={save}
-                  disabled={
-                    create.isPending || update.isPending || upload.isPending
-                  }
-                  className="admin-primary-button"
-                >
-                  {create.isPending || update.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  {editing ? "Save changes" : "Publish resource"}
-                </button>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="admin-button admin-button-secondary"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
           <AdminResourceFiles
             rows={rows}
             isLoading={isLoading}
