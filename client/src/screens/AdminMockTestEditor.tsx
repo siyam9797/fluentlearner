@@ -33,7 +33,8 @@ import { fileToBase64 } from "@/lib/fileToBase64";
 import {
   AUTO_MARKED_TYPES,
   BUILDER_QUESTION_TYPES,
-  CAMBRIDGE,
+  BOOK_SERIES,
+  bookSeries,
   CHOICE_SELECTION_COUNTS,
   DEFAULT_DURATION_MINUTES,
   FIXED_CHOICES,
@@ -44,7 +45,7 @@ import {
   PAPER_LAYOUT,
   QUESTION_TYPE_LABELS,
   READING_TYPE_INSTRUCTIONS,
-  cambridgeTitle,
+  seriesModuleTitle,
   choiceSelectionCount,
   isCompletionType,
   isAutoMarkedModule,
@@ -2211,7 +2212,7 @@ export default function AdminMockTestEditor() {
   ) => {
     setSettings({
       title: preset
-        ? cambridgeTitle(preset.book, preset.test, module)
+        ? seriesModuleTitle(preset.series, preset.book, preset.test, module)
         : `${MODULE_LABELS[module]} Mock Test`,
       description: "",
       module,
@@ -2236,8 +2237,9 @@ export default function AdminMockTestEditor() {
     const book = Number(search.get("book"));
     const test = Number(search.get("test"));
     if (!module || !(module in MODULE_LABELS)) return;
-    if (search.get("series") === CAMBRIDGE.key && book && test) {
-      chooseModule(module, { series: CAMBRIDGE.key, book, test });
+    const series = bookSeries(search.get("series"));
+    if (series && book && test) {
+      chooseModule(module, { series: series.key, book, test });
     } else {
       // Opened from a module page: /admin/ielts/new?module=writing
       chooseModule(module);
@@ -2723,14 +2725,25 @@ export default function AdminMockTestEditor() {
             </Field>
             <Field
               label="Book series"
-              hint="Groups the test in the Cambridge library."
+              hint="The published book this test comes from, if any."
             >
               <AdminSelect
                 value={settings.series ?? ""}
-                onChange={e => setS({ series: e.target.value || null })}
+                onChange={e => {
+                  const series = bookSeries(e.target.value);
+                  setS({
+                    series: series?.key ?? null,
+                    // A one-book series (the Official Guide) is always book 1.
+                    ...(series?.singleBook ? { bookNumber: 1 } : {}),
+                  });
+                }}
               >
                 <option value="">None — our own test</option>
-                <option value={CAMBRIDGE.key}>{CAMBRIDGE.label}</option>
+                {BOOK_SERIES.map(series => (
+                  <option key={series.key} value={series.key}>
+                    {series.label}
+                  </option>
+                ))}
               </AdminSelect>
             </Field>
             <Field
@@ -2753,30 +2766,32 @@ export default function AdminMockTestEditor() {
                 ))}
               </AdminSelect>
             </Field>
-            {settings.series === CAMBRIDGE.key && (
+            {bookSeries(settings.series) && (
               <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
-                <Field label="Book">
-                  <AdminSelect
-                    value={settings.bookNumber ?? ""}
-                    onChange={e =>
-                      setS({
-                        bookNumber: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      })
-                    }
-                  >
-                    <option value="">Select…</option>
-                    {Array.from(
-                      { length: CAMBRIDGE.books },
-                      (_, i) => CAMBRIDGE.books - i
-                    ).map(n => (
-                      <option key={n} value={n}>
-                        {CAMBRIDGE.label} {n}
-                      </option>
-                    ))}
-                  </AdminSelect>
-                </Field>
+                {!bookSeries(settings.series)!.singleBook && (
+                  <Field label="Book">
+                    <AdminSelect
+                      value={settings.bookNumber ?? ""}
+                      onChange={e =>
+                        setS({
+                          bookNumber: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                    >
+                      <option value="">Select…</option>
+                      {Array.from(
+                        { length: bookSeries(settings.series)!.books },
+                        (_, i) => bookSeries(settings.series)!.books - i
+                      ).map(n => (
+                        <option key={n} value={n}>
+                          {bookSeries(settings.series)!.label} {n}
+                        </option>
+                      ))}
+                    </AdminSelect>
+                  </Field>
+                )}
                 <Field label="Test">
                   <AdminSelect
                     value={settings.testNumber ?? ""}
@@ -2790,7 +2805,12 @@ export default function AdminMockTestEditor() {
                   >
                     <option value="">Select…</option>
                     {Array.from(
-                      { length: CAMBRIDGE.testsPerBook },
+                      {
+                        length: Math.max(
+                          bookSeries(settings.series)!.testsPerBook,
+                          settings.testNumber ?? 0
+                        ),
+                      },
                       (_, i) => i + 1
                     ).map(n => (
                       <option key={n} value={n}>

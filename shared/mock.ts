@@ -461,10 +461,76 @@ export const CAMBRIDGE = {
   label: "Cambridge IELTS",
   books: 21,
   testsPerBook: 4,
+  /** Every Cambridge book has exactly four tests, so adding a book never asks how many. */
+  fixedTestCount: true,
 } as const;
 
+export const PRACTICE_PLUS = {
+  key: "practice_plus",
+  label: "IELTS Practice Tests Plus",
+  books: 3,
+  testsPerBook: 6,
+} as const;
+
+export const OFFICIAL_GUIDE = {
+  key: "official_guide",
+  label: "The Official Cambridge Guide to IELTS",
+  books: 1,
+  testsPerBook: 8,
+  singleBook: true,
+} as const;
+
+export type BookSeries = {
+  key: string;
+  label: string;
+  /** One book, no volume numbers: stored as book 1 and titled without a number. */
+  singleBook?: boolean;
+  /** Highest book number offered in pickers. */
+  books: number;
+  /** Tests created when a whole book is added (can be changed when adding, unless fixed). */
+  testsPerBook: number;
+  fixedTestCount?: boolean;
+};
+
+/** Published practice-test books a test can come from. Stored in mock_tests/mock_test_sets.series. */
+export const BOOK_SERIES: readonly BookSeries[] = [
+  CAMBRIDGE,
+  PRACTICE_PLUS,
+  OFFICIAL_GUIDE,
+];
+export const BOOK_SERIES_KEYS = BOOK_SERIES.map(series => series.key) as [
+  string,
+  ...string[],
+];
+
+export function bookSeries(key: string | null | undefined) {
+  return BOOK_SERIES.find(series => series.key === key) ?? null;
+}
+
+/** "Cambridge IELTS 18", or just the title for a one-book series. */
+export function bookTitle(seriesKey: string, book: number) {
+  const series = bookSeries(seriesKey);
+  if (!series) return `${seriesKey} ${book}`;
+  return series.singleBook ? series.label : `${series.label} ${book}`;
+}
+
+/** "Cambridge IELTS 18 · Test 2" */
+export function bookTestTitle(seriesKey: string, book: number, test: number) {
+  return `${bookTitle(seriesKey, book)} · Test ${test}`;
+}
+
 export function cambridgeTitle(book: number, test: number, module: MockModule) {
-  return `${CAMBRIDGE.label} ${book} · Test ${test} · ${MODULE_LABELS[module]}`;
+  return seriesModuleTitle(CAMBRIDGE.key, book, test, module);
+}
+
+/** "Cambridge IELTS 18 · Test 2 · Listening" */
+export function seriesModuleTitle(
+  seriesKey: string,
+  book: number,
+  test: number,
+  module: MockModule
+) {
+  return `${bookTestTitle(seriesKey, book, test)} · ${MODULE_LABELS[module]}`;
 }
 
 /** Question-number ranges for each part/passage of a standard 40-question paper. */

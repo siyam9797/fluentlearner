@@ -38,6 +38,7 @@ const AdminCambridgeLibrary = dynamic(
 );
 const AdminMockResults = dynamic(() => import("./screens/AdminMockResults"));
 const AdminFullTests = dynamic(() => import("./screens/AdminFullTests"));
+const AdminFullTestForm = dynamic(() => import("./screens/AdminFullTestForm"));
 const AdminUsers = dynamic(() => import("./screens/AdminUsers"));
 const AdminUserCreate = dynamic(() => import("./screens/AdminUserCreate"));
 const AdminUserEdit = dynamic(() => import("./screens/AdminUserEdit"));
@@ -152,6 +153,17 @@ function Router() {
     // /admin/ielts redirects to Full tests (next.config.ts); render it here too in case it doesn't.
     else if (pathname === "/admin/ielts" || pathname === "/admin/ielts/tests")
       screen = <AdminFullTests />;
+    else if (pathname === "/admin/ielts/tests/new")
+      screen = <AdminFullTestForm key={pathname} />;
+    else if (/^\/admin\/ielts\/tests\/\d+\/edit$/.test(pathname))
+      screen = (
+        <AdminFullTestForm
+          key={pathname}
+          id={Number(
+            pathname.match(/^\/admin\/ielts\/tests\/(\d+)\/edit$/)?.[1]
+          )}
+        />
+      );
     else if (isMockModule(pathname.slice("/admin/ielts/".length)))
       screen = (
         <AdminMockTests

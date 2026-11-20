@@ -33,7 +33,7 @@ import {
   canCreateUserWithRole,
   canManageUsers,
 } from "@shared/roles";
-import { choiceSelectionCount } from "@shared/mock";
+import { BOOK_SERIES_KEYS, choiceSelectionCount } from "@shared/mock";
 import { isAiGradingConfigured, runAiEvaluation } from "./aiGrading";
 
 const questionInput = z
@@ -129,6 +129,18 @@ export const mockTestsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Test not found" });
       return test;
     }),
+
+  /** Replaces a module's questions with a copy of another test's same module. */
+  copyFrom: adminProcedure
+    .input(
+      z.object({
+        sourceId: z.number().int().positive(),
+        targetId: z.number().int().positive(),
+      })
+    )
+    .mutation(({ input }) =>
+      mock.copyModuleContent(input.sourceId, input.targetId)
+    ),
 
   /** The exam screen exactly as students see it, without starting an attempt. */
   preview: adminProcedure
@@ -285,6 +297,18 @@ export const mockTestSetsRouter = router({
   create: adminProcedure
     .input(testSetInput)
     .mutation(async ({ input }) => ({ id: await mock.createTestSet(input) })),
+
+  /** Adds every test of a book (Cambridge, Practice Tests Plus) at once; tests already added are skipped. */
+  createBook: adminProcedure
+    .input(
+      z.object({
+        series: z.enum(BOOK_SERIES_KEYS),
+        bookNumber: z.number().int().min(1).max(99),
+        variant: z.enum(["academic", "general"]).default("academic"),
+        testCount: z.number().int().min(1).max(20),
+      })
+    )
+    .mutation(({ input }) => mock.createBook(input)),
 
   update: adminProcedure
     .input(z.object({ id: z.number().int().positive(), data: testSetInput }))

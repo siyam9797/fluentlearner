@@ -39,6 +39,8 @@ import { isAiGradingConfigured, queueAiEvaluation } from "./aiGrading";
 import {
   AUTO_MARKED_TYPES,
   answerScore,
+  bookSeries,
+  bookTestTitle,
   bandFromRawScore,
   DEFAULT_DURATION_MINUTES,
   isAutoMarkedModule,
@@ -319,6 +321,85 @@ export async function deleteTest(testId: number) {
   });
 }
 
+/**
+ * Replaces one module's questions with a copy of another test's: sections (passages, audio,
+ * images, prompts) and questions with their answers. The target keeps its own title, full test,
+ * type and published state. Uploaded files are shared, not duplicated.
+ */
+export async function copyModuleContent(sourceId: number, targetId: number) {
+  if (sourceId === targetId)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Choose a different test to copy from",
+    });
+  const database = await db();
+  return database.transaction(async tx => {
+    const tests = await tx
+      .select()
+      .from(mockTests)
+      .where(inArray(mockTests.id, [sourceId, targetId]));
+    const source = tests.find(t => t.id === sourceId);
+    const target = tests.find(t => t.id === targetId);
+    if (!source || !target)
+      throw new TRPCError({ code: "NOT_FOUND", message: "Test not found" });
+    if (source.module !== target.module)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Only a ${MODULE_LABELS[target.module]} module can be copied here`,
+      });
+    const [attempt] = await tx
+      .select({ id: mockAttempts.id })
+      .from(mockAttempts)
+      .where(eq(mockAttempts.testId, targetId))
+      .limit(1);
+    if (attempt)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Students have already taken this module, so its questions can't be replaced",
+      });
+
+    const sections = await tx
+      .select()
+      .from(mockSections)
+      .where(eq(mockSections.testId, sourceId))
+      .orderBy(asc(mockSections.sortOrder), asc(mockSections.id));
+    const questions = await tx
+      .select()
+      .from(mockQuestions)
+      .where(eq(mockQuestions.testId, sourceId))
+      .orderBy(asc(mockQuestions.sortOrder), asc(mockQuestions.id));
+    if (questions.length === 0)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "That test has no questions to copy",
+      });
+
+    await tx.delete(mockQuestions).where(eq(mockQuestions.testId, targetId));
+    await tx.delete(mockSections).where(eq(mockSections.testId, targetId));
+    const sectionIds = new Map<number, number>();
+    for (const { id, ...section } of sections) {
+      const [result] = await tx
+        .insert(mockSections)
+        .values({ ...section, testId: targetId });
+      sectionIds.set(id, result.insertId);
+    }
+    for (const { id: _id, ...question } of questions) {
+      const sectionId = sectionIds.get(question.sectionId);
+      if (!sectionId) continue;
+      await tx
+        .insert(mockQuestions)
+        .values({ ...question, testId: targetId, sectionId });
+    }
+    // The paper's format and timing belong to the content being copied.
+    await tx
+      .update(mockTests)
+      .set({ format: source.format, durationMinutes: source.durationMinutes })
+      .where(eq(mockTests.id, targetId));
+    return { sections: sections.length, questions: questions.length };
+  });
+}
+
 export async function setTestPublished(testId: number, isPublished: boolean) {
   const database = await db();
   await database
@@ -357,7 +438,11 @@ export async function listTestSets() {
   const sets = await database
     .select()
     .from(mockTestSets)
-    .orderBy(asc(mockTestSets.sortOrder), desc(mockTestSets.createdAt));
+    .orderBy(
+      asc(mockTestSets.sortOrder),
+      desc(mockTestSets.createdAt),
+      asc(mockTestSets.testNumber)
+    );
   const tests = (await listTestsWithStats()).filter(t => t.setId !== null);
   return sets.map(set => ({
     ...set,
@@ -382,34 +467,100 @@ export async function listTestSets() {
   }));
 }
 
+type Tx = Parameters<
+  Parameters<Awaited<ReturnType<typeof db>>["transaction"]>[0]
+>[0];
+
+/** Inserts one full test and an empty, unpublished test for each of its four modules. */
+async function insertTestSet(tx: Tx, input: TestSetInput, createdAt?: Date) {
+  const shared = {
+    variant: input.variant,
+    series: input.series || null,
+    bookNumber: input.series ? (input.bookNumber ?? null) : null,
+    testNumber: input.series ? (input.testNumber ?? null) : null,
+  };
+  const [result] = await tx.insert(mockTestSets).values({
+    title: input.title,
+    description: input.description ?? null,
+    ...shared,
+    ...(createdAt ? { createdAt } : {}),
+  });
+  const setId = result.insertId;
+  for (const module of FULL_TEST_MODULES) {
+    await tx.insert(mockTests).values({
+      setId,
+      title: moduleTitle(input.title, module),
+      module,
+      durationMinutes: DEFAULT_DURATION_MINUTES[module],
+      isPublished: false,
+      format: "full",
+      ...shared,
+    });
+  }
+  return setId;
+}
+
 /** Creates the full test and an empty, unpublished test for each of its four modules. */
 export async function createTestSet(input: TestSetInput) {
   const database = await db();
-  return database.transaction(async tx => {
-    const shared = {
-      variant: input.variant,
-      series: input.series || null,
-      bookNumber: input.series ? (input.bookNumber ?? null) : null,
-      testNumber: input.series ? (input.testNumber ?? null) : null,
-    };
-    const [result] = await tx.insert(mockTestSets).values({
-      title: input.title,
-      description: input.description ?? null,
-      ...shared,
+  return database.transaction(tx => insertTestSet(tx, input));
+}
+
+/**
+ * Creates every test of a book (e.g. Cambridge IELTS 18 · Test 1–4) in one go, each with its four
+ * modules. Tests of that book and type that already exist are left alone, so adding twice is safe.
+ */
+export async function createBook(input: {
+  series: string;
+  bookNumber: number;
+  variant: "academic" | "general";
+  testCount: number;
+}) {
+  const series = bookSeries(input.series);
+  if (!series)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Unknown book series",
     });
-    const setId = result.insertId;
-    for (const module of FULL_TEST_MODULES) {
-      await tx.insert(mockTests).values({
-        setId,
-        title: moduleTitle(input.title, module),
-        module,
-        durationMinutes: DEFAULT_DURATION_MINUTES[module],
-        isPublished: false,
-        format: "full",
-        ...shared,
-      });
+  const database = await db();
+  return database.transaction(async tx => {
+    const existing = await tx
+      .select({ testNumber: mockTestSets.testNumber })
+      .from(mockTestSets)
+      .where(
+        and(
+          eq(mockTestSets.series, series.key),
+          eq(mockTestSets.bookNumber, input.bookNumber),
+          eq(mockTestSets.variant, input.variant)
+        )
+      );
+    const taken = new Set(existing.map(row => row.testNumber));
+    // One timestamp for the whole book keeps its tests together in the list, in test order.
+    const createdAt = new Date();
+    const created: number[] = [];
+    // Cambridge books always have four tests, whatever count was sent.
+    const testCount = series.fixedTestCount
+      ? series.testsPerBook
+      : input.testCount;
+    for (let test = 1; test <= testCount; test++) {
+      if (taken.has(test)) continue;
+      await insertTestSet(
+        tx,
+        {
+          title: bookTestTitle(series.key, input.bookNumber, test),
+          variant: input.variant,
+          series: series.key,
+          bookNumber: input.bookNumber,
+          testNumber: test,
+        },
+        createdAt
+      );
+      created.push(test);
     }
-    return setId;
+    const skipped = [...taken]
+      .filter((n): n is number => n !== null && n <= testCount)
+      .sort((a, b) => a - b);
+    return { created, skipped };
   });
 }
 

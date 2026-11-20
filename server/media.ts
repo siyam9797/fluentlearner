@@ -8,6 +8,7 @@ import {
   enrollments,
   learningResources,
   mockAnswers,
+  mockQuestions,
   mockSections,
   paymentSettings,
   siteSettings,
@@ -158,6 +159,7 @@ async function usedMediaUrls() {
       })
       .from(mockSections),
     db.select({ audioUrl: mockAnswers.audioUrl }).from(mockAnswers),
+    db.select({ audioUrl: mockQuestions.audioUrl }).from(mockQuestions),
   ]);
   rows.flat().forEach(row => Object.values(row).forEach(add));
   // The default branding files back the site's logos and favicon; keep them from being deleted.

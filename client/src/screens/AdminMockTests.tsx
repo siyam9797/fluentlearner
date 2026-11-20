@@ -28,14 +28,13 @@ import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminPagination, {
   useAdminPagination,
 } from "@/components/AdminPagination";
-import {
-  type AdminListView,
-} from "@/components/AdminViewToggle";
+import { type AdminListView } from "@/components/AdminViewToggle";
 import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation, useSearch } from "@/lib/router";
 import {
-  CAMBRIDGE,
+  BOOK_SERIES,
+  bookSeries,
   DEFAULT_DURATION_MINUTES,
   MODULE_LABELS,
   type MockModule,
@@ -71,11 +70,11 @@ const NO_FILTERS: FilterSelection = {
   status: [],
 };
 
-type Source = "own" | "cambridge";
-// Also the list order: our own tests first, the large Cambridge library last.
+type Source = string;
+// Also the list order: our own tests first, then each book series (the large Cambridge library first).
 const SOURCES: { key: Source; label: string }[] = [
   { key: "own", label: "Our tests" },
-  { key: "cambridge", label: CAMBRIDGE.label },
+  ...BOOK_SERIES.map(({ key, label }) => ({ key, label })),
 ];
 const SOURCE_RANK = Object.fromEntries(
   SOURCES.map(({ key }, index) => [key, index])
@@ -106,7 +105,7 @@ export default function AdminMockTests({ module }: { module: MockModule }) {
 
   type Test = (typeof allTests)[number];
   const sourceOf = (test: Test): Source =>
-    test.series === CAMBRIDGE.key ? "cambridge" : "own";
+    bookSeries(test.series)?.key ?? "own";
   const statusOf = (test: Test) => (test.isPublished ? "published" : "draft");
 
   const needle = query.trim().toLowerCase();

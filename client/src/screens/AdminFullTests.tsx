@@ -1,39 +1,32 @@
 /**
- * AdminFullTests — full IELTS tests (e.g. "Cambridge IELTS 18 · Test 1").
+ * AdminFullTests — full IELTS tests (e.g. "Cambridge IELTS 18 · Test 1"), in Academic and General
+ * Training tabs (?type=general). Tests are added on their own page (AdminFullTestForm).
  * Create the test first; it comes with an empty Listening, Reading, Writing and Speaking module,
  * and each module's questions are then added in the test editor (/admin/ielts/:id).
  */
-import { useState, type FormEvent } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { Copy, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import AdminActionsMenu from "@/components/AdminActionsMenu";
-import AdminFilterDrawer, {
-  AdminFilterButton,
-  passesFilter,
-  type FilterSelection,
-} from "@/components/AdminFilterDrawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { useLocation } from "@/lib/router";
-import { CAMBRIDGE, MODULE_LABELS } from "@shared/mock";
+import { useLocation, useSearch } from "@/lib/router";
+import {
+  BOOK_SERIES,
+  bookSeries,
+  bookTitle,
+  MODULE_LABELS,
+  type MockModule,
+} from "@shared/mock";
 import { MODULE_ICONS } from "./AdminMockTests";
 
 type Variant = "academic" | "general";
-type FormState = {
-  title: string;
-  variant: Variant;
-  cambridge: boolean;
-  book: string;
-  test: string;
-};
-const EMPTY_FORM: FormState = {
-  title: "",
-  variant: "academic",
-  cambridge: false,
-  book: "",
-  test: "",
-};
-
 /** Academic and General Training use the standard admin tags, in two different tones. */
 const VARIANTS: Record<Variant, { label: string; tone: string }> = {
   academic: { label: "Academic", tone: "info" },
@@ -43,33 +36,174 @@ const VARIANTS: Record<Variant, { label: string; tone: string }> = {
 const inputClass =
   "mt-2 h-11 w-full rounded-[var(--radius-control)] border border-[var(--admin-border)] bg-[var(--admin-background)] px-3 text-sm outline-none focus:border-[var(--admin-primary)]";
 
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
+/** The module a "Copy from another test" dialog is filling. */
+type CopyTarget = {
+  testId: number;
+  module: MockModule;
+  setTitle: string;
+  variant: Variant;
+  questionCount: number;
+};
+
+/**
+ * Picks another test's module of the same kind (a full test's or a standalone one) and copies
+ * its sections and questions into the target, replacing what the target had.
+ */
+function CopyModuleDialog({
+  target,
+  onClose,
+  onCopied,
 }: {
-  value: T;
-  options: Array<{ value: T; label: string }>;
-  onChange: (value: T) => void;
+  target: CopyTarget;
+  onClose: () => void;
+  onCopied: () => void;
 }) {
+  const { data: tests = [], isLoading } = trpc.mockTests.list.useQuery();
+  const { data: sets = [] } = trpc.mockTestSets.list.useQuery();
+  const [query, setQuery] = useState("");
+  const [sourceId, setSourceId] = useState<number | null>(null);
+  const copy = trpc.mockTests.copyFrom.useMutation({
+    onSuccess: ({ questions }) => {
+      toast.success(
+        `Copied ${questions} question${questions === 1 ? "" : "s"} into ${target.setTitle} · ${MODULE_LABELS[target.module]}`
+      );
+      onCopied();
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const label = (test: (typeof tests)[number]) =>
+    test.setId
+      ? (sets.find(set => set.id === test.setId)?.title ?? test.title)
+      : test.title;
+  const needle = query.trim().toLowerCase();
+  const sources = tests.filter(
+    test =>
+      test.id !== target.testId &&
+      test.module === target.module &&
+      test.questionCount > 0 &&
+      (!needle || label(test).toLowerCase().includes(needle))
+  );
+  const moduleName = MODULE_LABELS[target.module];
+
   return (
-    <div className="mt-2 grid grid-cols-2 gap-2">
-      {options.map(option => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={`h-11 rounded-[var(--radius-control)] border text-sm transition-colors ${
-            value === option.value
-              ? "border-[var(--admin-primary)] text-[var(--admin-primary)]"
-              : "border-[var(--admin-border)] text-[var(--admin-heading)] hover:bg-[var(--admin-background)]"
-          }`}
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogTitle>Copy {moduleName} from another test</DialogTitle>
+        <DialogDescription>
+          Into{" "}
+          <span className="font-medium text-[var(--admin-heading)]">
+            {target.setTitle}
+          </span>
+          . Passages, audio, images, questions and answers are copied.
+        </DialogDescription>
+
+        <label className="relative mt-2 block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-body)]" />
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search tests"
+            aria-label="Search tests"
+            className={`${inputClass} mt-0 pl-9`}
+          />
+        </label>
+
+        <div
+          role="radiogroup"
+          aria-label={`${moduleName} modules to copy from`}
+          className="max-h-[50vh] space-y-2 overflow-y-auto"
         >
-          {option.label}
-        </button>
-      ))}
-    </div>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-primary)]" />
+            </div>
+          ) : sources.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--admin-body)]">
+              {needle
+                ? "No tests match this search."
+                : `No other ${moduleName} module has questions yet.`}
+            </p>
+          ) : (
+            sources.map(test => (
+              <button
+                key={test.id}
+                type="button"
+                role="radio"
+                aria-checked={sourceId === test.id}
+                onClick={() => setSourceId(test.id)}
+                className={`flex w-full items-center justify-between gap-3 rounded-[var(--radius-control)] border p-3 text-left text-sm transition-colors ${
+                  sourceId === test.id
+                    ? "border-[var(--admin-primary)]"
+                    : "border-[var(--admin-border)] hover:bg-[var(--admin-background)]"
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-[var(--admin-heading)]">
+                    {label(test)}
+                  </span>
+                  <span className="text-[var(--admin-body)]">
+                    {test.questionCount} question
+                    {test.questionCount === 1 ? "" : "s"}
+                    {test.setId ? "" : " · standalone test"}
+                  </span>
+                </span>
+                <span
+                  className={`admin-status-label shrink-0 ${VARIANTS[test.variant].tone}`}
+                >
+                  {VARIANTS[test.variant].label}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+
+        {(() => {
+          const source = tests.find(test => test.id === sourceId);
+          const notes = [
+            target.questionCount > 0 &&
+              `This replaces the ${target.questionCount} question${target.questionCount === 1 ? "" : "s"} already in this module.`,
+            source &&
+              target.module === "reading" &&
+              source.variant !== target.variant &&
+              "Academic and General Training Reading papers are different; check this is the one you want.",
+          ].filter(Boolean);
+          return notes.length ? (
+            <div className="space-y-1 text-sm text-[var(--admin-warning,#b45309)]">
+              {notes.map(note => (
+                <p key={String(note)}>{note}</p>
+              ))}
+            </div>
+          ) : null;
+        })()}
+
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="admin-button admin-button-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!sourceId || copy.isPending}
+            onClick={() =>
+              sourceId && copy.mutate({ sourceId, targetId: target.testId })
+            }
+            className="admin-primary-button"
+          >
+            {copy.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            Copy {moduleName}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -78,39 +212,18 @@ export default function AdminFullTests() {
   const utils = trpc.useUtils();
   const { data: sets = [], isLoading } = trpc.mockTestSets.list.useQuery();
 
-  /** null = form closed; "new" = creating; a number = editing that full test. */
-  const [editing, setEditing] = useState<"new" | number | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [filters, setFilters] = useState<FilterSelection>({});
-  const [filterOpen, setFilterOpen] = useState(false);
-  const shown = sets.filter(set =>
-    passesFilter(filters, "variant", set.variant)
+  /** Academic and General Training are separate tabs; each shows only its own tests. */
+  const search = new URLSearchParams(useSearch());
+  const [tab, setTab] = useState<Variant>(
+    search.get("type") === "general" ? "general" : "academic"
   );
+  const [copyTarget, setCopyTarget] = useState<CopyTarget | null>(null);
+  const shown = sets.filter(set => set.variant === tab);
 
   const refresh = () => {
     utils.mockTestSets.list.invalidate();
     utils.mockTests.list.invalidate();
   };
-  const close = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-  };
-  const create = trpc.mockTestSets.create.useMutation({
-    onSuccess: () => {
-      toast.success("Test created. Add questions to each module.");
-      refresh();
-      close();
-    },
-    onError: error => toast.error(error.message),
-  });
-  const update = trpc.mockTestSets.update.useMutation({
-    onSuccess: () => {
-      toast.success("Test updated");
-      refresh();
-      close();
-    },
-    onError: error => toast.error(error.message),
-  });
   const remove = trpc.mockTestSets.delete.useMutation({
     onSuccess: () => {
       toast.success("Test deleted");
@@ -119,44 +232,47 @@ export default function AdminFullTests() {
     onError: error => toast.error(error.message),
   });
 
-  const book = Number(form.book) || null;
-  const testNumber = Number(form.test) || null;
-  const suggestedTitle =
-    form.cambridge && book && testNumber
-      ? `${CAMBRIDGE.label} ${book} · Test ${testNumber}`
-      : "";
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    // Cambridge tests are named from the book and test number; our own tests need a title.
-    if (form.cambridge && (!book || !testNumber))
-      return toast.error("Enter the Cambridge book and test number");
-    const title = form.cambridge ? suggestedTitle : form.title.trim();
-    if (!title) return toast.error("Give the test a title");
-    const data = {
-      title,
-      variant: form.variant,
-      series: form.cambridge ? CAMBRIDGE.key : null,
-      bookNumber: form.cambridge ? book : null,
-      testNumber: form.cambridge ? testNumber : null,
-    };
-    if (editing === "new") create.mutate(data);
-    else if (typeof editing === "number") update.mutate({ id: editing, data });
+  /**
+   * The tab's tests grouped by book: Cambridge books first, then Practice Tests Plus (each newest
+   * book first, tests in order); our own tests come last.
+   */
+  type Group = {
+    key: string;
+    title: string;
+    rank: number;
+    book: number | null;
+    sets: typeof sets;
   };
-
-  const startEdit = (set: (typeof sets)[number]) => {
-    setEditing(set.id);
-    setForm({
-      title: set.title,
-      variant: set.variant,
-      cambridge: set.series === CAMBRIDGE.key,
-      book: set.bookNumber ? String(set.bookNumber) : "",
-      test: set.testNumber ? String(set.testNumber) : "",
-    });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const saving = create.isPending || update.isPending;
+  const groups: Group[] = [];
+  for (const set of shown) {
+    const setSeries = bookSeries(set.series);
+    const book = setSeries && set.bookNumber ? set.bookNumber : null;
+    const key = setSeries && book ? `${setSeries.key}-${book}` : "own";
+    let group = groups.find(g => g.key === key);
+    if (!group) {
+      group = {
+        key,
+        title:
+          setSeries && book ? bookTitle(setSeries.key, book) : "Our own tests",
+        rank:
+          setSeries && book
+            ? BOOK_SERIES.indexOf(setSeries)
+            : BOOK_SERIES.length,
+        book,
+        sets: [],
+      };
+      groups.push(group);
+    }
+    group.sets.push(set);
+  }
+  groups.sort((a, b) => a.rank - b.rank || (b.book ?? 0) - (a.book ?? 0));
+  for (const group of groups)
+    if (group.book)
+      group.sets.sort((a, b) => (a.testNumber ?? 0) - (b.testNumber ?? 0));
+  const startNew = () =>
+    navigate(
+      `/admin/ielts/tests/new${tab === "general" ? "?type=general" : ""}`
+    );
 
   return (
     <div className="admin-standard-page mx-auto min-h-screen w-full max-w-[1100px] px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
@@ -164,298 +280,223 @@ export default function AdminFullTests() {
         title="Full tests"
         description="Create a test first, then add questions to each of its four modules."
         action={
-          editing === null ? (
-            <div className="flex items-center gap-2">
-              <AdminFilterButton
-                label="Filter full tests"
-                selection={filters}
-                onClick={() => setFilterOpen(true)}
-              />
-              <button
-                type="button"
-                onClick={() => setEditing("new")}
-                className="admin-primary-button"
-              >
-                <Plus className="h-4 w-4" />
-                New test
-              </button>
-            </div>
-          ) : undefined
+          <button
+            type="button"
+            onClick={startNew}
+            className="admin-primary-button"
+          >
+            <Plus className="h-4 w-4" />
+            New test
+          </button>
         }
       />
 
-      {filterOpen && (
-        <AdminFilterDrawer
-          title="Filter full tests"
-          groups={[
-            {
-              key: "variant",
-              title: "Type",
-              options: (Object.keys(VARIANTS) as Variant[]).map(variant => ({
-                value: variant,
-                label: VARIANTS[variant].label,
-                count: sets.filter(set => set.variant === variant).length,
-              })),
-            },
-          ]}
-          selection={filters}
-          onChange={setFilters}
-          onClose={() => setFilterOpen(false)}
-          resultCount={shown.length}
+      {copyTarget && (
+        <CopyModuleDialog
+          target={copyTarget}
+          onClose={() => setCopyTarget(null)}
+          onCopied={() => {
+            setCopyTarget(null);
+            refresh();
+          }}
         />
       )}
 
-      {editing !== null && (
-        <form
-          onSubmit={submit}
-          className="mb-10 rounded-[var(--radius-card)] bg-[var(--admin-card)] p-6"
-        >
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-[var(--admin-heading)]">
-              {editing === "new" ? "New test" : "Edit test"}
-            </h2>
+      <div
+        className="-mx-1 mb-8 flex gap-1 overflow-x-auto"
+        role="tablist"
+        aria-label="Test type"
+      >
+        {(Object.keys(VARIANTS) as Variant[]).map(variant => {
+          const active = tab === variant;
+          const count = sets.filter(set => set.variant === variant).length;
+          return (
             <button
+              key={variant}
               type="button"
-              onClick={close}
-              aria-label="Cancel"
-              className="admin-icon-button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(variant)}
+              className={`h-9 shrink-0 rounded-full px-4 text-sm transition-colors ${
+                active
+                  ? "bg-[var(--admin-heading)] text-[var(--admin-background)]"
+                  : "text-[var(--admin-body)] hover:bg-[var(--admin-card)]"
+              }`}
             >
-              <X className="h-4 w-4" />
+              {VARIANTS[variant].label}
+              <span className="ml-1.5 opacity-70">{count}</span>
             </button>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="text-sm font-medium text-[var(--admin-heading)]">
-              Source
-              <Segmented
-                value={form.cambridge ? "cambridge" : "own"}
-                options={[
-                  { value: "own", label: "Our own test" },
-                  { value: "cambridge", label: CAMBRIDGE.label },
-                ]}
-                onChange={value =>
-                  setForm(f => ({ ...f, cambridge: value === "cambridge" }))
-                }
-              />
-            </div>
-            <div className="text-sm font-medium text-[var(--admin-heading)]">
-              Type
-              <Segmented<Variant>
-                value={form.variant}
-                options={[
-                  { value: "academic", label: "Academic" },
-                  { value: "general", label: "General Training" },
-                ]}
-                onChange={variant => setForm(f => ({ ...f, variant }))}
-              />
-            </div>
-
-            {form.cambridge && (
-              <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:max-w-sm">
-                <label className="text-sm font-medium text-[var(--admin-heading)]">
-                  Book
-                  <input
-                    type="number"
-                    min={1}
-                    max={CAMBRIDGE.books}
-                    value={form.book}
-                    onChange={e =>
-                      setForm(f => ({ ...f, book: e.target.value }))
-                    }
-                    className={inputClass}
-                    placeholder="18"
-                  />
-                </label>
-                <label className="text-sm font-medium text-[var(--admin-heading)]">
-                  Test
-                  <input
-                    type="number"
-                    min={1}
-                    max={CAMBRIDGE.testsPerBook}
-                    value={form.test}
-                    onChange={e =>
-                      setForm(f => ({ ...f, test: e.target.value }))
-                    }
-                    className={inputClass}
-                    placeholder="1"
-                  />
-                </label>
-                {suggestedTitle && (
-                  <p className="col-span-2 text-sm text-[var(--admin-body)]">
-                    Will be named{" "}
-                    <span className="font-medium text-[var(--admin-heading)]">
-                      {suggestedTitle}
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {!form.cambridge && (
-              <label className="text-sm font-medium text-[var(--admin-heading)] sm:col-span-2">
-                Title
-                <input
-                  required
-                  value={form.title}
-                  onChange={e =>
-                    setForm(f => ({ ...f, title: e.target.value }))
-                  }
-                  className={inputClass}
-                  placeholder="e.g. Mock Test 1"
-                />
-              </label>
-            )}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="admin-primary-button"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editing === "new" ? "Create test" : "Save changes"}
-            </button>
-            {editing === "new" && (
-              <p className="text-sm text-[var(--admin-body)]">
-                Creates an empty Listening, Reading, Writing and Speaking
-                module.
-              </p>
-            )}
-          </div>
-        </form>
-      )}
+          );
+        })}
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-7 w-7 animate-spin text-red-600" />
         </div>
-      ) : sets.length === 0 ? (
-        editing === null && (
-          <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-12 text-center">
-            <p className="font-medium text-[var(--admin-heading)]">
-              No full tests yet
-            </p>
-            <p className="mt-1 text-sm text-[var(--admin-body)]">
-              Create one, then add questions to its four modules.
-            </p>
-            <button
-              type="button"
-              onClick={() => setEditing("new")}
-              className="admin-primary-button mt-5"
-            >
-              <Plus className="h-4 w-4" />
-              New test
-            </button>
-          </div>
-        )
+      ) : shown.length === 0 ? (
+        <div className="rounded-[var(--radius-card)] bg-[var(--admin-card)] p-12 text-center">
+          <p className="font-medium text-[var(--admin-heading)]">
+            No {VARIANTS[tab].label} tests yet
+          </p>
+          <p className="mt-1 text-sm text-[var(--admin-body)]">
+            Create one, then add questions to its four modules.
+          </p>
+          <button
+            type="button"
+            onClick={startNew}
+            className="admin-primary-button mt-5"
+          >
+            <Plus className="h-4 w-4" />
+            New test
+          </button>
+        </div>
       ) : (
-        <div className="space-y-6">
-          {shown.length === 0 && (
-            <p className="py-10 text-center text-sm text-[var(--admin-body)]">
-              No tests match these filters.
-            </p>
-          )}
-          {shown.map(set => {
-            const done = set.modules.filter(m => m.questionCount > 0).length;
-            const attempts = set.modules.reduce(
-              (sum, m) => sum + m.attemptCount,
-              0
-            );
-            return (
-              <section key={set.id} className="admin-list-card p-5 sm:p-6">
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold text-[var(--admin-heading)]">
-                      {set.title}
-                    </h2>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <span
-                        className={`admin-status-label ${VARIANTS[set.variant].tone}`}
-                      >
-                        {VARIANTS[set.variant].label}
-                      </span>
-                      <span className="text-sm text-[var(--admin-body)]">
-                        {done} of 4 modules have questions
-                      </span>
-                    </div>
-                  </div>
-                  <AdminActionsMenu label={`Actions for ${set.title}`}>
-                    <button type="button" onClick={() => startEdit(set)}>
-                      Edit details
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const warning = attempts
-                          ? ` Its modules have ${attempts} student attempt${attempts === 1 ? "" : "s"}, which will be deleted too.`
-                          : "";
-                        if (
-                          confirm(
-                            `Delete "${set.title}" and all four modules?${warning}`
-                          )
-                        )
-                          remove.mutate({ id: set.id });
-                      }}
+        <div className="space-y-10">
+          {groups.map(group => (
+            <div key={group.key}>
+              <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-[var(--admin-border)] pb-3">
+                <h2 className="text-xl font-semibold text-[var(--admin-heading)]">
+                  {group.title}
+                </h2>
+                <span className="text-sm text-[var(--admin-body)]">
+                  {group.sets.length} test{group.sets.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {group.sets.map(set => {
+                  const done = set.modules.filter(
+                    m => m.questionCount > 0
+                  ).length;
+                  const attempts = set.modules.reduce(
+                    (sum, m) => sum + m.attemptCount,
+                    0
+                  );
+                  return (
+                    <section
+                      key={set.id}
+                      className="admin-list-card p-5 sm:p-6"
                     >
-                      Delete test
-                    </button>
-                  </AdminActionsMenu>
-                </div>
+                      <div className="mb-4 flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-semibold text-[var(--admin-heading)]">
+                            {group.book && set.testNumber
+                              ? `Test ${set.testNumber}`
+                              : set.title}
+                          </h3>
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <span className="text-sm text-[var(--admin-body)]">
+                              {done} of 4 modules have questions
+                            </span>
+                          </div>
+                        </div>
+                        <AdminActionsMenu label={`Actions for ${set.title}`}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/admin/ielts/tests/${set.id}/edit`)
+                            }
+                          >
+                            Edit details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const warning = attempts
+                                ? ` Its modules have ${attempts} student attempt${attempts === 1 ? "" : "s"}, which will be deleted too.`
+                                : "";
+                              if (
+                                confirm(
+                                  `Delete "${set.title}" and all four modules?${warning}`
+                                )
+                              )
+                                remove.mutate({ id: set.id });
+                            }}
+                          >
+                            Delete test
+                          </button>
+                        </AdminActionsMenu>
+                      </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {set.modules.map(m => {
-                    const Icon = MODULE_ICONS[m.module];
-                    const empty = m.questionCount === 0;
-                    return (
-                      <button
-                        key={m.module}
-                        type="button"
-                        disabled={!m.testId}
-                        onClick={() =>
-                          m.testId && navigate(`/admin/ielts/${m.testId}`)
-                        }
-                        className="group flex flex-col rounded-[var(--radius-control)] bg-[var(--admin-background)] p-4 text-left transition-transform hover:-translate-y-0.5 disabled:opacity-50"
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-2 font-medium text-[var(--admin-heading)]">
-                            <Icon className="h-4 w-4" />
-                            {MODULE_LABELS[m.module]}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 text-xs text-[var(--admin-body)]">
-                            <span
-                              aria-hidden
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{
-                                background: m.isPublished
-                                  ? "var(--admin-success)"
-                                  : "var(--admin-border)",
-                              }}
-                            />
-                            {m.isPublished ? "Published" : "Draft"}
-                          </span>
-                        </span>
-                        <span className="mt-3 text-sm text-[var(--admin-body)]">
-                          {empty
-                            ? "No questions yet"
-                            : `${m.questionCount} question${m.questionCount === 1 ? "" : "s"}`}
-                        </span>
-                        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--admin-primary)]">
-                          {empty ? (
-                            <>
-                              <Plus className="h-4 w-4" /> Add questions
-                            </>
-                          ) : (
-                            "Edit questions"
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {set.modules.map(m => {
+                          const Icon = MODULE_ICONS[m.module];
+                          const empty = m.questionCount === 0;
+                          return (
+                            <div
+                              key={m.module}
+                              className="flex flex-col rounded-[var(--radius-control)] bg-[var(--admin-background)]"
+                            >
+                              <button
+                                type="button"
+                                disabled={!m.testId}
+                                onClick={() =>
+                                  m.testId &&
+                                  navigate(`/admin/ielts/${m.testId}`)
+                                }
+                                className="group flex flex-1 flex-col rounded-[var(--radius-control)] p-4 text-left transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+                              >
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center gap-2 font-medium text-[var(--admin-heading)]">
+                                    <Icon className="h-4 w-4" />
+                                    {MODULE_LABELS[m.module]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-[var(--admin-body)]">
+                                    <span
+                                      aria-hidden
+                                      className="h-1.5 w-1.5 rounded-full"
+                                      style={{
+                                        background: m.isPublished
+                                          ? "var(--admin-success)"
+                                          : "var(--admin-border)",
+                                      }}
+                                    />
+                                    {m.isPublished ? "Published" : "Draft"}
+                                  </span>
+                                </span>
+                                <span className="mt-3 text-sm text-[var(--admin-body)]">
+                                  {empty
+                                    ? "No questions yet"
+                                    : `${m.questionCount} question${m.questionCount === 1 ? "" : "s"}`}
+                                </span>
+                                <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--admin-primary)]">
+                                  {empty ? (
+                                    <>
+                                      <Plus className="h-4 w-4" /> Add questions
+                                    </>
+                                  ) : (
+                                    "Edit questions"
+                                  )}
+                                </span>
+                              </button>
+                              {m.testId && m.attemptCount === 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setCopyTarget({
+                                      testId: m.testId!,
+                                      module: m.module,
+                                      setTitle: set.title,
+                                      variant: set.variant,
+                                      questionCount: m.questionCount,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-none rounded-b-[var(--radius-control)] border-t border-[var(--admin-border)] px-4 py-2.5 text-left text-xs font-medium text-[var(--admin-body)] hover:text-[var(--admin-primary)]"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Copy from another test
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

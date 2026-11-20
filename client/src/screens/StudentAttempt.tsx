@@ -43,7 +43,8 @@ import { ExamPreviewContext } from "@/lib/examPreview";
 import { formatInstruction } from "@/components/InstructionInput";
 import { canAccessStudentDashboard } from "@shared/roles";
 import {
-  CAMBRIDGE,
+  bookSeries,
+  bookTitle,
   CHOICE_SELECTION_COUNTS,
   FIXED_CHOICES,
   MODULE_LABELS,
@@ -1141,9 +1142,10 @@ function SectionContent({
 /** "Open Cambridge IELTS 18, Test 2" banner for answer-sheet tests. */
 function BookBanner({ test }: { test: View["test"] }) {
   if (test.format !== "answer_sheet") return null;
+  const series = bookSeries(test.series);
   const book =
-    test.series === CAMBRIDGE.key && test.bookNumber
-      ? `${CAMBRIDGE.label} ${test.bookNumber}${test.testNumber ? `, Test ${test.testNumber}` : ""}`
+    series && test.bookNumber
+      ? `${bookTitle(series.key, test.bookNumber)}${test.testNumber ? `, Test ${test.testNumber}` : ""}`
       : "your book";
   const tip =
     test.module === "listening"
