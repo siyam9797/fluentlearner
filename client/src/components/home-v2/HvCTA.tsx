@@ -1,8 +1,6 @@
-import { useMemo } from "react";
-import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { HvButton, Reveal } from "./primitives";
-import { useStoryCardsState } from "./hooks";
+import { useStoryCardsState, useUpcomingBatches } from "./hooks";
 import { V2 } from "./routes";
 import { FALLBACK_STORIES } from "./data";
 import { useV2Content } from "./useV2Content";
@@ -19,41 +17,13 @@ const FAN: [number, number][] = [
   [10, 24],
 ];
 
-function parseLocalDate(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return null;
-  const date = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3])
-  );
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function useNextBatch() {
-  const { data = [] } = trpc.batches.active.useQuery();
-  return useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return (
-      data
-        .filter(batch => batch.isOpen !== false)
-        .map(batch => ({
-          batch,
-          date: batch.startDate ? parseLocalDate(batch.startDate) : null,
-        }))
-        .filter((item): item is typeof item & { date: Date } =>
-          Boolean(item.date && item.date >= today)
-        )
-        .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null
-    );
-  }, [data]);
-}
-
 export default function HvCTA() {
   const ss = useV2Content();
   const { stories, ready } = useStoryCardsState();
-  const next = useNextBatch();
+  const next =
+    useUpcomingBatches().find(
+      (batch): batch is typeof batch & { date: Date } => batch.date !== null
+    ) ?? null;
 
   // Always fill the strip with seven photos, topping up from the bundled results.
   const photos = (ready ? [...stories, ...FALLBACK_STORIES] : [])
@@ -61,12 +31,7 @@ export default function HvCTA() {
     .filter((src, i, all) => all.indexOf(src) === i)
     .slice(0, FAN.length);
 
-  const seatsLeft = next
-    ? Math.max(
-        0,
-        (next.batch.maxCapacity ?? 0) - (next.batch.currentCount ?? 0)
-      )
-    : 0;
+  const seatsLeft = next?.seatsLeft ?? 0;
   const whatsappHref = ss.whatsapp("v2_cta_whatsapp_message");
   const description = ss.t("v2_cta_description");
 

@@ -14,6 +14,7 @@
     "seed:student": "node server/scripts/seed-student.mjs --local",
     "seed:courses": "node server/scripts/seed-courses.mjs",
     "seed:demo": "node server/scripts/seed-demo.mjs",
+    "seed:batches": "node server/scripts/seed-batches.mjs",
     "seed:mocks": "node server/scripts/seed-mocks.mjs",
     "seed:cambridge": "node server/scripts/seed-cambridge.mjs",
     "seed:complete-listening": "node server/scripts/seed-complete-listening.mjs",

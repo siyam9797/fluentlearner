@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -355,11 +355,26 @@ export async function deleteSuccessStory(id: number) {
 // BATCH QUERIES
 // ============================================
 
+/** Students in a batch = its verified enrollments, counted live (the stored column is never kept up to date). */
+// Table names are written out: Drizzle leaves them off columns in single-table selects,
+// which would make `id` here resolve to the enrollment's own id.
+export const batchEnrolledCount = sql<number>`(
+  SELECT COUNT(*) FROM \`enrollments\` AS \`batch_enrollments\`
+  WHERE \`batch_enrollments\`.\`batchId\` = \`batches\`.\`id\`
+    AND \`batch_enrollments\`.\`enrollmentStatus\` = 'verified'
+)`.mapWith(Number);
+
+/** Every batch column, with currentCount replaced by the live count. */
+export const batchWithLiveCount = {
+  ...getTableColumns(batches),
+  currentCount: batchEnrolledCount,
+};
+
 export async function getActiveBatches() {
   const db = await getDb();
   if (!db) return [];
   return db
-    .select()
+    .select(batchWithLiveCount)
     .from(batches)
     .where(and(eq(batches.isActive, true), eq(batches.isOpen, true)))
     .orderBy(desc(batches.createdAt));
@@ -368,14 +383,17 @@ export async function getActiveBatches() {
 export async function getAllBatches() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(batches).orderBy(desc(batches.createdAt));
+  return db
+    .select(batchWithLiveCount)
+    .from(batches)
+    .orderBy(desc(batches.createdAt));
 }
 
 export async function getBatchById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db
-    .select()
+    .select(batchWithLiveCount)
     .from(batches)
     .where(eq(batches.id, id))
     .limit(1);

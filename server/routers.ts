@@ -179,7 +179,6 @@ const batchInput = z.object({
   courseId: z.number().optional().nullable(),
   startDate: z.string().optional().nullable(),
   maxCapacity: z.number().default(30),
-  currentCount: z.number().default(0),
   isOpen: z.boolean().default(true),
   isActive: z.boolean().default(true),
 });

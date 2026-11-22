@@ -34,7 +34,7 @@ import {
   type MockQuestion,
   type MockTest,
 } from "./database/schema";
-import { getDb } from "./db";
+import { batchEnrolledCount, getDb } from "./db";
 import { isAiGradingConfigured, queueAiEvaluation } from "./aiGrading";
 import {
   AUTO_MARKED_TYPES,
@@ -1062,7 +1062,7 @@ export async function getStudentBatch(userId: number) {
         name: batches.name,
         startDate: batches.startDate,
         maxCapacity: batches.maxCapacity,
-        currentCount: batches.currentCount,
+        currentCount: batchEnrolledCount,
         isOpen: batches.isOpen,
         isActive: batches.isActive,
       },

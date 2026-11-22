@@ -583,6 +583,29 @@ export const V2_SECTIONS: V2Section[] = [
     ],
   },
   {
+    id: "home-batches",
+    page: "Home",
+    title: "Upcoming batches",
+    description:
+      "Every open batch that still has seats and hasn't started, soonest first. Hidden when there are none. Manage the batches under Batches.",
+    preview: "/",
+    fields: [
+      show("v2_home_batches_show"),
+      text("v2_home_batches_label", "Label", "Upcoming Batches"),
+      text(
+        "v2_home_batches_title",
+        "Heading",
+        "Reserve your seat in the next batch"
+      ),
+      area(
+        "v2_home_batches_description",
+        "Description",
+        "Small groups, fixed start dates and a mentor who follows your progress from day one."
+      ),
+      text("v2_home_batches_button", "Card button", "Reserve a Seat"),
+    ],
+  },
+  {
     id: "home-benefits",
     page: "Home",
     title: "Benefits",
@@ -604,12 +627,34 @@ export const V2_SECTIONS: V2Section[] = [
         "Heading after number",
         "students — here's why IELTS candidates choose us"
       ),
+      text("v2_home_about_label", "Label", "About FluentLearner"),
       area(
         "v2_home_about_description",
         "Description",
-        "Founded by {founder}, FluentLearner is more than a coaching centre — it's a supportive community that helps you feel confident and prepared on exam day.",
-        { legacyKey: "about_description", help: TOKEN_HELP }
+        "Fluent Learner is one of Bangladesh's leading IELTS platforms for VIP one-to-one preparation. Whether you're just starting or aiming for Band 8+, we build a personal, result-oriented plan around your target score — wherever you are.",
+        { help: TOKEN_HELP }
       ),
+      text(
+        "v2_home_about_tagline",
+        "Tagline",
+        "We don't just teach English — we build your future."
+      ),
+      {
+        key: "v2_home_about_stats",
+        label: "Stats",
+        type: "list",
+        itemLabel: "Stat",
+        help: TOKEN_HELP,
+        itemFields: [
+          { name: "value", label: "Number (e.g. 100%)" },
+          { name: "label", label: "Label" },
+        ],
+        default: [
+          { value: "100%", label: "VIP success" },
+          { value: "8.0+", label: "Score-focused" },
+          { value: "{scorers}+", label: "IELTS scorers" },
+        ],
+      },
       {
         key: "v2_home_about_reasons",
         label: "Reasons",
@@ -636,6 +681,12 @@ export const V2_SECTIONS: V2Section[] = [
         legacyKey: "about_image",
         help: "Leave blank to use the founder photo.",
       }),
+      area(
+        "v2_home_about_quote",
+        "Quote on the photo",
+        "Your dream is the blueprint for your future. Dream without limits, because greatness is never built on small plans. Success stories aren't written by mere dreamers, but by the architects of ambition — those who have the courage to build their vision into reality."
+      ),
+      text("v2_home_about_quote_by", "Quote by", "Zahid Sir"),
     ],
   },
   {

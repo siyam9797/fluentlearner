@@ -9,6 +9,7 @@ import HvHero from "@/components/home-v2/HvHero";
 import HvTicker from "@/components/home-v2/HvTicker";
 import HvNumbers from "@/components/home-v2/HvNumbers";
 import HvCourses from "@/components/home-v2/HvCourses";
+import HvBatches from "@/components/home-v2/HvBatches";
 import HvBenefits from "@/components/home-v2/HvBenefits";
 import HvAbout from "@/components/home-v2/HvAbout";
 import HvStories from "@/components/home-v2/HvStories";
@@ -30,6 +31,7 @@ export default function HomeV2() {
       {on("v2_home_ticker_show") && <HvTicker />}
       {on("v2_home_numbers_show") && <HvNumbers />}
       {on("v2_home_courses_show") && <HvCourses />}
+      {on("v2_home_batches_show") && <HvBatches />}
       {on("v2_home_benefits_show") && <HvBenefits />}
       {on("v2_home_about_show") && <HvAbout />}
       {on("v2_home_stories_show") && <HvStories />}
