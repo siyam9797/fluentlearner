@@ -96,38 +96,31 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const KIND_TABS = [
+  { value: "all", label: "All" },
+  { value: "image", label: "Images" },
+  { value: "video", label: "Videos" },
+  { value: "audio", label: "Audio" },
+  { value: "document", label: "Documents" },
+] as const;
+type KindTab = (typeof KIND_TABS)[number]["value"];
+
 export default function AdminMedia() {
   const utils = trpc.useUtils();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const { data: files, isLoading } = trpc.media.list.useQuery();
   const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<FilterSelection>({
-    kind: [],
-    usage: [],
-  });
+  const [tab, setTab] = useState<KindTab>("all");
+  const [filters, setFilters] = useState<FilterSelection>({ usage: [] });
   const allFiles = files ?? [];
   const usageOf = (file: (typeof allFiles)[number]) =>
     file.inUse ? "used" : "unused";
-  const visibleFiles = allFiles.filter(
-    file =>
-      passesFilter(filters, "kind", file.kind) &&
-      passesFilter(filters, "usage", usageOf(file))
+  const tabFiles =
+    tab === "all" ? allFiles : allFiles.filter(file => file.kind === tab);
+  const visibleFiles = tabFiles.filter(file =>
+    passesFilter(filters, "usage", usageOf(file))
   );
   const filterGroups: FilterGroup[] = [
-    {
-      key: "kind",
-      title: "Type",
-      options: [
-        ["image", "Images"],
-        ["video", "Videos"],
-        ["audio", "Audio"],
-        ["document", "Documents"],
-      ].map(([value, label]) => ({
-        value,
-        label,
-        count: allFiles.filter(file => file.kind === value).length,
-      })),
-    },
     {
       key: "usage",
       title: "Usage",
@@ -137,7 +130,7 @@ export default function AdminMedia() {
       ].map(([value, label]) => ({
         value,
         label,
-        count: allFiles.filter(file => usageOf(file) === value).length,
+        count: tabFiles.filter(file => usageOf(file) === value).length,
       })),
     },
   ];
@@ -234,13 +227,48 @@ export default function AdminMedia() {
         className="mb-8 min-h-[230px] sm:mb-10 sm:min-h-[280px]"
       />
 
+      <div
+        className="-mx-1 mb-6 flex gap-1 overflow-x-auto"
+        role="tablist"
+        aria-label="File type"
+      >
+        {KIND_TABS.map(({ value, label }) => {
+          const active = tab === value;
+          const count =
+            value === "all"
+              ? allFiles.length
+              : allFiles.filter(file => file.kind === value).length;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(value)}
+              className={`h-9 shrink-0 rounded-full px-4 text-sm transition-colors ${
+                active
+                  ? "bg-[var(--admin-heading)] text-[var(--admin-background)]"
+                  : "text-[var(--admin-body)] hover:bg-[var(--admin-card)]"
+              }`}
+            >
+              {label}
+              {!isLoading && (
+                <span className="ml-1.5 opacity-60">{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <div className="grid h-64 place-items-center">
           <Loader2 className="h-7 w-7 animate-spin text-[#c76f42]" />
         </div>
       ) : allFiles.length > 0 && visibleFiles.length === 0 ? (
         <div className="py-12 text-center text-sm text-[#69737e]">
-          No files match these filters.
+          {tabFiles.length === 0
+            ? `No ${KIND_TABS.find(t => t.value === tab)?.label.toLowerCase()} uploaded yet.`
+            : "No files match these filters."}
         </div>
       ) : visibleFiles.length ? (
         <div className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
